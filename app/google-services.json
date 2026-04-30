@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "427538866440",
+    "project_id": "appmobile-368e3",
+    "storage_bucket": "appmobile-368e3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:427538866440:android:241d81b0726837fff8ccbd",
+        "android_client_info": {
+          "package_name": "com.example.appmobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdSsM8iLrt1HlDihjuC9URiLRp0kmEL2k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
