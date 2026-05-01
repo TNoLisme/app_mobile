@@ -1,0 +1,195 @@
+
+-- ==========================================================
+-- 1. NHÓM NGƯỜI DÙNG & TRẺ EM
+-- ==========================================================
+
+CREATE TABLE users (
+    user_id VARCHAR(128) PRIMARY KEY, -- Lưu Firebase UID (Bắt buộc là VARCHAR cho Firebase)
+    username NVARCHAR(50),
+    email VARCHAR(100) NOT NULL UNIQUE,
+    role VARCHAR(20) DEFAULT 'child', -- 'child', 'admin'
+    name NVARCHAR(100),
+    created_at DATETIME2 DEFAULT GETDATE()
+);
+
+CREATE TABLE children (
+    user_id VARCHAR(128) PRIMARY KEY, -- 1-1 với bảng users
+    age INT,
+    gender VARCHAR(10), -- 'male', 'female', 'other'
+    date_of_birth DATE,
+    phone_number VARCHAR(20),
+    report_preferences VARCHAR(20), -- 'daily', 'weekly', 'monthly'
+    created_at DATETIME2 DEFAULT GETDATE(),
+    last_login DATETIME2,
+    last_played DATETIME2,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- ==========================================================
+-- 2. NHÓM TRÒ CHƠI & NỘI DUNG
+-- ==========================================================
+
+CREATE TABLE games (
+    game_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    game_type VARCHAR(50), -- 'GameClick', 'GameCV'
+    name NVARCHAR(100),
+    level INT,
+    difficulty_level VARCHAR(20),
+    max_errors INT DEFAULT 3,
+    level_threshold FLOAT,
+    time_limit INT -- giây
+);
+
+CREATE TABLE emotion_concepts (
+    concept_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    emotion NVARCHAR(50),
+    level INT,
+    title NVARCHAR(100),
+    video_path NVARCHAR(255),
+    image_path NVARCHAR(255),
+    audio_path NVARCHAR(255),
+    description NVARCHAR(MAX)
+);
+
+CREATE TABLE game_content (
+    content_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    game_id UNIQUEIDENTIFIER,
+    level INT,
+    content_type VARCHAR(20), -- 'text', 'image', 'video'
+    media_path NVARCHAR(255),
+    question_text NVARCHAR(MAX),
+    correct_answer NVARCHAR(50),
+    emotion NVARCHAR(50),
+    explanation NVARCHAR(MAX),
+    FOREIGN KEY (game_id) REFERENCES games(game_id)
+);
+
+CREATE TABLE questions (
+    question_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    game_id UNIQUEIDENTIFIER,
+    content_id UNIQUEIDENTIFIER,
+    level INT,
+    correct_answer NVARCHAR(50),
+    FOREIGN KEY (game_id) REFERENCES games(game_id),
+    FOREIGN KEY (content_id) REFERENCES game_content(content_id)
+);
+
+-- ==========================================================
+-- 3. NHÓM DỮ LIỆU PHIÊN CHƠI (SESSIONS)
+-- ==========================================================
+
+CREATE TABLE sessions (
+    session_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    user_id VARCHAR(128),
+    game_id UNIQUEIDENTIFIER,
+    start_time DATETIME2 DEFAULT GETDATE(),
+    end_time DATETIME2,
+    state VARCHAR(20), -- 'playing', 'pause', 'end'
+    score INT DEFAULT 0,
+    level INT,
+    emotion_errors NVARCHAR(MAX), -- Lưu chuỗi JSON các lỗi
+    max_errors INT,
+    level_threshold FLOAT,
+    ratio FLOAT,
+    time_limit INT,
+    question_ids NVARCHAR(MAX), -- Lưu danh sách ID câu hỏi đã dùng
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (game_id) REFERENCES games(game_id)
+);
+
+CREATE TABLE session_questions (
+    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    session_id UNIQUEIDENTIFIER,
+    question_id UNIQUEIDENTIFIER,
+    user_answer NVARCHAR(255),
+    correct_answer NVARCHAR(255),
+    is_correct BIT,
+    response_time_ms INT,
+    check_hint BIT DEFAULT 0,
+    cv_confidence FLOAT, -- Độ tin cậy của AI (Game CV)
+    timestamp DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (session_id) REFERENCES sessions(session_id),
+    FOREIGN KEY (question_id) REFERENCES questions(question_id)
+);
+
+-- ==========================================================
+-- 4. NHÓM THEO DÕI TIẾN ĐỘ & BÁO CÁO
+-- ==========================================================
+
+CREATE TABLE game_data (
+    data_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    game_id UNIQUEIDENTIFIER,
+    user_id VARCHAR(128),
+    level INT,
+    FOREIGN KEY (game_id) REFERENCES games(game_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE game_data_question (
+    data_id UNIQUEIDENTIFIER,
+    question_id UNIQUEIDENTIFIER,
+    PRIMARY KEY (data_id, question_id),
+    FOREIGN KEY (data_id) REFERENCES game_data(data_id),
+    FOREIGN KEY (question_id) REFERENCES questions(question_id)
+);
+
+CREATE TABLE child_progress (
+    progress_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    child_id VARCHAR(128),
+    game_id UNIQUEIDENTIFIER,
+    level INT,
+    accuracy FLOAT,
+    avg_response_time FLOAT,
+    score INT,
+    last_played DATETIME2,
+    ratio FLOAT,
+    review_emotions NVARCHAR(MAX), -- JSON các cảm xúc cần ôn tập
+    FOREIGN KEY (child_id) REFERENCES children(user_id),
+    FOREIGN KEY (game_id) REFERENCES games(game_id)
+);
+
+CREATE TABLE reports (
+    report_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    child_id VARCHAR(128),
+    report_type VARCHAR(20), -- 'daily', 'weekly', 'monthly'
+    generated_at DATETIME2 DEFAULT GETDATE(),
+    summary NVARCHAR(MAX),
+    data NVARCHAR(MAX), -- Lưu dữ liệu thô để vẽ biểu đồ
+    FOREIGN KEY (child_id) REFERENCES children(user_id)
+);
+
+-- Bảng bổ sung cho Chatbot Mobile
+CREATE TABLE chatbot_logs (
+    log_id INT IDENTITY(1,1) PRIMARY KEY,
+    child_id VARCHAR(128),
+    sender VARCHAR(10), -- 'child' hoặc 'bot'
+    message_content NVARCHAR(MAX),
+    timestamp DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (child_id) REFERENCES children(user_id)
+);
+
+INSERT INTO games (game_id, game_type, name, level, difficulty_level, max_errors, level_threshold, time_limit)
+VALUES 
+(NEWID(), 'GameClick', N'Cảm xúc đúng chỗ', 1, 1, 3, 70, 60),
+(NEWID(), 'GameClick', N'Thám tử cảm xúc', 1, 1, 3, 75, 60),
+(NEWID(), 'GameClick',   N'Xưởng lắp ghép cảm xúc', 1, 2, 3, 70, 90),
+(NEWID(), 'GameCV',   N'Thử thách cảm xúc', 1, 2, 3, 80, 120),
+(NEWID(), 'GameClick', N'Chiếc hộp cảm xúc', 2, 2, 3, 75, 70),
+(NEWID(), 'GameCV',   N'Câu chuyện trên khuôn mặt', 1, 1, 3, 5, 300);
+
+-- 1. CHÈN VÀO BẢNG users
+INSERT INTO users (user_id, username, email, role, name, created_at)
+VALUES 
+('5G2nly8eITghYDCnUBwPq9bu1S82', 'thinh_child', 'thinh@gmail.com', 'child', N'Bé Thịnh', GETDATE()),
+('F8RBQQpl3QgKLT6wXYDZ8m8hccB3', 'thinh_admin', 'thinh01092005@gmail.com', 'admin', N'Quản Trị Viên', GETDATE());
+
+-- 2. CHÈN VÀO BẢNG children (Chỉ dành cho tài khoản có role là child)
+-- Lưu ý: Tôi để mặc định ngày sinh và giới tính, bạn có thể sửa lại sau.
+INSERT INTO children (user_id, age, gender, date_of_birth, report_preferences, created_at)
+VALUES 
+('5G2nly8eITghYDCnUBwPq9bu1S82', 6, 'male', '2018-01-01', 'weekly', GETDATE());
+
+
+
+
+
