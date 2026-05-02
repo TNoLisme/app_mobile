@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 object NetworkClient {
     // LƯU Ý: 10.0.2.2 là địa chỉ IP đặc biệt để máy ảo Android truy cập localhost của máy tính.
     // Nếu bạn dùng máy thật, hãy thay bằng địa chỉ IP LAN của máy tính (ví dụ: 192.168.1.x)
-    private const val BASE_URL = "http://10.0.2.2:8000/"
+    private const val BASE_URL = "http://192.168.1.27:8000/"
 
     // Interceptor để xem nội dung JSON gửi đi/về trong Logcat
     private val logging = HttpLoggingInterceptor().apply {

@@ -1,22 +1,38 @@
 package com.example.appmobile.ui.pages.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appmobile.R
+import com.example.appmobile.ui.components.molecules.EmotionCard
 import com.example.appmobile.ui.components.molecules.GameCard
 import com.example.appmobile.ui.theme.SoftWhite
+import com.example.appmobile.ui.viewmodel.HomeViewModel
 
 @Composable
-fun HomePage(onLogout: () -> Unit, onNavigateToGame: (String) -> Unit) {
+fun HomePage(onLogout: () -> Unit, onNavigateToGame: (String) -> Unit, onNavigateToLearn: () -> Unit = {}, vm: HomeViewModel = viewModel()) {
+    val user by vm.user
+    val emotions = vm.emotions
+    val loading by vm.isLoading
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -46,9 +62,9 @@ fun HomePage(onLogout: () -> Unit, onNavigateToGame: (String) -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
         GameCard(
             title = "Thẻ Học Cảm Xúc",
-            imageRes = R.drawable.logo_emo, // Thay bằng icon học tập của bạn
+            imageRes = R.drawable.logo_emo,
             backgroundColor = Color(0xFFE1F5FE),
-            onClick = { onNavigateToGame("learning") }
+            onClick = { onNavigateToLearn() }
         )
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -58,7 +74,7 @@ fun HomePage(onLogout: () -> Unit, onNavigateToGame: (String) -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
         GameCard(
             title = "Gương Soi Thông Minh",
-            imageRes = R.drawable.logo_emo, // Thay bằng icon camera của bạn
+            imageRes = R.drawable.logo_emo,
             backgroundColor = Color(0xFFF1F8E9),
             onClick = { onNavigateToGame("camera_game") }
         )
@@ -71,5 +87,48 @@ fun HomePage(onLogout: () -> Unit, onNavigateToGame: (String) -> Unit) {
             backgroundColor = Color(0xFFFFF3E0),
             onClick = { onNavigateToGame("click_game") }
         )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Emotion cards
+        Text(text = "Độ chính xác cảm xúc", fontWeight = FontWeight.ExtraBold, color = Color.Gray)
+        Spacer(modifier = Modifier.height(8.dp))
+        if (loading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(emotions) { e ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(animationSpec = tween(300)) +
+                                slideInVertically(initialOffsetY = { 40 }, animationSpec = tween(300))
+                    ) {
+                        EmotionCard(name = e)
+                    }
+                }
+            }
+        }
+
+        
+
+        // Báo cáo và tiến bộ
+        Text(text = "Báo cáo và tiến bộ", fontWeight = FontWeight.ExtraBold, color = Color.Gray)
+        Spacer(modifier = Modifier.height(12.dp))
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = "(Chart placeholder)")
+            }
+        }
     }
 }
