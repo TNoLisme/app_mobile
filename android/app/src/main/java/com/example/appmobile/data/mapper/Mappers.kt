@@ -120,13 +120,13 @@ fun GameContentDto.toEntity(): GameContentEntity {
     return GameContentEntity(
         contentId = contentId,
         gameId = gameId,
-        level = 1,
-        contentType = "image",
+        level = level ?: 1,
+        contentType = contentType ?: "image",
         mediaPath = mediaPath,
         questionText = questionText,
         correctAnswer = correctAnswer,
-        emotion = null,
-        explanation = null
+        emotion = emotion,
+        explanation = explanation
     )
 }
 

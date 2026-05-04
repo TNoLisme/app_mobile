@@ -3,8 +3,26 @@ package com.example.appmobile.ui.pages.game
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,15 +34,19 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.appmobile.R
+import com.example.appmobile.ui.catalog.CvPromptUiItem
+import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.GameScreenShell
 
 @Composable
 fun GameCV2Page(onBack: () -> Unit) {
     val isRunning = remember { mutableStateOf(false) }
+    val challenge = remember {
+        GameUiCatalog.cvRequestPrompt
+    }
 
     GameScreenShell(contentMaxWidth = 1000) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Top Navigation
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← Quay lại") }
                 Spacer(modifier = Modifier.weight(1f))
@@ -39,7 +61,7 @@ fun GameCV2Page(onBack: () -> Unit) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         LinearProgressIndicator(
-                            progress = 0.5f,
+                            progress = { 0.5f },
                             modifier = Modifier.width(80.dp).height(8.dp),
                             color = Color(0xFF3B82F6),
                             trackColor = Color(0xFFD8E9FF)
@@ -50,8 +72,17 @@ fun GameCV2Page(onBack: () -> Unit) {
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Thử thách cảm xúc", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
-            Text("Hãy thể hiện biểu cảm đúng theo yêu cầu nhé", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+            Text(
+                "Thử thách cảm xúc",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E4E8C)
+            )
+            Text(
+                "Thể hiện biểu cảm đúng theo yêu cầu",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -59,13 +90,17 @@ fun GameCV2Page(onBack: () -> Unit) {
                 val isMobile = maxWidth < 850.dp
                 if (isMobile) {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        ChallengeCard(isRunning.value) { isRunning.value = true }
+                        ChallengeCard(challenge, isRunning.value) { isRunning.value = true }
                         CameraPreviewCard(isRunning.value) { isRunning.value = !isRunning.value }
                     }
                 } else {
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Box(modifier = Modifier.weight(1f)) { ChallengeCard(isRunning.value) { isRunning.value = true } }
-                        Box(modifier = Modifier.weight(1f)) { CameraPreviewCard(isRunning.value) { isRunning.value = !isRunning.value } }
+                        Box(modifier = Modifier.weight(1f)) {
+                            ChallengeCard(challenge, isRunning.value) { isRunning.value = true }
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            CameraPreviewCard(isRunning.value) { isRunning.value = !isRunning.value }
+                        }
                     }
                 }
             }
@@ -74,7 +109,9 @@ fun GameCV2Page(onBack: () -> Unit) {
 }
 
 @Composable
-private fun ChallengeCard(isRunning: Boolean, onStart: () -> Unit) {
+private fun ChallengeCard(challenge: CvPromptUiItem, isRunning: Boolean, onStart: () -> Unit) {
+    val targetEmotion = GameUiCatalog.emotionById(challenge.correctAnswer)?.name ?: challenge.correctAnswer
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -87,14 +124,28 @@ private fun ChallengeCard(isRunning: Boolean, onStart: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().height(200.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
             ) {
-                Image(painter = painterResource(id = R.drawable.game_cv_2), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                Image(
+                    painter = painterResource(id = R.drawable.game_cv_2),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
             }
-            Text("Con hãy thể hiện khuôn mặt đúng với cảm xúc được giao.", style = MaterialTheme.typography.bodyMedium)
-            Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFE7F1FF), border = BorderStroke(1.dp, Color(0xFFBFD7FF))) {
-                Text("Cảm xúc: vui vẻ", modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp), fontWeight = FontWeight.SemiBold, color = Color(0xFF1E4E8C))
+            Text(challenge.questionText, style = MaterialTheme.typography.bodyMedium)
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = Color(0xFFE7F1FF),
+                border = BorderStroke(1.dp, Color(0xFFBFD7FF))
+            ) {
+                Text(
+                    "Cảm xúc: $targetEmotion",
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E4E8C)
+                )
             }
             Button(onClick = onStart, modifier = Modifier.fillMaxWidth(), enabled = !isRunning) {
-                Text(if (isRunning) "Đang thực hiện..." else "▶️ Bắt đầu")
+                Text(if (isRunning) "Đang thực hiện..." else "Bắt đầu")
             }
         }
     }
@@ -114,7 +165,7 @@ private fun CameraPreviewCard(isRunning: Boolean, onToggle: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 if (isRunning) Text("Camera View Active", color = Color.White)
-                else Text("📷 Nhấn Bắt đầu để bật camera", color = Color.LightGray)
+                else Text("Nhấn Bắt đầu để bật camera", color = Color.LightGray)
             }
             Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFF1F5F9)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -125,7 +176,11 @@ private fun CameraPreviewCard(isRunning: Boolean, onToggle: () -> Unit) {
             Button(
                 onClick = onToggle,
                 modifier = Modifier.fillMaxWidth(),
-                colors = if (isRunning) ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)) else ButtonDefaults.buttonColors()
+                colors = if (isRunning) {
+                    ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
+                } else {
+                    ButtonDefaults.buttonColors()
+                }
             ) {
                 Text(if (isRunning) "Dừng camera" else "Bật camera")
             }

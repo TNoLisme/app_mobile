@@ -7,8 +7,9 @@ from sqlalchemy.exc import OperationalError
 
 from app.core.config import settings
 from app.db.base import Base
+from app.db.seed import seed_static_content
 from app.db.session import engine
-from app.models import user  # noqa: F401
+from app import models  # noqa: F401
 
 MAX_RETRIES = 30
 RETRY_DELAY_SECONDS = 3
@@ -62,6 +63,13 @@ def wait_for_database() -> None:
 def init_db() -> None:
     wait_for_database()
     Base.metadata.create_all(bind=engine)
+    from app.db.session import SessionLocal
+
+    db = SessionLocal()
+    try:
+        seed_static_content(db)
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":

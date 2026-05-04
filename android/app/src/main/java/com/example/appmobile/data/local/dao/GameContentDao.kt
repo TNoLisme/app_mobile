@@ -14,6 +14,9 @@ interface GameContentDao {
     @Query("SELECT * FROM games")
     suspend fun getAllGames(): List<GameEntity>
 
+    @Query("SELECT * FROM games WHERE game_type = :gameType")
+    suspend fun getGamesByType(gameType: String): List<GameEntity>
+
     @Query("SELECT * FROM game_content WHERE game_id = :gameId AND level = :level")
     suspend fun getContentForLevel(gameId: String, level: Int): List<GameContentEntity>
 
@@ -24,5 +27,14 @@ interface GameContentDao {
     suspend fun insertGame(game: GameEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertGames(games: List<GameEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertConcept(concept: EmotionConceptEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertConcepts(concepts: List<EmotionConceptEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertContents(contents: List<GameContentEntity>)
 }

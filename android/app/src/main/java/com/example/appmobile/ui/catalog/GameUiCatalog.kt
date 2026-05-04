@@ -1,0 +1,98 @@
+package com.example.appmobile.ui.catalog
+
+import com.example.appmobile.R
+
+data class GameUiItem(
+    val id: String,
+    val title: String,
+    val description: String,
+    val type: String,
+    val imageRes: Int,
+    val maxLevel: Int
+)
+
+data class LevelUiItem(
+    val id: Int,
+    val name: String,
+    val description: String,
+    val colorHex: Long
+)
+
+data class EmotionUiItem(
+    val id: String,
+    val name: String,
+    val emoji: String,
+    val description: String
+)
+
+data class CvPromptUiItem(
+    val questionText: String,
+    val correctAnswer: String
+)
+
+object GameUiCatalog {
+    const val GAME_RECOGNIZE_EMOTION = "3bcb2108-721c-4a15-a585-31f3084ed000"
+    const val GAME_FACE_ASSEMBLY = "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051"
+    const val GAME_EMOTION_MATCH = "08bbffbf-d147-4556-bccb-b7621cafbf15"
+    const val GAME_DETECTIVE = "aacaf79e-e15e-42a9-a3d1-a522720d919b"
+    const val GAME_CV_STORY = "e05909f3-3dee-42a6-9a75-fd985b1bdf47"
+    const val GAME_CV_REQUEST = "61f5e09e-eefa-44c1-86e1-87dfceac3b8e"
+
+    val games = listOf(
+        GameUiItem(GAME_RECOGNIZE_EMOTION, "Chiếc hộp cảm xúc", "Chọn cảm xúc đúng qua hình ảnh", "click_game", R.drawable.recognize_emotion, 3),
+        GameUiItem(GAME_FACE_ASSEMBLY, "Xưởng lắp ghép", "Ghép các bộ phận khuôn mặt", "click_game", R.drawable.game_click_2, 3),
+        GameUiItem(GAME_EMOTION_MATCH, "Cảm xúc đúng chỗ", "Đặt cảm xúc vào đúng ngữ cảnh", "click_game", R.drawable.game_click_3, 3),
+        GameUiItem(GAME_DETECTIVE, "Thám tử cảm xúc", "Tìm cảm xúc ẩn giấu trong tình huống", "click_game", R.drawable.game_click_4, 3),
+        GameUiItem(GAME_CV_STORY, "Câu chuyện khuôn mặt", "Bắt chước biểu cảm của nhân vật", "camera_game", R.drawable.game_cv, 6),
+        GameUiItem(GAME_CV_REQUEST, "Thử thách biểu cảm", "Thể hiện biểu cảm theo yêu cầu", "camera_game", R.drawable.game_cv_2, 6)
+    )
+
+    val emotions = listOf(
+        EmotionUiItem("happy", "Vui vẻ", "😊", "Miệng cười, mắt sáng và có thể cười thành tiếng."),
+        EmotionUiItem("sad", "Buồn bã", "😢", "Mắt nhìn xuống, miệng trầm và giọng nói nhỏ hơn."),
+        EmotionUiItem("angry", "Tức giận", "😠", "Lông mày chau lại, mặt nghiêm và có thể nói to hơn."),
+        EmotionUiItem("fear", "Sợ hãi", "😨", "Mắt mở to, có thể lùi lại vì cần cảm thấy an toàn."),
+        EmotionUiItem("surprise", "Ngạc nhiên", "😲", "Mắt mở to, miệng chữ O khi thấy điều bất ngờ."),
+        EmotionUiItem("disgust", "Ghê tởm", "🤢", "Mũi nhăn lại, đầu quay đi khi gặp mùi vị khó chịu.")
+    )
+
+    val cvStoryPrompt = CvPromptUiItem(
+        questionText = "Nhân vật vừa nhận được lời khen. Hãy thể hiện khuôn mặt vui.",
+        correctAnswer = "happy"
+    )
+
+    val cvRequestPrompt = CvPromptUiItem(
+        questionText = "Hãy cười thật tươi trong 3 giây.",
+        correctAnswer = "happy"
+    )
+
+    fun gamesByType(type: String): List<GameUiItem> = games.filter { it.type == type }
+
+    fun levelsForGame(gameId: String): List<LevelUiItem> {
+        val maxLevel = games.firstOrNull { it.id == gameId }?.maxLevel ?: return emptyList()
+        return (1..maxLevel).map { level ->
+            LevelUiItem(
+                id = level,
+                name = when (level) {
+                    1 -> "Dễ"
+                    2 -> "Trung bình"
+                    3 -> "Khó"
+                    else -> "Cấp độ $level"
+                },
+                description = when {
+                    level <= 2 -> "10 câu hỏi"
+                    level <= 4 -> "15 câu hỏi"
+                    else -> "20 câu hỏi"
+                },
+                colorHex = when (level) {
+                    1 -> 0xFF81C784
+                    2 -> 0xFFFFB74D
+                    3 -> 0xFFE57373
+                    else -> 0xFF64B5F6
+                }
+            )
+        }
+    }
+
+    fun emotionById(id: String): EmotionUiItem? = emotions.firstOrNull { it.id == id }
+}
