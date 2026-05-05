@@ -11,3 +11,7 @@ env/
 
 # Environment
 .env
+.env.docker
+
+# Imported web reference project
+TTNM-Game/**/node_modules/

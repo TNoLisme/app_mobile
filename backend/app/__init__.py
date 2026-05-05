@@ -1,0 +1,1 @@
+"""Emo Garden backend package."""

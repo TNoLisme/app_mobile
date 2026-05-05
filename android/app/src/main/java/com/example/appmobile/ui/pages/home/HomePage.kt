@@ -13,7 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,8 +27,13 @@ import com.example.appmobile.ui.theme.SoftWhite
 import com.example.appmobile.ui.viewmodel.HomeViewModel
 
 @Composable
-fun HomePage(onLogout: () -> Unit, onNavigateToGame: (String) -> Unit, onNavigateToLearn: () -> Unit = {}, vm: HomeViewModel = viewModel()) {
-    val user by vm.user
+fun HomePage(
+    onLogout: () -> Unit,
+    onNavigateToGame: (String) -> Unit,
+    onNavigateToLearn: () -> Unit = {},
+    onNavigateToReport: () -> Unit = {},
+    vm: HomeViewModel = viewModel()
+) {
     val emotions = vm.emotions
     val loading by vm.isLoading
 
@@ -121,14 +125,11 @@ fun HomePage(onLogout: () -> Unit, onNavigateToGame: (String) -> Unit, onNavigat
         // Báo cáo và tiến bộ
         Text(text = "Báo cáo và tiến bộ", fontWeight = FontWeight.ExtraBold, color = Color.Gray)
         Spacer(modifier = Modifier.height(12.dp))
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp)
-        ) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "(Chart placeholder)")
-            }
-        }
+        GameCard(
+            title = "Báo cáo tiến bộ",
+            imageRes = R.drawable.logo_emo,
+            backgroundColor = Color(0xFFE8F5E9),
+            onClick = onNavigateToReport
+        )
     }
 }

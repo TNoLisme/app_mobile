@@ -2,32 +2,64 @@ package com.example.appmobile.ui.pages.learn
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.remote.NetworkClient
+import com.example.appmobile.data.repository.GameRepository
+import com.example.appmobile.ui.catalog.EmotionUiItem
+import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.theme.SoftWhite
-
-data class EmotionItem(val name: String, val emoji: String, val id: String)
 
 @Composable
 fun LearnPage(onBack: () -> Unit, onSelectEmotion: (String) -> Unit) {
-    val emotions = listOf(
-        EmotionItem("Vui vẻ", "😊", "happy"),
-        EmotionItem("Buồn bã", "😢", "sad"),
-        EmotionItem("Tức giận", "😠", "angry"),
-        EmotionItem("Sợ hãi", "😨", "fear"),
-        EmotionItem("Ngạc nhiên", "😲", "surprise"),
-        EmotionItem("Ghê tởm", "🤢", "disgust")
-    )
+    val context = LocalContext.current
+    val repository = remember {
+        GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
+    }
+    var emotions by remember { mutableStateOf(GameUiCatalog.emotions) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        isLoading = true
+        val backendEmotions = runCatching {
+            repository.getEmotionConcepts().map { concept ->
+                GameUiCatalog.emotionFromBackend(
+                    id = concept.id,
+                    title = concept.name,
+                    description = concept.desc
+                )
+            }
+        }.getOrDefault(emptyList())
+
+        emotions = backendEmotions.ifEmpty { GameUiCatalog.emotions }
+        isLoading = false
+    }
 
     Column(
         modifier = Modifier
@@ -35,18 +67,21 @@ fun LearnPage(onBack: () -> Unit, onSelectEmotion: (String) -> Unit) {
             .background(SoftWhite)
             .padding(16.dp)
     ) {
-        // Back button
         Row(modifier = Modifier.fillMaxWidth()) {
             TextButton(onClick = onBack) { Text("← Quay lại") }
             Spacer(modifier = Modifier.weight(1f))
-            Text("Thẻ Học Cảm Xúc", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("Thẻ học cảm xúc", fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
         Text(text = "Nhấn vào cảm xúc để học thêm", fontSize = 14.sp, color = Color.Gray)
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Emotion grid
+        if (isLoading) {
+            Text("Đang tải thẻ học...", color = Color.Gray)
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
         LazyVerticalGrid(columns = GridCells.Fixed(2), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(emotions) { emotion ->
                 EmotionCardGrid(emotion = emotion, onClick = { onSelectEmotion(emotion.id) })
@@ -56,7 +91,7 @@ fun LearnPage(onBack: () -> Unit, onSelectEmotion: (String) -> Unit) {
 }
 
 @Composable
-fun EmotionCardGrid(emotion: EmotionItem, onClick: () -> Unit) {
+fun EmotionCardGrid(emotion: EmotionUiItem, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()

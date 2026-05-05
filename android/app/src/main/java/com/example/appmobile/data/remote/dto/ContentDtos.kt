@@ -23,9 +23,13 @@ data class EmotionConceptDto(
 data class GameContentDto(
     @SerializedName("content_id") val contentId: String,
     @SerializedName("game_id") val gameId: String,
+    @SerializedName("level") val level: Int?,
+    @SerializedName("content_type") val contentType: String?,
     @SerializedName("media_path") val mediaPath: String?,
     @SerializedName("question_text") val questionText: String?,
-    @SerializedName("correct_answer") val correctAnswer: String?
+    @SerializedName("correct_answer") val correctAnswer: String?,
+    @SerializedName("emotion") val emotion: String?,
+    @SerializedName("explanation") val explanation: String?
 )
 
 data class QuestionDto(

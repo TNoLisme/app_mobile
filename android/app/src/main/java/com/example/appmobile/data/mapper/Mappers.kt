@@ -108,7 +108,7 @@ fun EmotionConceptDto.toEntity(): EmotionConceptEntity {
 
 fun EmotionConceptEntity.toDomain(): EmotionConcept {
     return EmotionConcept(
-        id = conceptId,
+        id = emotion.ifBlank { conceptId },
         name = title,
         video = videoPath,
         image = imagePath,
@@ -120,13 +120,13 @@ fun GameContentDto.toEntity(): GameContentEntity {
     return GameContentEntity(
         contentId = contentId,
         gameId = gameId,
-        level = 1,
-        contentType = "image",
+        level = level ?: 1,
+        contentType = contentType ?: "image",
         mediaPath = mediaPath,
         questionText = questionText,
         correctAnswer = correctAnswer,
-        emotion = null,
-        explanation = null
+        emotion = emotion,
+        explanation = explanation
     )
 }
 
@@ -188,7 +188,7 @@ fun SessionQuestionDto.toEntity(): SessionQuestionEntity {
     return SessionQuestionEntity(
         id = id,
         sessionId = sessionId,
-        questionId = "UNKNOWN",
+        questionId = questionId ?: "UNKNOWN",
         userAnswer = null,
         isCorrect = isCorrect,
         responseTimeMs = responseTime,

@@ -8,6 +8,7 @@ class User(Base):
     user_id = Column(String(128), primary_key=True)
     username = Column(String(50))
     email = Column(String(100), nullable=False, unique=True)
+    password = Column(String(255))
     role = Column(String(20), default="child")
     name = Column(String(100))
     created_at = Column(DateTime, default=datetime.utcnow)
