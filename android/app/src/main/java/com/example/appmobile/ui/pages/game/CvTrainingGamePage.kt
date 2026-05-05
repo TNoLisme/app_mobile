@@ -68,7 +68,8 @@ fun CvTrainingGamePage(
     defaultPrompt: CvPromptUiItem,
     promptLabel: String,
     targetLabel: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenAssistant: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -164,7 +165,7 @@ fun CvTrainingGamePage(
 
     val currentQuestion = questions.value[currentIndex.intValue % questions.value.size]
 
-    GameScreenShell(contentMaxWidth = 1000) {
+    GameScreenShell(contentMaxWidth = 1000, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← Quay lại") }

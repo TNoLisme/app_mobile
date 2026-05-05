@@ -73,7 +73,7 @@ private val faceEmotions = listOf(
 )
 
 @Composable
-fun GameClick2Page(level: Int = 1, onBack: () -> Unit) {
+fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
     val selectedEyebrow = remember(level) { mutableIntStateOf(-1) }
     val selectedEyes = remember(level) { mutableIntStateOf(-1) }
     val selectedMouth = remember(level) { mutableIntStateOf(-1) }
@@ -178,7 +178,7 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit) {
     val question = questions.value[currentIndex.intValue % questions.value.size]
     val target = faceEmotions.firstOrNull { it.id == question.targetEmotion } ?: faceEmotions.first()
 
-    GameScreenShell(contentMaxWidth = 900) {
+    GameScreenShell(contentMaxWidth = 900, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← Quay lại") }

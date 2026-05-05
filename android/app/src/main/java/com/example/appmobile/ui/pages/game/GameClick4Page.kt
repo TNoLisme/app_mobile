@@ -49,7 +49,7 @@ private data class DetectiveQuestionUi(
 )
 
 @Composable
-fun GameClick4Page(level: Int = 1, onBack: () -> Unit) {
+fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
     val currentIndex = remember(level) { mutableIntStateOf(0) }
     val score = remember(level) { mutableIntStateOf(0) }
     val selectedEmotionId = remember(level) { mutableStateOf<String?>(null) }
@@ -108,7 +108,7 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit) {
 
     val question = questions.value[currentIndex.intValue % questions.value.size]
 
-    GameScreenShell(contentMaxWidth = 700) {
+    GameScreenShell(contentMaxWidth = 700, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← Quay lại") }

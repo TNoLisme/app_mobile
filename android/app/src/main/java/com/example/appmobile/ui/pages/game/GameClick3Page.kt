@@ -46,7 +46,7 @@ private data class MatchQuestionUi(
 )
 
 @Composable
-fun GameClick3Page(level: Int = 1, onBack: () -> Unit) {
+fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
     val currentIndex = remember(level) { mutableIntStateOf(0) }
     val score = remember(level) { mutableIntStateOf(0) }
     val selectedEmotionId = remember(level) { mutableStateOf<String?>(null) }
@@ -105,7 +105,7 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit) {
 
     val question = questions.value[currentIndex.intValue % questions.value.size]
 
-    GameScreenShell(contentMaxWidth = 800) {
+    GameScreenShell(contentMaxWidth = 800, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← Quay lại") }

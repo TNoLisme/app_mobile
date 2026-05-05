@@ -53,7 +53,7 @@ private data class RecognizeQuestionUi(
 )
 
 @Composable
-fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
+fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
     val currentIndex = remember(level) { mutableIntStateOf(0) }
     val score = remember(level) { mutableIntStateOf(0) }
     val selectedEmotionId = remember(level) { mutableStateOf<String?>(null) }
@@ -114,7 +114,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
     val currentQuestion = questions.value[currentIndex.intValue % questions.value.size]
     val options = GameUiCatalog.emotions
 
-    GameScreenShell(contentMaxWidth = 800) {
+    GameScreenShell(contentMaxWidth = 800, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← Thoát") }

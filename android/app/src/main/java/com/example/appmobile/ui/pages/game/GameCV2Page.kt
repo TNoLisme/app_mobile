@@ -5,7 +5,7 @@ import com.example.appmobile.R
 import com.example.appmobile.ui.catalog.GameUiCatalog
 
 @Composable
-fun GameCV2Page(level: Int = 1, onBack: () -> Unit) {
+fun GameCV2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
     CvTrainingGamePage(
         gameId = GameUiCatalog.GAME_CV_REQUEST,
         level = level,
@@ -15,6 +15,7 @@ fun GameCV2Page(level: Int = 1, onBack: () -> Unit) {
         defaultPrompt = GameUiCatalog.cvRequestPrompt,
         promptLabel = "Yêu cầu",
         targetLabel = "Cảm xúc",
-        onBack = onBack
+        onBack = onBack,
+        onOpenAssistant = onOpenAssistant
     )
 }

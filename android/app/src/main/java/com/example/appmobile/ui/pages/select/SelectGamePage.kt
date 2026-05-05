@@ -41,7 +41,8 @@ import com.example.appmobile.ui.components.GameScreenShell
 fun SelectGamePage(
     type: String,
     onBack: () -> Unit,
-    onOpenLevel: (String) -> Unit
+    onOpenLevel: (String) -> Unit,
+    onOpenAssistant: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val repository = remember {
@@ -68,7 +69,7 @@ fun SelectGamePage(
         isLoading = false
     }
 
-    GameScreenShell(contentMaxWidth = 600) {
+    GameScreenShell(contentMaxWidth = 600, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {

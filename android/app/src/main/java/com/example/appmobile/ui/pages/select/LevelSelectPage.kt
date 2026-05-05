@@ -46,7 +46,12 @@ private data class LevelProgressUi(
 )
 
 @Composable
-fun LevelSelectPage(gameId: String, onBack: () -> Unit, onStartGame: (String) -> Unit) {
+fun LevelSelectPage(
+    gameId: String,
+    onBack: () -> Unit,
+    onStartGame: (String) -> Unit,
+    onOpenAssistant: () -> Unit = {}
+) {
     val context = LocalContext.current
     val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "local-player" }
     val repository = remember {
@@ -97,7 +102,7 @@ fun LevelSelectPage(gameId: String, onBack: () -> Unit, onStartGame: (String) ->
         isLoading = false
     }
 
-    GameScreenShell(contentMaxWidth = 520) {
+    GameScreenShell(contentMaxWidth = 520, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
