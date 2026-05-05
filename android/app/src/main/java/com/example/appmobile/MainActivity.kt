@@ -112,7 +112,13 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 }
             }
         }
-        composable("learn") { LearnPage(onBack = { navController.popBackStack() }, onSelectEmotion = { id -> navController.navigate("learn_detail/$id") }) }
+        composable("learn") {
+            LearnPage(
+                onBack = { navController.popBackStack() },
+                onSelectEmotion = { id -> navController.navigate("learn_detail/$id") },
+                onOpenAssistant = { navController.navigate(assistantRoute("learn")) }
+            )
+        }
         composable("learn_detail/{emotionId}") { backStackEntry ->
             EmotionDetailPage(emotionId = backStackEntry.arguments?.getString("emotionId") ?: "", onBack = { navController.popBackStack() })
         }
