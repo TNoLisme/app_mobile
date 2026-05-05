@@ -16,6 +16,27 @@ interface ApiService {
     @GET("children/{uid}")
     suspend fun getChildProfile(@Path("uid") uid: String): Response<ChildDto>
 
+    @GET("users/me")
+    suspend fun getUserProfile(@Query("user_id") userId: String): Response<UserProfileDto>
+
+    @PUT("users/me")
+    suspend fun updateUserProfile(@Body request: UserProfileUpdateRequestDto): Response<UserProfileDto>
+
+    @GET("users/stats/recent-games/{userId}")
+    suspend fun getRecentGames(
+        @Path("userId") userId: String,
+        @Query("limit") limit: Int = 4
+    ): Response<RecentGamesResponseDto>
+
+    @GET("users/stats/emotion-accuracy/{userId}")
+    suspend fun getEmotionAccuracy(@Path("userId") userId: String): Response<EmotionAccuracyResponseDto>
+
+    @GET("users/stats/weak-emotions/{userId}")
+    suspend fun getWeakEmotions(
+        @Path("userId") userId: String,
+        @Query("limit") limit: Int = 3
+    ): Response<WeakEmotionsResponseDto>
+
     // --- GAMES ---
     @GET("games")
     suspend fun getGames(): Response<List<GameDto>>

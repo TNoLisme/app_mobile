@@ -32,6 +32,7 @@ fun HomePage(
     onNavigateToGame: (String) -> Unit,
     onNavigateToLearn: () -> Unit = {},
     onNavigateToReport: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {},
     vm: HomeViewModel = viewModel()
 ) {
     val emotions = vm.emotions
@@ -53,9 +54,13 @@ fun HomePage(
                 Text(text = "Chào bé yêu! 👋", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 Text(text = "Hôm nay bé cảm thấy thế nào?", fontSize = 16.sp, color = Color.Gray)
             }
-            // Nút đăng xuất nhỏ ở góc
-            TextButton(onClick = onLogout) {
-                Text("Thoát", color = Color.Red)
+            Row {
+                TextButton(onClick = onNavigateToProfile) {
+                    Text("Hồ sơ", color = Color(0xFF1976D2))
+                }
+                TextButton(onClick = onLogout) {
+                    Text("Thoát", color = Color.Red)
+                }
             }
         }
 

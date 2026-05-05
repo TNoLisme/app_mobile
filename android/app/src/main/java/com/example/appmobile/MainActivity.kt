@@ -20,6 +20,7 @@ import com.example.appmobile.ui.pages.game.*
 import com.example.appmobile.ui.pages.home.HomePage
 import com.example.appmobile.ui.pages.learn.EmotionDetailPage
 import com.example.appmobile.ui.pages.learn.LearnPage
+import com.example.appmobile.ui.pages.profile.ProfilePage
 import com.example.appmobile.ui.pages.report.ReportPage
 import com.example.appmobile.ui.pages.select.LevelSelectPage
 import com.example.appmobile.ui.pages.select.SelectGamePage
@@ -62,7 +63,8 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 },
                 onNavigateToGame = { gameType -> navController.navigate("select_game/$gameType") },
                 onNavigateToLearn = { navController.navigate("learn") },
-                onNavigateToReport = { navController.navigate("report") }
+                onNavigateToReport = { navController.navigate("report") },
+                onNavigateToProfile = { navController.navigate("profile") }
             )
         }
         composable("select_game/{type}") { backStackEntry ->
@@ -102,5 +104,14 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             EmotionDetailPage(emotionId = backStackEntry.arguments?.getString("emotionId") ?: "", onBack = { navController.popBackStack() })
         }
         composable("report") { ReportPage(onBack = { navController.popBackStack() }) }
+        composable("profile") {
+            ProfilePage(
+                onBack = { navController.popBackStack() },
+                onLogout = {
+                    auth.signOut()
+                    navController.navigate("login") { popUpTo("home") { inclusive = true } }
+                }
+            )
+        }
     }
 }
