@@ -188,7 +188,7 @@ fun SessionQuestionDto.toEntity(): SessionQuestionEntity {
     return SessionQuestionEntity(
         id = id,
         sessionId = sessionId,
-        questionId = "UNKNOWN",
+        questionId = questionId ?: "UNKNOWN",
         userAnswer = null,
         isCorrect = isCorrect,
         responseTimeMs = responseTime,

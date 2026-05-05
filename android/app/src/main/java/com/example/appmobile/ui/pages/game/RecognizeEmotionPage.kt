@@ -22,8 +22,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,11 +38,15 @@ import androidx.compose.ui.unit.sp
 import com.example.appmobile.R
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.NetworkClient
+import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.GameScreenShell
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
 private data class RecognizeQuestionUi(
+    val questionId: String,
     val questionText: String,
     val imageRes: Int,
     val correctEmotion: String
@@ -48,34 +54,64 @@ private data class RecognizeQuestionUi(
 
 @Composable
 fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
-    val currentIndex = remember(level) { mutableStateOf(0) }
+    val currentIndex = remember(level) { mutableIntStateOf(0) }
+    val score = remember(level) { mutableIntStateOf(0) }
     val selectedEmotionId = remember(level) { mutableStateOf<String?>(null) }
+    val feedback = remember(level) { mutableStateOf<String?>(null) }
     val questions = remember(level) { mutableStateOf(fallbackRecognizeQuestions()) }
+    val sessionId = remember(level) { mutableStateOf<String?>(null) }
+    val results = remember(level) { mutableStateOf<List<AnswerResultDto>>(emptyList()) }
+    val summary = remember(level) { mutableStateOf<String?>(null) }
+    val isSubmitting = remember(level) { mutableStateOf(false) }
+    val questionStartMs = remember(level) { mutableStateOf(System.currentTimeMillis()) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "local-player" }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
 
-    LaunchedEffect(level) {
-        val backendQuestions = runCatching {
-            repository.getContentForLevel(GameUiCatalog.GAME_RECOGNIZE_EMOTION, level)
-                .mapNotNull { content ->
-                    val emotion = content.answer.ifBlank { content.emotion }
-                    if (emotion.isBlank()) return@mapNotNull null
-                    RecognizeQuestionUi(
-                        questionText = content.text.ifBlank { "Đây là cảm xúc gì?" },
-                        imageRes = emotionImageResource(emotion),
-                        correctEmotion = emotion
-                    )
-                }
-        }.getOrDefault(emptyList())
-
-        questions.value = backendQuestions.ifEmpty { fallbackRecognizeQuestions() }
-        currentIndex.value = 0
-        selectedEmotionId.value = null
+    fun finishLevel(finalResults: List<AnswerResultDto>) {
+        if (isSubmitting.value || summary.value != null) return
+        scope.launch {
+            isSubmitting.value = true
+            val response = sessionId.value?.let { repository.endLevel(it, finalResults) }
+            summary.value = if (response != null) {
+                val status = if (response.passed) "Đã qua level" else "Chưa qua level"
+                "$status. Điểm: ${response.score}/100."
+            } else {
+                "Hoàn thành. Điểm tạm tính: ${score.intValue}."
+            }
+            isSubmitting.value = false
+        }
     }
 
-    val currentQuestion = questions.value[currentIndex.value % questions.value.size]
+    LaunchedEffect(level, userId) {
+        val started = repository.startGame(GameUiCatalog.GAME_RECOGNIZE_EMOTION, userId, level)
+        sessionId.value = started?.sessionId
+        val backendQuestions = started?.questions
+            ?.mapNotNull { content ->
+                val emotion = (content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null }
+                RecognizeQuestionUi(
+                    questionId = content.contentId,
+                    questionText = content.questionText?.ifBlank { "Đây là cảm xúc gì?" } ?: "Đây là cảm xúc gì?",
+                    imageRes = emotionImageResource(emotion),
+                    correctEmotion = emotion
+                )
+            }
+            .orEmpty()
+
+        questions.value = backendQuestions.ifEmpty { fallbackRecognizeQuestions() }
+        currentIndex.intValue = 0
+        score.intValue = 0
+        selectedEmotionId.value = null
+        feedback.value = null
+        results.value = emptyList()
+        summary.value = null
+        questionStartMs.value = System.currentTimeMillis()
+    }
+
+    val currentQuestion = questions.value[currentIndex.intValue % questions.value.size]
     val options = GameUiCatalog.emotions
 
     GameScreenShell(contentMaxWidth = 800) {
@@ -93,21 +129,17 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         LinearProgressIndicator(
-                            progress = { (currentIndex.value + 1).toFloat() / questions.value.size },
+                            progress = { (currentIndex.intValue + 1).toFloat() / questions.value.size },
                             modifier = Modifier.width(60.dp).height(6.dp),
                             color = Color(0xFF3B82F6)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Câu ${currentIndex.value + 1}/${questions.value.size}",
-                            style = MaterialTheme.typography.labelMedium
-                        )
+                        Text("Câu ${currentIndex.intValue + 1}/${questions.value.size}")
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
             Text(
                 "Chiếc hộp cảm xúc",
                 style = MaterialTheme.typography.headlineSmall,
@@ -120,8 +152,13 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
                 color = Color.Gray
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            if (summary.value != null) {
+                Spacer(modifier = Modifier.height(20.dp))
+                LevelSummaryCard(summary = summary.value.orEmpty(), onBack = onBack)
+                return@Column
+            }
 
+            Spacer(modifier = Modifier.height(20.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
@@ -144,8 +181,12 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            if (feedback.value != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                FeedbackCard(feedback.value.orEmpty())
+            }
 
+            Spacer(modifier = Modifier.height(20.dp))
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 options.chunked(2).forEach { rowItems ->
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -154,7 +195,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
                             Card(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clickable { selectedEmotionId.value = item.id },
+                                    .clickable(enabled = feedback.value == null) { selectedEmotionId.value = item.id },
                                 shape = MaterialTheme.shapes.large,
                                 border = BorderStroke(
                                     2.dp,
@@ -179,16 +220,80 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-
             Button(
                 onClick = {
-                    currentIndex.value = (currentIndex.value + 1) % questions.value.size
-                    selectedEmotionId.value = null
+                    if (feedback.value == null) {
+                        val selected = selectedEmotionId.value ?: return@Button
+                        val isCorrect = selected == currentQuestion.correctEmotion
+                        if (isCorrect) score.intValue += 10
+                        val updatedResults = results.value + AnswerResultDto(
+                            questionId = currentQuestion.questionId,
+                            answer = selected,
+                            isCorrect = isCorrect,
+                            responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
+                        )
+                        results.value = updatedResults
+                        val targetName = GameUiCatalog.emotionById(currentQuestion.correctEmotion)?.name
+                            ?: currentQuestion.correctEmotion
+                        feedback.value = if (isCorrect) "Đúng rồi." else "Chưa đúng. Đáp án là $targetName."
+                        return@Button
+                    }
+
+                    val isLastQuestion = currentIndex.intValue >= questions.value.lastIndex
+                    if (isLastQuestion) {
+                        finishLevel(results.value)
+                    } else {
+                        currentIndex.intValue += 1
+                        selectedEmotionId.value = null
+                        feedback.value = null
+                        questionStartMs.value = System.currentTimeMillis()
+                    }
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                enabled = selectedEmotionId.value != null
+                enabled = selectedEmotionId.value != null && !isSubmitting.value
             ) {
-                Text("Trả lời")
+                Text(
+                    when {
+                        isSubmitting.value -> "Đang lưu..."
+                        feedback.value == null -> "Trả lời"
+                        currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
+                        else -> "Câu tiếp theo"
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedbackCard(message: String) {
+    val isCorrect = message.startsWith("Đúng")
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = if (isCorrect) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(12.dp),
+            color = if (isCorrect) Color(0xFF2E7D32) else Color(0xFFE65100),
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun LevelSummaryCard(summary: String, onBack: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Kết thúc level", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
+            Text(summary)
+            Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                Text("Quay lại chọn level")
             }
         }
     }
@@ -196,12 +301,12 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
 
 private fun fallbackRecognizeQuestions(): List<RecognizeQuestionUi> {
     return listOf(
-        RecognizeQuestionUi("Đây là cảm xúc gì?", R.drawable.happy_1, "happy"),
-        RecognizeQuestionUi("Đây là cảm xúc gì?", R.drawable.sad_1, "sad"),
-        RecognizeQuestionUi("Đây là cảm xúc gì?", R.drawable.surprise_1, "surprise"),
-        RecognizeQuestionUi("Đây là cảm xúc gì?", R.drawable.angry_1, "angry"),
-        RecognizeQuestionUi("Đây là cảm xúc gì?", R.drawable.fear_1, "fear"),
-        RecognizeQuestionUi("Đây là cảm xúc gì?", R.drawable.disgust_1, "disgust")
+        RecognizeQuestionUi("fallback-recognize-happy", "Đây là cảm xúc gì?", R.drawable.happy_1, "happy"),
+        RecognizeQuestionUi("fallback-recognize-sad", "Đây là cảm xúc gì?", R.drawable.sad_1, "sad"),
+        RecognizeQuestionUi("fallback-recognize-surprise", "Đây là cảm xúc gì?", R.drawable.surprise_1, "surprise"),
+        RecognizeQuestionUi("fallback-recognize-angry", "Đây là cảm xúc gì?", R.drawable.angry_1, "angry"),
+        RecognizeQuestionUi("fallback-recognize-fear", "Đây là cảm xúc gì?", R.drawable.fear_1, "fear"),
+        RecognizeQuestionUi("fallback-recognize-disgust", "Đây là cảm xúc gì?", R.drawable.disgust_1, "disgust")
     )
 }
 
