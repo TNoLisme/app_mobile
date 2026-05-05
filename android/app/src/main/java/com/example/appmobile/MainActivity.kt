@@ -81,7 +81,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             when (id) {
                 // Các game Nhận diện
                 "3bcb2108-721c-4a15-a585-31f3084ed000" -> RecognizeEmotionPage(level = level, onBack = { navController.popBackStack() })
-                "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051" -> GameClick2Page(onBack = { navController.popBackStack() })
+                "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051" -> GameClick2Page(level = level, onBack = { navController.popBackStack() })
                 "08bbffbf-d147-4556-bccb-b7621cafbf15" -> GameClick3Page(level = level, onBack = { navController.popBackStack() })
                 "aacaf79e-e15e-42a9-a3d1-a522720d919b" -> GameClick4Page(level = level, onBack = { navController.popBackStack() })
                 // Các game Biểu cảm
