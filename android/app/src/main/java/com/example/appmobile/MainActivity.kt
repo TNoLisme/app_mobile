@@ -14,6 +14,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.appmobile.ui.pages.assistant.AssistantPage
 import com.example.appmobile.ui.pages.auth.LoginPage
 import com.example.appmobile.ui.pages.auth.RegisterPage
 import com.example.appmobile.ui.pages.game.*
@@ -64,7 +65,8 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 onNavigateToGame = { gameType -> navController.navigate("select_game/$gameType") },
                 onNavigateToLearn = { navController.navigate("learn") },
                 onNavigateToReport = { navController.navigate("report") },
-                onNavigateToProfile = { navController.navigate("profile") }
+                onNavigateToProfile = { navController.navigate("profile") },
+                onNavigateToAssistant = { navController.navigate("assistant") }
             )
         }
         composable("select_game/{type}") { backStackEntry ->
@@ -104,6 +106,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             EmotionDetailPage(emotionId = backStackEntry.arguments?.getString("emotionId") ?: "", onBack = { navController.popBackStack() })
         }
         composable("report") { ReportPage(onBack = { navController.popBackStack() }) }
+        composable("assistant") { AssistantPage(onBack = { navController.popBackStack() }) }
         composable("profile") {
             ProfilePage(
                 onBack = { navController.popBackStack() },

@@ -73,6 +73,9 @@ interface ApiService {
     suspend fun saveSessionQuestions(@Body questions: List<SessionQuestionDto>): Response<Boolean>
 
     // --- CHATBOT ---
+    @POST("assistant/chat")
+    suspend fun chatAssistant(@Body request: AssistantChatRequestDto): Response<AssistantChatResponseDto>
+
     @POST("chatbot/logs")
     suspend fun uploadChatLog(@Body log: ChatbotLogDto): Response<Boolean>
 

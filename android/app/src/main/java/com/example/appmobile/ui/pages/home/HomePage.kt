@@ -34,6 +34,7 @@ fun HomePage(
     onNavigateToLearn: () -> Unit = {},
     onNavigateToReport: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
+    onNavigateToAssistant: () -> Unit = {},
     vm: HomeViewModel = viewModel()
 ) {
     val childName by vm.childName
@@ -96,6 +97,15 @@ fun HomePage(
             imageRes = R.drawable.logo_emo,
             backgroundColor = Color(0xFFE1F5FE),
             onClick = { onNavigateToLearn() }
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        GameCard(
+            title = "Trợ lý EmoGarden",
+            imageRes = R.drawable.logo_emo,
+            backgroundColor = Color(0xFFFFF8E1),
+            onClick = onNavigateToAssistant
         )
 
         Spacer(modifier = Modifier.height(20.dp))

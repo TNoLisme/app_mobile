@@ -30,13 +30,19 @@ def _fallback_reply(request: ChatRequest) -> str:
     text = request.message.lower()
     rules = GAME_RULES.get(request.game_id, "")
     if "chơi gì" in text or "nên chơi" in text or "goi y" in text or "gợi ý" in text:
-        return "Nếu mới bắt đầu, con nên chơi Chiếc hộp cảm xúc trước vì game này dễ và giúp nhận biết cảm xúc cơ bản."
+        return (
+            "Nếu mới bắt đầu, con nên chơi Chiếc hộp cảm xúc trước vì game này dễ "
+            "và giúp nhận biết cảm xúc cơ bản."
+        )
     if rules:
-        return f"Mình nhắc nhanh nhé: {rules}"
-    return "Mình chưa có đủ thông tin về màn này. Con hãy làm theo hướng dẫn trên màn hình hoặc hỏi người lớn giúp nhé."
+        level_text = f" Cấp độ hiện tại là {request.level}." if request.level is not None else ""
+        return f"Mình nhắc nhanh nhé: {rules}{level_text}"
+    return (
+        "Mình chưa có đủ thông tin về màn này. Con hãy làm theo hướng dẫn trên màn hình "
+        "hoặc hỏi người lớn giúp nhé."
+    )
 
 
 @router.post("/chat", response_model=ChatResponse)
 def chat_with_assistant(request: ChatRequest):
     return ChatResponse(reply=_fallback_reply(request))
-
