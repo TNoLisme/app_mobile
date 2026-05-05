@@ -71,7 +71,8 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 onNavigateToLearn = { navController.navigate("learn") },
                 onNavigateToReport = { navController.navigate("report") },
                 onNavigateToProfile = { navController.navigate("profile") },
-                onNavigateToAssistant = { navController.navigate(assistantRoute("home")) }
+                onNavigateToAssistant = { navController.navigate(assistantRoute("home")) },
+                onNavigateToLevel = { gameId -> navController.navigate("level_select/$gameId") }
             )
         }
         composable("select_game/{type}") { backStackEntry ->

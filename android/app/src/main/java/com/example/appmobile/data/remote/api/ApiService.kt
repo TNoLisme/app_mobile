@@ -31,6 +31,12 @@ interface ApiService {
     @GET("users/stats/emotion-accuracy/{userId}")
     suspend fun getEmotionAccuracy(@Path("userId") userId: String): Response<EmotionAccuracyResponseDto>
 
+    @GET("users/stats/emotion-improvement/{userId}")
+    suspend fun getEmotionImprovement(@Path("userId") userId: String): Response<PercentMapResponseDto>
+
+    @GET("users/stats/game-play-ratio/{userId}")
+    suspend fun getGamePlayRatio(@Path("userId") userId: String): Response<PercentMapResponseDto>
+
     @GET("users/stats/weak-emotions/{userId}")
     suspend fun getWeakEmotions(
         @Path("userId") userId: String,

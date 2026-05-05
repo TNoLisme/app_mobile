@@ -16,14 +16,23 @@ data class HomeEmotionUi(
 )
 
 data class HomeRecentGameUi(
+    val id: String?,
     val name: String,
+    val gameType: String?,
     val lastPlayed: String
+)
+
+data class HomeMetricUi(
+    val name: String,
+    val value: Double
 )
 
 class HomeViewModel : ViewModel() {
     val childName = mutableStateOf<String?>(null)
     val emotions = mutableStateListOf<HomeEmotionUi>()
     val recentGames = mutableStateListOf<HomeRecentGameUi>()
+    val improvements = mutableStateListOf<HomeMetricUi>()
+    val gameRatios = mutableStateListOf<HomeMetricUi>()
     val isLoading = mutableStateOf(false)
     val errorMessage = mutableStateOf<String?>(null)
 
@@ -37,28 +46,47 @@ class HomeViewModel : ViewModel() {
             errorMessage.value = null
 
             val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "local-player"
-            try {
-                val profileResponse = NetworkClient.apiService.getUserProfile(userId)
+            var connected = false
+            var failedRequests = 0
+
+            runCatching {
+                NetworkClient.apiService.getUserProfile(userId)
+            }.onSuccess { profileResponse ->
+                connected = true
                 if (profileResponse.isSuccessful) {
                     childName.value = profileResponse.body()?.name
                 }
+            }.onFailure {
+                failedRequests += 1
+            }
 
-                val gamesResponse = NetworkClient.apiService.getRecentGames(userId)
-                recentGames.clear()
+            runCatching {
+                NetworkClient.apiService.getRecentGames(userId)
+            }.onSuccess { gamesResponse ->
+                connected = true
                 if (gamesResponse.isSuccessful) {
+                    recentGames.clear()
                     gamesResponse.body()?.data.orEmpty()
                         .map {
                             HomeRecentGameUi(
+                                id = it.gameId,
                                 name = it.name ?: "Game",
+                                gameType = it.gameType,
                                 lastPlayed = formatDate(it.lastPlayed)
                             )
                         }
                         .let(recentGames::addAll)
                 }
+            }.onFailure {
+                failedRequests += 1
+            }
 
-                val accuracyResponse = NetworkClient.apiService.getEmotionAccuracy(userId)
-                emotions.clear()
+            runCatching {
+                NetworkClient.apiService.getEmotionAccuracy(userId)
+            }.onSuccess { accuracyResponse ->
+                connected = true
                 if (accuracyResponse.isSuccessful) {
+                    emotions.clear()
                     accuracyResponse.body()?.data.orEmpty()
                         .map { (name, stat) ->
                             HomeEmotionUi(
@@ -71,11 +99,45 @@ class HomeViewModel : ViewModel() {
                         .sortedByDescending { it.accuracy }
                         .let(emotions::addAll)
                 }
-            } catch (e: Exception) {
-                errorMessage.value = "Chưa kết nối được backend."
-            } finally {
-                isLoading.value = false
+            }.onFailure {
+                failedRequests += 1
             }
+
+            runCatching {
+                NetworkClient.apiService.getEmotionImprovement(userId)
+            }.onSuccess { improvementResponse ->
+                connected = true
+                if (improvementResponse.isSuccessful) {
+                    improvements.clear()
+                    improvementResponse.body()?.data.orEmpty()
+                        .map { (name, value) -> HomeMetricUi(name = name, value = value.toDouble()) }
+                        .sortedByDescending { it.value }
+                        .let(improvements::addAll)
+                }
+            }.onFailure {
+                failedRequests += 1
+            }
+
+            runCatching {
+                NetworkClient.apiService.getGamePlayRatio(userId)
+            }.onSuccess { gameRatioResponse ->
+                connected = true
+                if (gameRatioResponse.isSuccessful) {
+                    gameRatios.clear()
+                    gameRatioResponse.body()?.data.orEmpty()
+                        .map { (name, value) -> HomeMetricUi(name = name, value = value.toDouble()) }
+                        .sortedByDescending { it.value }
+                        .let(gameRatios::addAll)
+                }
+            }.onFailure {
+                failedRequests += 1
+            }
+
+            if (!connected && failedRequests > 0) {
+                errorMessage.value = "Chưa kết nối được backend."
+            }
+
+            isLoading.value = false
         }
     }
 

@@ -76,6 +76,11 @@ data class EmotionAccuracyResponseDto(
     @SerializedName("data") val data: Map<String, EmotionAccuracyDto>? = null
 )
 
+data class PercentMapResponseDto(
+    @SerializedName("status") val status: String? = null,
+    @SerializedName("data") val data: Map<String, Float>? = null
+)
+
 data class WeakEmotionDto(
     @SerializedName("emotion") val emotion: String? = null,
     @SerializedName("error_rate") val errorRate: Float? = null
