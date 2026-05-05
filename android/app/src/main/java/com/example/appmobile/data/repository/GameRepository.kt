@@ -7,6 +7,7 @@ import com.example.appmobile.data.remote.api.ApiService
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.remote.dto.EndLevelRequestDto
 import com.example.appmobile.data.remote.dto.EndLevelResponseDto
+import com.example.appmobile.data.remote.dto.GameProgressDto
 import com.example.appmobile.data.remote.dto.StartGameRequestDto
 import com.example.appmobile.data.remote.dto.StartGameResponseDto
 import com.example.appmobile.domain.model.EmotionConcept
@@ -82,6 +83,15 @@ class GameRepository(
                     reviewEmotions = reviewEmotions
                 )
             )
+            if (response.isSuccessful) response.body() else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun getGameProgress(gameId: String, userId: String): GameProgressDto? {
+        return try {
+            val response = apiService.getGameProgress(gameId, userId)
             if (response.isSuccessful) response.body() else null
         } catch (e: Exception) {
             null
