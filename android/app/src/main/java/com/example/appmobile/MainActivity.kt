@@ -20,6 +20,7 @@ import com.example.appmobile.ui.pages.game.*
 import com.example.appmobile.ui.pages.home.HomePage
 import com.example.appmobile.ui.pages.learn.EmotionDetailPage
 import com.example.appmobile.ui.pages.learn.LearnPage
+import com.example.appmobile.ui.pages.report.ReportPage
 import com.example.appmobile.ui.pages.select.LevelSelectPage
 import com.example.appmobile.ui.pages.select.SelectGamePage
 import com.example.appmobile.ui.theme.AppMobileTheme
@@ -60,7 +61,8 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                     navController.navigate("login") { popUpTo("home") { inclusive = true } }
                 },
                 onNavigateToGame = { gameType -> navController.navigate("select_game/$gameType") },
-                onNavigateToLearn = { navController.navigate("learn") }
+                onNavigateToLearn = { navController.navigate("learn") },
+                onNavigateToReport = { navController.navigate("report") }
             )
         }
         composable("select_game/{type}") { backStackEntry ->
@@ -99,5 +101,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         composable("learn_detail/{emotionId}") { backStackEntry ->
             EmotionDetailPage(emotionId = backStackEntry.arguments?.getString("emotionId") ?: "", onBack = { navController.popBackStack() })
         }
+        composable("report") { ReportPage(onBack = { navController.popBackStack() }) }
     }
 }

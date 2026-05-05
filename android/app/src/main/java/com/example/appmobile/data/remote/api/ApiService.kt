@@ -61,4 +61,20 @@ interface ApiService {
 
     @GET("reports/{childId}")
     suspend fun getReports(@Path("childId") childId: String): Response<List<ReportDto>>
+
+    @GET("reports/preview/{childUserId}")
+    suspend fun previewReport(
+        @Path("childUserId") childUserId: String,
+        @Query("report_type") reportType: String = "weekly"
+    ): Response<ReportPreviewResponseDto>
+
+    @GET("reports/history")
+    suspend fun getReportHistory(
+        @Query("child_user_id") childUserId: String,
+        @Query("skip") skip: Int = 0,
+        @Query("limit") limit: Int = 20
+    ): Response<ReportHistoryResponseDto>
+
+    @POST("reports/request-report")
+    suspend fun requestReport(@Body request: ReportRequestDto): Response<ReportRequestResponseDto>
 }
