@@ -24,6 +24,7 @@ import com.example.appmobile.R
 import com.example.appmobile.ui.components.molecules.EmotionCard
 import com.example.appmobile.ui.components.molecules.GameCard
 import com.example.appmobile.ui.theme.SoftWhite
+import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
 import com.example.appmobile.ui.viewmodel.HomeViewModel
 
 @Composable
@@ -35,8 +36,11 @@ fun HomePage(
     onNavigateToProfile: () -> Unit = {},
     vm: HomeViewModel = viewModel()
 ) {
+    val childName by vm.childName
     val emotions = vm.emotions
+    val recentGames = vm.recentGames
     val loading by vm.isLoading
+    val errorMessage by vm.errorMessage
 
     Column(
         modifier = Modifier
@@ -51,7 +55,11 @@ fun HomePage(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text(text = "Chào bé yêu! 👋", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "Chào ${childName?.takeIf { it.isNotBlank() } ?: "bé yêu"}! 👋",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 Text(text = "Hôm nay bé cảm thấy thế nào?", fontSize = 16.sp, color = Color.Gray)
             }
             Row {
@@ -65,6 +73,20 @@ fun HomePage(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+
+        errorMessage?.let { message ->
+            Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFFFEBEE), modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(message, color = Color(0xFFC62828), modifier = Modifier.weight(1f))
+                    TextButton(onClick = vm::refresh) { Text("Thử lại") }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         // Mục 1: Học tập
         Text(text = "KHÁM PHÁ", fontWeight = FontWeight.ExtraBold, color = Color.Gray)
@@ -99,7 +121,29 @@ fun HomePage(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Emotion cards
+        Text(text = "Game gần đây", fontWeight = FontWeight.ExtraBold, color = Color.Gray)
+        Spacer(modifier = Modifier.height(8.dp))
+        if (loading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(90.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else if (recentGames.isEmpty()) {
+            EmptyHomeCard("Chưa có lịch sử chơi game. Bé hãy bắt đầu một màn luyện tập nhé.")
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                recentGames.forEach { game ->
+                    RecentGameRow(game)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
         Text(text = "Độ chính xác cảm xúc", fontWeight = FontWeight.ExtraBold, color = Color.Gray)
         Spacer(modifier = Modifier.height(8.dp))
         if (loading) {
@@ -111,6 +155,8 @@ fun HomePage(
             ) {
                 CircularProgressIndicator()
             }
+        } else if (emotions.isEmpty()) {
+            EmptyHomeCard("Chưa có thống kê cảm xúc. Dữ liệu sẽ hiện sau khi bé chơi vài câu hỏi.")
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(emotions) { e ->
@@ -119,7 +165,12 @@ fun HomePage(
                         enter = fadeIn(animationSpec = tween(300)) +
                                 slideInVertically(initialOffsetY = { 40 }, animationSpec = tween(300))
                     ) {
-                        EmotionCard(name = e)
+                        EmotionCard(
+                            name = e.name,
+                            accuracy = e.accuracy,
+                            correct = e.correct,
+                            incorrect = e.incorrect
+                        )
                     }
                 }
             }
@@ -136,5 +187,41 @@ fun HomePage(
             backgroundColor = Color(0xFFE8F5E9),
             onClick = onNavigateToReport
         )
+    }
+}
+
+@Composable
+private fun EmptyHomeCard(message: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(14.dp),
+            color = Color.Gray
+        )
+    }
+}
+
+@Composable
+private fun RecentGameRow(game: HomeRecentGameUi) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(game.name, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E4E8C))
+            Text(game.lastPlayed, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+        }
     }
 }
