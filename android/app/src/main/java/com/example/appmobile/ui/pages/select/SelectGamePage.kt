@@ -18,12 +18,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.remote.NetworkClient
+import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.catalog.GameUiItem
 import com.example.appmobile.ui.components.GameScreenShell
@@ -34,8 +43,30 @@ fun SelectGamePage(
     onBack: () -> Unit,
     onOpenLevel: (String) -> Unit
 ) {
-    val filteredGames = GameUiCatalog.gamesByType(type)
+    val context = LocalContext.current
+    val repository = remember {
+        GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
+    }
+    var filteredGames by remember(type) { mutableStateOf(GameUiCatalog.gamesByType(type)) }
+    var isLoading by remember(type) { mutableStateOf(true) }
     val pageTitle = if (type == "camera_game") "Gương soi thông minh" else "Trò chơi nhận diện"
+
+    LaunchedEffect(type) {
+        isLoading = true
+        val backendGames = runCatching {
+            repository.getGames(type).map { game ->
+                GameUiCatalog.gameFromBackend(
+                    id = game.id,
+                    title = game.name,
+                    type = game.type,
+                    maxLevel = game.level
+                )
+            }
+        }.getOrDefault(emptyList())
+
+        filteredGames = backendGames.ifEmpty { GameUiCatalog.gamesByType(type) }
+        isLoading = false
+    }
 
     GameScreenShell(contentMaxWidth = 600) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -51,6 +82,10 @@ fun SelectGamePage(
                 )
             }
             Spacer(modifier = Modifier.height(20.dp))
+            if (isLoading) {
+                Text("Đang tải dữ liệu...", color = Color.Gray)
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 filteredGames.forEach { game ->
                     GameListItem(game = game, onOpenLevel = onOpenLevel)

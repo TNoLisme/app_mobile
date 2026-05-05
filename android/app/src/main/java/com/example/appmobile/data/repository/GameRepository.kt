@@ -43,7 +43,9 @@ class GameRepository(
 
             val entities = (response.body() ?: emptyList()).map { it.toEntity() }
             gameDao.insertContents(entities)
-            entities.filter { it.level == level }.map { it.toDomain() }
+            entities.filter { it.level == level }
+                .ifEmpty { entities }
+                .map { it.toDomain() }
         } catch (e: Exception) {
             emptyList()
         }

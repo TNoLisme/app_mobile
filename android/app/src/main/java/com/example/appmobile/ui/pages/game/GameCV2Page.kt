@@ -24,25 +24,51 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.appmobile.R
+import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.remote.NetworkClient
+import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.CvPromptUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.GameScreenShell
 
 @Composable
-fun GameCV2Page(onBack: () -> Unit) {
+fun GameCV2Page(level: Int = 1, onBack: () -> Unit) {
     val isRunning = remember { mutableStateOf(false) }
-    val challenge = remember {
-        GameUiCatalog.cvRequestPrompt
+    val context = LocalContext.current
+    val repository = remember {
+        GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
+    }
+    var challenge by remember { mutableStateOf(GameUiCatalog.cvRequestPrompt) }
+
+    LaunchedEffect(level) {
+        val backendPrompt = runCatching {
+            repository.getContentForLevel(GameUiCatalog.GAME_CV_REQUEST, level)
+                .firstOrNull()
+                ?.let { content ->
+                    CvPromptUiItem(
+                        questionText = content.text,
+                        correctAnswer = content.answer.ifBlank { content.emotion }
+                    )
+                }
+        }.getOrNull()
+
+        if (backendPrompt != null && backendPrompt.questionText.isNotBlank()) {
+            challenge = backendPrompt
+        }
     }
 
     GameScreenShell(contentMaxWidth = 1000) {

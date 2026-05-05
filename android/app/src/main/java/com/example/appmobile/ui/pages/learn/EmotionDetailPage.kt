@@ -13,6 +13,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -22,13 +27,37 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.R
+import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.remote.NetworkClient
+import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.theme.SoftWhite
 
 @Composable
 fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
-    val emotion = GameUiCatalog.emotionById(emotionId)
+    val context = LocalContext.current
+    val repository = remember {
+        GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
+    }
+    var emotion by remember(emotionId) { mutableStateOf(GameUiCatalog.emotionById(emotionId)) }
     val imageResourceId = rememberEmotionImageResource(emotionId)
+
+    LaunchedEffect(emotionId) {
+        val backendEmotion = runCatching {
+            repository.getEmotionConcepts()
+                .firstOrNull { it.id == emotionId }
+                ?.let { concept ->
+                    GameUiCatalog.emotionFromBackend(
+                        id = concept.id,
+                        title = concept.name,
+                        description = concept.desc
+                    )
+                }
+        }.getOrNull()
+
+        if (backendEmotion != null) emotion = backendEmotion
+    }
+
     val example = emotion?.description
         ?: "Tình huống ví dụ"
 

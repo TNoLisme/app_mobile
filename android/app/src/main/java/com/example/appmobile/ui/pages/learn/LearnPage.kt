@@ -17,19 +17,49 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.remote.NetworkClient
+import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.EmotionUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.theme.SoftWhite
 
 @Composable
 fun LearnPage(onBack: () -> Unit, onSelectEmotion: (String) -> Unit) {
-    val emotions = GameUiCatalog.emotions
+    val context = LocalContext.current
+    val repository = remember {
+        GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
+    }
+    var emotions by remember { mutableStateOf(GameUiCatalog.emotions) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        isLoading = true
+        val backendEmotions = runCatching {
+            repository.getEmotionConcepts().map { concept ->
+                GameUiCatalog.emotionFromBackend(
+                    id = concept.id,
+                    title = concept.name,
+                    description = concept.desc
+                )
+            }
+        }.getOrDefault(emptyList())
+
+        emotions = backendEmotions.ifEmpty { GameUiCatalog.emotions }
+        isLoading = false
+    }
 
     Column(
         modifier = Modifier
@@ -46,6 +76,11 @@ fun LearnPage(onBack: () -> Unit, onSelectEmotion: (String) -> Unit) {
         Spacer(modifier = Modifier.height(16.dp))
         Text(text = "Nhấn vào cảm xúc để học thêm", fontSize = 14.sp, color = Color.Gray)
         Spacer(modifier = Modifier.height(16.dp))
+
+        if (isLoading) {
+            Text("Đang tải thẻ học...", color = Color.Gray)
+            Spacer(modifier = Modifier.height(12.dp))
+        }
 
         LazyVerticalGrid(columns = GridCells.Fixed(2), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(emotions) { emotion ->

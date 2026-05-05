@@ -68,8 +68,39 @@ object GameUiCatalog {
 
     fun gamesByType(type: String): List<GameUiItem> = games.filter { it.type == type }
 
+    fun gameById(id: String): GameUiItem? = games.firstOrNull { it.id == id }
+
+    fun emotionById(id: String): EmotionUiItem? = emotions.firstOrNull { it.id == id }
+
+    fun gameFromBackend(id: String, title: String, type: String, maxLevel: Int): GameUiItem {
+        val fallback = gameById(id)
+        return GameUiItem(
+            id = id,
+            title = title.ifBlank { fallback?.title ?: "Trò chơi" },
+            description = fallback?.description ?: "",
+            type = type.ifBlank { fallback?.type ?: "click_game" },
+            imageRes = fallback?.imageRes ?: R.drawable.logo_emo,
+            maxLevel = maxLevel.takeIf { it > 0 } ?: fallback?.maxLevel ?: 1
+        )
+    }
+
+    fun emotionFromBackend(id: String, title: String, description: String): EmotionUiItem {
+        val fallback = emotionById(id)
+        return EmotionUiItem(
+            id = id,
+            name = title.ifBlank { fallback?.name ?: id },
+            emoji = fallback?.emoji ?: "",
+            description = description.ifBlank { fallback?.description ?: "" }
+        )
+    }
+
     fun levelsForGame(gameId: String): List<LevelUiItem> {
         val maxLevel = games.firstOrNull { it.id == gameId }?.maxLevel ?: return emptyList()
+        return levelsForMaxLevel(maxLevel)
+    }
+
+    fun levelsForMaxLevel(maxLevel: Int): List<LevelUiItem> {
+        if (maxLevel <= 0) return emptyList()
         return (1..maxLevel).map { level ->
             LevelUiItem(
                 id = level,
@@ -93,6 +124,4 @@ object GameUiCatalog {
             )
         }
     }
-
-    fun emotionById(id: String): EmotionUiItem? = emotions.firstOrNull { it.id == id }
 }

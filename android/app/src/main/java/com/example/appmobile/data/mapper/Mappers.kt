@@ -108,7 +108,7 @@ fun EmotionConceptDto.toEntity(): EmotionConceptEntity {
 
 fun EmotionConceptEntity.toDomain(): EmotionConcept {
     return EmotionConcept(
-        id = conceptId,
+        id = emotion.ifBlank { conceptId },
         name = title,
         video = videoPath,
         image = imagePath,

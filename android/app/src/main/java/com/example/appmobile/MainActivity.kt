@@ -72,20 +72,21 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         composable("level_select/{gameId}") { backStackEntry ->
             val id = backStackEntry.arguments?.getString("gameId") ?: ""
             LevelSelectPage(gameId = id, onBack = { navController.popBackStack() }, onStartGame = { lvl ->
-                navController.navigate("game/$id")
+                navController.navigate("game/$id/$lvl")
             })
         }
-        composable("game/{gameId}") { backStackEntry ->
+        composable("game/{gameId}/{level}") { backStackEntry ->
             val id = backStackEntry.arguments?.getString("gameId") ?: ""
+            val level = backStackEntry.arguments?.getString("level")?.toIntOrNull() ?: 1
             when (id) {
                 // Các game Nhận diện
-                "3bcb2108-721c-4a15-a585-31f3084ed000" -> RecognizeEmotionPage(onBack = { navController.popBackStack() })
+                "3bcb2108-721c-4a15-a585-31f3084ed000" -> RecognizeEmotionPage(level = level, onBack = { navController.popBackStack() })
                 "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051" -> GameClick2Page(onBack = { navController.popBackStack() })
-                "08bbffbf-d147-4556-bccb-b7621cafbf15" -> GameClick3Page(onBack = { navController.popBackStack() })
-                "aacaf79e-e15e-42a9-a3d1-a522720d919b" -> GameClick4Page(onBack = { navController.popBackStack() })
+                "08bbffbf-d147-4556-bccb-b7621cafbf15" -> GameClick3Page(level = level, onBack = { navController.popBackStack() })
+                "aacaf79e-e15e-42a9-a3d1-a522720d919b" -> GameClick4Page(level = level, onBack = { navController.popBackStack() })
                 // Các game Biểu cảm
-                "e05909f3-3dee-42a6-9a75-fd985b1bdf47" -> GameCVPage(onBack = { navController.popBackStack() })
-                "61f5e09e-eefa-44c1-86e1-87dfceac3b8e" -> GameCV2Page(onBack = { navController.popBackStack() })
+                "e05909f3-3dee-42a6-9a75-fd985b1bdf47" -> GameCVPage(level = level, onBack = { navController.popBackStack() })
+                "61f5e09e-eefa-44c1-86e1-87dfceac3b8e" -> GameCV2Page(level = level, onBack = { navController.popBackStack() })
                 else -> {
                     // Xử lý an toàn khi không tìm thấy Game ID
                     LaunchedEffect(Unit) {

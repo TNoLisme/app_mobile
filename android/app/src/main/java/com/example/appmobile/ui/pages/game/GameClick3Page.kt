@@ -1,23 +1,73 @@
 package com.example.appmobile.ui.pages.game
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.appmobile.R
+import androidx.compose.ui.unit.sp
+import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.remote.NetworkClient
+import com.example.appmobile.data.repository.GameRepository
+import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.GameScreenShell
 
+private data class MatchQuestionUi(
+    val text: String,
+    val correctEmotion: String
+)
+
 @Composable
-fun GameClick3Page(onBack: () -> Unit) {
-    val faces = listOf(R.drawable.happy_1, R.drawable.sad_1, R.drawable.angry_1, R.drawable.fear_1)
-    val nameCards = listOf("Vui vẻ", "Buồn bã", "Tức giận", "Sợ hãi")
+fun GameClick3Page(level: Int = 1, onBack: () -> Unit) {
+    val currentIndex = remember(level) { mutableStateOf(0) }
+    val selectedEmotionId = remember(level) { mutableStateOf<String?>(null) }
+    val questions = remember(level) { mutableStateOf(fallbackMatchQuestions()) }
+    val context = LocalContext.current
+    val repository = remember {
+        GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
+    }
+
+    LaunchedEffect(level) {
+        val backendQuestions = runCatching {
+            repository.getContentForLevel(GameUiCatalog.GAME_EMOTION_MATCH, level)
+                .mapNotNull { content ->
+                    val emotion = content.answer.ifBlank { content.emotion }
+                    if (emotion.isBlank()) return@mapNotNull null
+                    MatchQuestionUi(
+                        text = content.text.ifBlank { "Cảm xúc nào phù hợp?" },
+                        correctEmotion = emotion
+                    )
+                }
+        }.getOrDefault(emptyList())
+
+        questions.value = backendQuestions.ifEmpty { fallbackMatchQuestions() }
+        currentIndex.value = 0
+        selectedEmotionId.value = null
+    }
+
+    val question = questions.value[currentIndex.value % questions.value.size]
 
     GameScreenShell(contentMaxWidth = 800) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -29,21 +79,51 @@ fun GameClick3Page(onBack: () -> Unit) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Bé hãy nối tên cảm xúc vào hình tương ứng", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    val rows = faces.chunked(2)
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        rows.forEach { rowItems ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                rowItems.forEach { face ->
-                                    Card(modifier = Modifier.weight(1f).height(100.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF7FBFF))) {
-                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                            Image(painter = painterResource(id = face), contentDescription = null, modifier = Modifier.size(60.dp))
-                                        }
-                                    }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text("Tình huống", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
+                    Text(question.text, style = MaterialTheme.typography.titleMedium)
+
+                    val selected = selectedEmotionId.value
+                    if (selected != null) {
+                        val result = if (selected == question.correctEmotion) "Đúng rồi" else "Chưa đúng, thử cảm xúc khác nhé"
+                        val resultColor = if (selected == question.correctEmotion) Color(0xFF2E7D32) else Color(0xFFC62828)
+                        Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFF8FAFC)) {
+                            Text(result, modifier = Modifier.padding(12.dp), color = resultColor, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                GameUiCatalog.emotions.chunked(2).forEach { rowItems ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        rowItems.forEach { emotion ->
+                            val isSelected = selectedEmotionId.value == emotion.id
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { selectedEmotionId.value = emotion.id },
+                                shape = MaterialTheme.shapes.large,
+                                border = BorderStroke(
+                                    2.dp,
+                                    if (isSelected) Color(0xFF3B82F6) else Color(0xFFF1F5F9)
+                                ),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) Color(0xFFE7F1FF) else Color.White
+                                )
+                            ) {
+                                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(emotion.emoji, fontSize = 24.sp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(emotion.name, fontWeight = FontWeight.SemiBold)
                                 }
                             }
                         }
@@ -53,19 +133,23 @@ fun GameClick3Page(onBack: () -> Unit) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            Text("Thẻ tên", fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                nameCards.forEach { name ->
-                    Surface(
-                        shape = MaterialTheme.shapes.medium,
-                        color = Color(0xFFE1F5FE),
-                        modifier = Modifier.weight(1f).clickable { }
-                    ) {
-                        Text(name, modifier = Modifier.padding(12.dp), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                    }
-                }
+            Button(
+                onClick = {
+                    currentIndex.value = (currentIndex.value + 1) % questions.value.size
+                    selectedEmotionId.value = null
+                },
+                enabled = selectedEmotionId.value != null,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Câu tiếp theo")
             }
         }
     }
+}
+
+private fun fallbackMatchQuestions(): List<MatchQuestionUi> {
+    return listOf(
+        MatchQuestionUi("Bé được tặng món quà yêu thích. Cảm xúc nào phù hợp?", "happy"),
+        MatchQuestionUi("Bạn giật đồ chơi khỏi tay bé. Cảm xúc nào có thể xuất hiện?", "angry")
+    )
 }
