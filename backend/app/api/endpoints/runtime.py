@@ -84,9 +84,11 @@ def save_session_questions(body: list[SessionQuestionSaveRequest], db: Session =
         if row is None:
             row = SessionQuestion(id=item.id, session_id=item.session_id)
             db.add(row)
+        row.question_id = item.question_id
         row.is_correct = 1 if item.is_correct else 0
         row.response_time_ms = item.response_time_ms
         row.cv_confidence = item.cv_confidence
+        row.used_hint = 1 if item.used_hint else 0
     db.commit()
     return True
 
@@ -106,6 +108,32 @@ def save_chatbot_log(body: ChatbotLogRequest, db: Session = Depends(get_db)):
     return True
 
 
+@router.get("/sessions/user/{user_id}/history")
+def get_user_session_history(user_id: str, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    rows = (
+        db.query(PlaySession)
+        .filter(PlaySession.user_id == user_id)
+        .order_by(PlaySession.start_time.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return {
+        "status": "success",
+        "sessions": [
+            {
+                "session_id": row.session_id,
+                "game_id": row.game_id,
+                "start_time": row.start_time.isoformat() if row.start_time else None,
+                "end_time": row.end_time.isoformat() if row.end_time else None,
+                "score": int(row.score or 0),
+                "level": int(row.level or 1),
+            }
+            for row in rows
+        ],
+    }
+
+
 @router.get("/progress/{child_id}", response_model=list[ProgressOut])
 def list_progress(child_id: str, db: Session = Depends(get_db)):
     rows = db.query(ChildProgress).filter(ChildProgress.child_id == child_id).order_by(ChildProgress.last_played.desc()).all()
@@ -121,9 +149,20 @@ def list_progress(child_id: str, db: Session = Depends(get_db)):
     ]
 
 
-@router.get("/reports/{child_id}", response_model=list[ReportOut])
-def list_reports(child_id: str, db: Session = Depends(get_db)):
-    rows = db.query(Report).filter(Report.child_id == child_id).order_by(Report.generated_at.desc()).all()
+@router.get("/reports/{identifier}")
+def list_reports(identifier: str, db: Session = Depends(get_db)):
+    report = db.get(Report, identifier)
+    if report is not None:
+        return {
+            "report_id": report.report_id,
+            "child_id": report.child_id,
+            "report_type": report.report_type,
+            "generated_at": report.generated_at.isoformat() if report.generated_at else None,
+            "summary": report.summary,
+            "data": report.data,
+        }
+
+    rows = db.query(Report).filter(Report.child_id == identifier).order_by(Report.generated_at.desc()).all()
     if rows:
         return [
             ReportOut(

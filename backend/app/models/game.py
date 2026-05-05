@@ -69,7 +69,8 @@ class SessionQuestion(Base):
 
     id = Column(String(64), primary_key=True)
     session_id = Column(String(64), ForeignKey("sessions.session_id", ondelete="CASCADE"), nullable=False, index=True)
+    question_id = Column(String(64), ForeignKey("game_content.content_id", ondelete="SET NULL"), index=True)
     is_correct = Column(Integer, default=0)
     response_time_ms = Column(Integer, default=0)
     cv_confidence = Column(Float)
-
+    used_hint = Column(Integer, default=0)

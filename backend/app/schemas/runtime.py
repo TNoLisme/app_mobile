@@ -12,9 +12,11 @@ class SessionSaveRequest(BaseModel):
 class SessionQuestionSaveRequest(BaseModel):
     id: str
     session_id: str
+    question_id: str | None = None
     is_correct: bool = False
     response_time_ms: int = 0
     cv_confidence: float | None = None
+    used_hint: bool = False
 
 
 class ChatbotLogRequest(BaseModel):
@@ -57,4 +59,3 @@ class EndLevelRequest(BaseModel):
     session_id: str
     results: list[AnswerResult]
     review_emotions: list[str] = []
-

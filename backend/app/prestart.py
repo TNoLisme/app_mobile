@@ -60,9 +60,30 @@ def wait_for_database() -> None:
         admin_engine.dispose()
 
 
+def _add_column_if_missing(connection, table_name: str, column_name: str, definition: str) -> None:
+    connection.execute(
+        text(
+            f"""
+            IF COL_LENGTH('{table_name}', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE {table_name} ADD {column_name} {definition}
+            END
+            """
+        )
+    )
+
+
+def apply_additive_migrations() -> None:
+    with engine.begin() as connection:
+        _add_column_if_missing(connection, "users", "password", "NVARCHAR(255) NULL")
+        _add_column_if_missing(connection, "session_questions", "question_id", "NVARCHAR(64) NULL")
+        _add_column_if_missing(connection, "session_questions", "used_hint", "INT NULL")
+
+
 def init_db() -> None:
     wait_for_database()
     Base.metadata.create_all(bind=engine)
+    apply_additive_migrations()
     from app.db.session import SessionLocal
 
     db = SessionLocal()
