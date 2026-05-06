@@ -53,6 +53,7 @@ class AnswerResult(BaseModel):
     is_correct: bool
     response_time_ms: int = 0
     used_hint: bool = False
+    cv_confidence: float | None = None
 
 
 class EndLevelRequest(BaseModel):

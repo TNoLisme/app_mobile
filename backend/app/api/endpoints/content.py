@@ -349,6 +349,20 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
         if content and content.emotion:
             emotion_errors[content.emotion] = emotion_errors.get(content.emotion, 0) + 1
 
+    db.query(SessionQuestion).filter(SessionQuestion.session_id == session.session_id).delete()
+    for result in body.results:
+        db.add(
+            SessionQuestion(
+                id=str(uuid.uuid4()),
+                session_id=session.session_id,
+                question_id=result.question_id,
+                is_correct=1 if result.is_correct else 0,
+                response_time_ms=int(result.response_time_ms or 0),
+                cv_confidence=result.cv_confidence,
+                used_hint=1 if result.used_hint else 0,
+            )
+        )
+
     session.state = "end"
     session.end_time = datetime.utcnow()
     session.score = round(accuracy)

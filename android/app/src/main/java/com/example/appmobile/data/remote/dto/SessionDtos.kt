@@ -40,7 +40,8 @@ data class AnswerResultDto(
     @SerializedName("answer") val answer: String?,
     @SerializedName("is_correct") val isCorrect: Boolean,
     @SerializedName("response_time_ms") val responseTimeMs: Int = 0,
-    @SerializedName("used_hint") val usedHint: Boolean = false
+    @SerializedName("used_hint") val usedHint: Boolean = false,
+    @SerializedName("cv_confidence") val cvConfidence: Float? = null
 )
 
 data class EndLevelRequestDto(

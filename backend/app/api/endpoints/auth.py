@@ -77,6 +77,17 @@ def _normalize_emotion(emotion: str | None) -> str | None:
     return None
 
 
+def _parse_date(value):
+    if value in [None, ""]:
+        return None
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="date_of_birth khÃ´ng há»£p lá»‡") from None
+
+
 def _user_payload(user: User, child: Child | None = None) -> dict:
     payload = {
         "user_id": user.user_id,
@@ -123,6 +134,7 @@ async def register_user_sync(request: UserSyncRequest, db: Session = Depends(get
             db_user = User(user_id=request.user_id)
             db.add(db_user)
 
+        db_user.username = request.username or request.email.split("@")[0]
         db_user.email = request.email
         db_user.name = request.name
         db_user.role = request.role
@@ -134,6 +146,9 @@ async def register_user_sync(request: UserSyncRequest, db: Session = Depends(get
 
         child.age = request.age
         child.gender = request.gender
+        child.date_of_birth = request.date_of_birth
+        child.phone_number = request.phone_number
+        child.report_preferences = request.report_preferences
 
         db.commit()
         return {"status": "success", "message": "Synced successfully"}
@@ -245,9 +260,11 @@ async def update_profile(payload: dict = Body(...), db: Session = Depends(get_db
         db.add(child)
 
     if child is not None:
-        for field in ["age", "gender", "date_of_birth", "phone_number", "report_preferences"]:
+        for field in ["age", "gender", "phone_number", "report_preferences"]:
             if update.get(field) not in [None, ""]:
                 setattr(child, field, update[field])
+        if update.get("date_of_birth") not in [None, ""]:
+            child.date_of_birth = _parse_date(update.get("date_of_birth"))
 
     db.commit()
     db.refresh(user)

@@ -135,7 +135,8 @@ fun CvTrainingGamePage(
             questionId = question.questionId,
             answer = if (success) question.prompt.correctAnswer else "not_matched",
             isCorrect = success,
-            responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
+            responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt(),
+            cvConfidence = if (success) 100f else 0f
         )
         results.value = updatedResults
         feedback.value = if (success) {

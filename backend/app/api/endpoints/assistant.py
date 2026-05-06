@@ -23,6 +23,8 @@ GAME_RULES = {
     "game_click_3": "Đọc tình huống rồi kéo tên hoặc cảm xúc vào đúng vị trí.",
     "game_click_4": "Đọc câu chuyện ngắn và chọn cảm xúc phù hợp nhất.",
     "gameCV": "Bật camera, đọc yêu cầu, rồi thể hiện khuôn mặt đúng với cảm xúc mục tiêu.",
+    "game_cv_2": "Bật camera và thể hiện đúng biểu cảm theo yêu cầu của màn chơi.",
+    "learn": "Ở màn học, bé chọn một cảm xúc, xem video mẫu và đọc dấu hiệu nhận biết.",
 }
 
 
