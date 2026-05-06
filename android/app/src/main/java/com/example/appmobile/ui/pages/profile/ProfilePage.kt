@@ -63,16 +63,16 @@ import java.util.Locale
 
 private val ProfileBackgroundGradient = Brush.verticalGradient(
     listOf(
-        Color(0xFFF4FBFF),
-        Color(0xFFE6F5FD),
-        Color(0xFFD9EEF9)
+        Color(0xFFF8FDFF),
+        Color(0xFFEAF7FF),
+        Color(0xFFDDF2FF)
     )
 )
-private val ProfileButtonGradient = Brush.horizontalGradient(listOf(Color(0xFF38BDF8), Color(0xFF2563EB)))
-private val ProfileTextPrimary = Color(0xFF1F2937)
-private val ProfileTextSecondary = Color(0xFF6B7280)
-private val ProfileBlue = Color(0xFF0B66C3)
-private val ProfileCardBorder = Color(0xFFDDEAF5)
+private val ProfileButtonGradient = Brush.horizontalGradient(listOf(Color(0xFF38BDF8), Color(0xFF60A5FA)))
+private val ProfileTextPrimary = Color(0xFF073B73)
+private val ProfileTextSecondary = Color(0xFF64748B)
+private val ProfileBlue = Color(0xFF0B5DAE)
+private val ProfileCardBorder = Color(0xFFD7E7F3)
 
 private data class ProfileBadge(
     val id: String,
@@ -174,7 +174,7 @@ fun ProfilePage(onBack: () -> Unit) {
                 )
             )
             ProfileActions(onEdit = { showEdit = true })
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(96.dp))
         }
     }
 
@@ -210,10 +210,10 @@ private fun ProfileTopBar(onBack: () -> Unit) {
         GradientPill(
             text = "← Quay lại",
             onClick = onBack,
-            heightDp = 34,
+            heightDp = 36,
             horizontalPaddingDp = 14,
             fontSizeSp = 13,
-            shadowDp = 2
+            shadowDp = 1
         )
         Spacer(modifier = Modifier.weight(1f))
     }
@@ -246,7 +246,7 @@ private fun ErrorAlert(message: String, onRetry: () -> Unit) {
             Text(
                 text = "Thử lại",
                 modifier = Modifier.clickable(onClick = onRetry),
-                color = Color(0xFF0B66C3),
+                color = ProfileBlue,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -474,7 +474,7 @@ private fun StatTile(stat: ProfileStat, modifier: Modifier = Modifier) {
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = stat.label,
-                color = Color(0xFF4B5563),
+                color = ProfileTextSecondary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
@@ -491,10 +491,10 @@ private fun ProfileActions(onEdit: () -> Unit) {
         text = "✏️ Chỉnh sửa hồ sơ",
         onClick = onEdit,
         modifier = Modifier.fillMaxWidth(),
-        heightDp = 44,
+        heightDp = 48,
         horizontalPaddingDp = 16,
         fontSizeSp = 14,
-        shadowDp = 2
+        shadowDp = 1
     )
 }
 
@@ -505,7 +505,7 @@ private fun ProfileSurface(content: @Composable () -> Unit) {
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.96f)),
         border = BorderStroke(1.dp, ProfileCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         content()
     }

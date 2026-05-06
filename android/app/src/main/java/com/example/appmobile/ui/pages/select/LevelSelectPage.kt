@@ -1,5 +1,6 @@
 package com.example.appmobile.ui.pages.select
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +36,7 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.catalog.LevelUiItem
+import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 
@@ -114,16 +116,16 @@ fun LevelSelectPage(
                         text = "Chọn cấp độ",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E4E8C)
+                        color = EgDesign.textPrimary
                     )
-                    Text(progressText, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text(progressText, style = MaterialTheme.typography.bodySmall, color = EgDesign.textSecondary)
                 }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
             if (isLoading) {
-                Text("Đang tải tiến trình...", color = Color.Gray)
+                Text("Đang tải tiến trình...", color = EgDesign.textSecondary)
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
@@ -139,8 +141,8 @@ fun LevelSelectPage(
 @Composable
 private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
     val level = state.level
-    val containerColor = if (state.unlocked) Color.White else Color(0xFFF1F5F9)
-    val titleColor = if (state.unlocked) Color(0xFF203864) else Color(0xFF94A3B8)
+    val containerColor = if (state.unlocked) EgDesign.card else Color(0xFFF1F7FC)
+    val titleColor = if (state.unlocked) EgDesign.textPrimary else Color(0xFF94A3B8)
     val statusText = when {
         state.completed -> "Đã hoàn thành"
         state.unlocked -> "Có thể chơi"
@@ -148,7 +150,7 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
     }
     val statusColor = when {
         state.completed -> Color(0xFF2E7D32)
-        state.unlocked -> Color(0xFF1E4E8C)
+        state.unlocked -> EgDesign.blue
         else -> Color(0xFF94A3B8)
     }
 
@@ -158,7 +160,8 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
             .clickable(enabled = state.unlocked) { onStartGame(level.id.toString()) },
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (state.unlocked) 2.dp else 0.dp)
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (state.unlocked) 1.dp else 0.dp)
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
@@ -183,7 +186,7 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
                 Text(
                     text = level.description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    color = EgDesign.textSecondary
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = MaterialTheme.shapes.medium, color = statusColor.copy(alpha = 0.12f)) {
@@ -199,7 +202,7 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
                         Text(
                             "Điểm gần nhất: $score/100",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.Gray
+                            color = EgDesign.textSecondary
                         )
                     }
                 }

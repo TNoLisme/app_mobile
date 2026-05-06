@@ -14,10 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,13 +43,11 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.catalog.GameUiItem
+import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgGradientPill
-import com.example.appmobile.ui.components.EgHeroCard
-import com.example.appmobile.ui.components.EgSegmentedTabs
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgTab
-import com.example.appmobile.ui.components.EgTopActions
 
 private data class GameCategoryUi(
     val title: String,
@@ -100,35 +95,21 @@ fun SelectGamePage(
 
     val categories = buildCategories(games, showAll, type)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(EgDesign.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    EgCollapsibleMainScaffold(
+        activeTab = EgTab.Games,
+        onHome = onGoHome,
+        onLearn = onOpenLearn,
+        onGames = {},
+        onProfile = onOpenProfile,
+        onSettings = onOpenSettings
     ) {
-        EgTopActions(onProfile = onOpenProfile, onSettings = onOpenSettings)
-        EgSegmentedTabs(
-            activeTab = EgTab.Games,
-            onHome = onGoHome,
-            onLearn = onOpenLearn,
-            onGames = {}
-        )
-
-        EgHeroCard(
-            title = "CHƠI GAME",
-            description = "Chọn trò chơi, sau đó chọn level phù hợp để bé luyện cảm xúc."
-        )
+        categories.forEach { category ->
+            GameCategorySection(category = category, onOpenLevel = onOpenLevel)
+        }
 
         if (isLoading) {
             LoadingStrip("Đang tải danh sách game...")
         }
-
-        categories.forEach { category ->
-            GameCategorySection(category = category, onOpenLevel = onOpenLevel)
-        }
-        Spacer(modifier = Modifier.height(10.dp))
     }
 }
 
@@ -166,19 +147,13 @@ private fun GameCategorySection(category: GameCategoryUi, onOpenLevel: (String) 
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(2.dp)
-                        .background(EgDesign.primaryGradient, CircleShape)
-                )
             }
 
             if (category.games.isEmpty()) {
                 Text("Chưa có game trong nhóm này.", color = EgDesign.textSecondary, fontSize = 14.sp)
             } else {
                 category.games.chunked(2).forEach { rowGames ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         rowGames.forEach { game ->
                             GameBlock(
                                 game = game,
@@ -204,7 +179,7 @@ private fun GameBlock(
 ) {
     Card(
         modifier = modifier
-            .height(216.dp)
+            .height(248.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
@@ -217,10 +192,10 @@ private fun GameBlock(
         ) {
             Image(
                 painter = painterResource(id = game.imageRes),
-                contentDescription = game.title,
+                contentDescription = displayGameTitle(game),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(92.dp)
+                    .height(116.dp)
                     .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)),
                 contentScale = ContentScale.Crop
             )
@@ -233,30 +208,30 @@ private fun GameBlock(
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Text(
-                    game.title,
+                    displayGameTitle(game),
                     color = EgDesign.textPrimary,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 13.sp,
-                    lineHeight = 16.sp,
+                    lineHeight = 17.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    game.description.ifBlank { "Chơi ngay!" },
+                    displayGameDescription(game),
                     color = EgDesign.textSecondary,
                     fontSize = 11.sp,
-                    lineHeight = 14.sp,
+                    lineHeight = 15.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 EgGradientPill(
-                    text = "Chọn Level",
+                    text = "Chọn cấp độ",
                     onClick = onClick,
                     modifier = Modifier.fillMaxWidth(),
-                    height = 36.dp,
+                    height = 40.dp,
                     fontSize = 12
                 )
             }
@@ -271,9 +246,33 @@ private fun buildCategories(games: List<GameUiItem>, showAll: Boolean, type: Str
         .ifEmpty { if (showAll || type == "camera_game") GameUiCatalog.gamesByType("camera_game") else emptyList() }
 
     return listOfNotNull(
-        GameCategoryUi("Game nhận biết", "🎮", "click_game", clickGames)
+        GameCategoryUi("Trò chơi luyện cảm xúc", "🎮", "click_game", clickGames)
             .takeIf { showAll || type == it.type },
-        GameCategoryUi("Game biểu cảm", "💻", "camera_game", cameraGames)
+        GameCategoryUi("Trò chơi biểu cảm", "💻", "camera_game", cameraGames)
             .takeIf { showAll || type == it.type }
     )
+}
+
+private fun displayGameTitle(game: GameUiItem): String {
+    return when (game.id) {
+        GameUiCatalog.GAME_EMOTION_MATCH -> "Cảm xúc đúng chỗ"
+        GameUiCatalog.GAME_RECOGNIZE_EMOTION -> "Chiếc hộp cảm xúc"
+        GameUiCatalog.GAME_DETECTIVE -> "Thám tử cảm xúc"
+        GameUiCatalog.GAME_FACE_ASSEMBLY -> "Xưởng lắp ghép"
+        GameUiCatalog.GAME_CV_STORY -> "Câu chuyện khuôn mặt"
+        GameUiCatalog.GAME_CV_REQUEST -> "Thử thách biểu cảm"
+        else -> game.title
+    }
+}
+
+private fun displayGameDescription(game: GameUiItem): String {
+    return when (game.id) {
+        GameUiCatalog.GAME_EMOTION_MATCH -> "Đặt cảm xúc vào đúng ngữ cảnh"
+        GameUiCatalog.GAME_RECOGNIZE_EMOTION -> "Chọn cảm xúc đúng qua hình ảnh"
+        GameUiCatalog.GAME_DETECTIVE -> "Tìm cảm xúc ẩn giấu trong tình huống"
+        GameUiCatalog.GAME_FACE_ASSEMBLY -> "Ghép các bộ phận khuôn mặt"
+        GameUiCatalog.GAME_CV_STORY -> "Bắt chước biểu cảm của nhân vật"
+        GameUiCatalog.GAME_CV_REQUEST -> "Thể hiện biểu cảm theo yêu cầu"
+        else -> game.description.ifBlank { "Chơi ngay!" }
+    }
 }

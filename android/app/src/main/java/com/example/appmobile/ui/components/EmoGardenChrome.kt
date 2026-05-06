@@ -1,5 +1,6 @@
 package com.example.appmobile.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,11 +33,11 @@ enum class EmoGardenNavItem(val title: String) {
 }
 
 val EmoGardenBackground = Brush.linearGradient(
-    listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB))
+    listOf(Color(0xFFF8FDFF), Color(0xFFDDF2FF))
 )
 
 val EmoGardenButtonGradient = Brush.linearGradient(
-    listOf(Color(0xFF4FACFE), Color(0xFF00D4FF))
+    listOf(Color(0xFF38BDF8), Color(0xFF60A5FA))
 )
 
 @Composable
@@ -52,7 +53,7 @@ fun EmoGardenTopNav(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = Color.White.copy(alpha = 0.98f),
-        shadowElevation = 8.dp
+        shadowElevation = 2.dp
     ) {
         Column(
             modifier = Modifier
@@ -107,8 +108,8 @@ private fun RoundNavAction(text: String, onClick: () -> Unit) {
             .size(40.dp)
             .clickable(onClick = onClick),
         shape = CircleShape,
-        color = Color(0xFFE3F2FD),
-        shadowElevation = 3.dp
+        color = Color(0xFFEAF7FF),
+        shadowElevation = 1.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(text = text, fontSize = 19.sp)
@@ -125,7 +126,7 @@ private fun NavPill(
 ) {
     val active = item == activeItem
     val background = if (active) {
-        Brush.linearGradient(listOf(Color(0xFF4FACFE), Color(0xFF00D4FF)))
+        Brush.linearGradient(listOf(Color(0xFF38BDF8), Color(0xFF60A5FA)))
     } else {
         Brush.linearGradient(listOf(Color.White, Color(0xFFF8FBFF)))
     }
@@ -133,7 +134,7 @@ private fun NavPill(
         modifier = modifier.clickable(onClick = onClick),
         shape = CircleShape,
         color = Color.Transparent,
-        shadowElevation = if (active) 4.dp else 1.dp
+        shadowElevation = if (active) 1.dp else 0.dp
     ) {
         Box(
             modifier = Modifier
@@ -163,7 +164,7 @@ fun GradientActionButton(
         modifier = modifier.clickable(onClick = onClick),
         shape = CircleShape,
         color = Color.Transparent,
-        shadowElevation = 4.dp
+        shadowElevation = 2.dp
     ) {
         Box(
             modifier = Modifier
@@ -184,7 +185,8 @@ fun AssistantChatBubble(onClick: () -> Unit, modifier: Modifier = Modifier) {
             .clickable(onClick = onClick),
         shape = CircleShape,
         color = Color.Transparent,
-        shadowElevation = 10.dp
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.75f)),
+        shadowElevation = 4.dp
     ) {
         Box(
             modifier = Modifier

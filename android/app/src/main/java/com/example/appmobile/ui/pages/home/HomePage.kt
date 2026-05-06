@@ -15,14 +15,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,24 +43,26 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appmobile.R
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
+import com.example.appmobile.ui.components.EgTab
 import com.example.appmobile.ui.viewmodel.HomeEmotionUi
 import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
 import com.example.appmobile.ui.viewmodel.HomeViewModel
 
 private val HomeBackgroundGradient = Brush.verticalGradient(
     listOf(
-        Color(0xFFF4FBFF),
-        Color(0xFFE6F5FD),
-        Color(0xFFD9EEF9)
+        Color(0xFFF8FDFF),
+        Color(0xFFEAF7FF),
+        Color(0xFFDDF2FF)
     )
 )
-private val HomePrimaryGradient = Brush.horizontalGradient(listOf(Color(0xFF38BDF8), Color(0xFF2563EB)))
-private val HomeSoftGradient = Brush.linearGradient(listOf(Color(0xFF7DD3FC), Color(0xFF3B82F6)))
-private val HomeCard = Color.White.copy(alpha = 0.96f)
-private val HomeCardBorder = Color(0xFFDDEAF5)
-private val HomeTextPrimary = Color(0xFF1F2937)
-private val HomeTextSecondary = Color(0xFF6B7280)
-private val HomeBlue = Color(0xFF0B66C3)
+private val HomePrimaryGradient = Brush.horizontalGradient(listOf(Color(0xFF38BDF8), Color(0xFF60A5FA)))
+private val HomeSoftGradient = Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFE8F7FF)))
+private val HomeCard = Color.White.copy(alpha = 0.98f)
+private val HomeCardBorder = Color(0xFFD7E7F3)
+private val HomeTextPrimary = Color(0xFF073B73)
+private val HomeTextSecondary = Color(0xFF64748B)
+private val HomeBlue = Color(0xFF0B5DAE)
 private val HomeRadiusCard = 18.dp
 private val HomeRadiusPill = 999.dp
 private val HomeScreenPadding = 16.dp
@@ -81,27 +80,15 @@ fun HomePage(
     val loading by vm.isLoading
     val errorMessage by vm.errorMessage
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(HomeBackgroundGradient)
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = HomeScreenPadding, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    EgCollapsibleMainScaffold(
+        activeTab = EgTab.Home,
+        onHome = {},
+        onLearn = onNavigateToLearn,
+        onGames = { onNavigateToGame("all") },
+        onProfile = onNavigateToProfile,
+        onSettings = onNavigateToSettings,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        HomeHeader(
-            onProfile = onNavigateToProfile,
-            onSettings = onNavigateToSettings
-        )
-
-        SegmentedTabs(
-            onHome = {},
-            onLearn = onNavigateToLearn,
-            onGames = { onNavigateToGame("all") }
-        )
-
         errorMessage?.let { message ->
             ErrorBanner(message = message, onRetry = vm::refresh)
         }
@@ -124,7 +111,6 @@ fun HomePage(
         )
 
         ProgressReportCard(onNavigateToReport = onNavigateToReport)
-        Spacer(modifier = Modifier.height(6.dp))
     }
 }
 
@@ -219,7 +205,11 @@ private fun EmotionAccuracySection(emotions: List<HomeEmotionUi>) {
         SectionTitle("Tỉ lệ đúng của các cảm xúc")
 
         if (emotions.isEmpty()) {
-            EmptyHomeCard("Chưa có dữ liệu độ chính xác. Bé hãy chơi vài câu hỏi để có thống kê nhé.")
+            EmptyHomeCard(
+                message = "Chưa có dữ liệu độ chính xác.",
+                subtitle = "Bé hãy chơi vài câu hỏi để có thống kê nhé.",
+                icon = "📊"
+            )
             return
         }
 
@@ -244,10 +234,11 @@ private fun EmotionAccuracySection(emotions: List<HomeEmotionUi>) {
 @Composable
 private fun EmotionStatCard(emotion: HomeEmotionUi, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.height(106.dp),
+        modifier = modifier.height(104.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = HomeCard),
+        border = BorderStroke(1.dp, HomeCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
@@ -260,7 +251,7 @@ private fun EmotionStatCard(emotion: HomeEmotionUi, modifier: Modifier = Modifie
             Text(text = emotionIcon(emotion.name), fontSize = 25.sp)
             Text(
                 emotion.name,
-                color = Color.White,
+                color = HomeTextPrimary,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 12.sp,
                 maxLines = 1,
@@ -268,7 +259,7 @@ private fun EmotionStatCard(emotion: HomeEmotionUi, modifier: Modifier = Modifie
             )
             Text(
                 "${formatPercent(emotion.accuracy)}%",
-                color = Color.White,
+                color = HomeBlue,
                 fontWeight = FontWeight.Black,
                 fontSize = 21.sp,
                 lineHeight = 24.sp
@@ -286,7 +277,11 @@ private fun RecentGamesSection(
         SectionTitle("Trò chơi đã chơi gần đây")
 
         if (games.isEmpty()) {
-            EmptyHomeCard("Chưa có trò chơi nào được chơi gần đây.")
+            EmptyHomeCard(
+                message = "Chưa có trò chơi nào được chơi gần đây.",
+                subtitle = "Hãy thử chơi một màn đầu tiên nhé!",
+                icon = "🎮"
+            )
             return
         }
 
@@ -445,7 +440,11 @@ private fun ErrorBanner(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun EmptyHomeCard(message: String) {
+private fun EmptyHomeCard(
+    message: String,
+    subtitle: String? = null,
+    icon: String = "🎮"
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(HomeRadiusCard),
@@ -453,13 +452,38 @@ private fun EmptyHomeCard(message: String) {
         border = BorderStroke(1.dp, HomeCardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Text(
-            text = message,
+        Row(
             modifier = Modifier.padding(16.dp),
-            color = HomeTextSecondary,
-            fontSize = 14.sp,
-            lineHeight = 20.sp
-        )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = CircleShape,
+                color = Color(0xFFE8F7FF),
+                border = BorderStroke(1.dp, Color(0xFFD7E7F3))
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(icon, fontSize = 22.sp)
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = message,
+                    color = HomeTextSecondary,
+                    fontSize = 14.sp,
+                    lineHeight = 19.sp
+                )
+                subtitle?.let {
+                    Text(
+                        text = it,
+                        color = Color(0xFF7C8A9C),
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
+                    )
+                }
+            }
+        }
     }
 }
 

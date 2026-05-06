@@ -18,12 +18,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,6 +40,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,13 +51,11 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.EmotionUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgGradientPill
-import com.example.appmobile.ui.components.EgHeroCard
-import com.example.appmobile.ui.components.EgSegmentedTabs
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgTab
-import com.example.appmobile.ui.components.EgTopActions
 
 @Composable
 fun LearnPage(
@@ -97,42 +92,28 @@ fun LearnPage(
         isLoading = false
     }
 
-    val selectedEmotion = emotions.firstOrNull { it.id == selectedEmotionId }
+    val gridEmotions = remember(emotions) { learningEmotionGridItems(emotions) }
+    val selectedEmotion = gridEmotions.firstOrNull { it.id == selectedEmotionId }
+        ?: gridEmotions.firstOrNull()
         ?: GameUiCatalog.emotions.first()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(EgDesign.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    LaunchedEffect(gridEmotions, selectedEmotionId) {
+        if (gridEmotions.isNotEmpty() && gridEmotions.none { it.id == selectedEmotionId }) {
+            selectedEmotionId = gridEmotions.first().id
+        }
+    }
+
+    EgCollapsibleMainScaffold(
+        activeTab = EgTab.Learn,
+        onHome = onGoHome,
+        onLearn = {},
+        onGames = onOpenGames,
+        onProfile = onOpenProfile,
+        onSettings = onOpenSettings
     ) {
-        EgTopActions(onProfile = onOpenProfile, onSettings = onOpenSettings)
-        EgSegmentedTabs(
-            activeTab = EgTab.Learn,
-            onHome = onGoHome,
-            onLearn = {},
-            onGames = onOpenGames
-        )
-
-        EgHeroCard(
-            title = "HỌC CẢM XÚC",
-            description = "Chọn một cảm xúc, xem video mẫu rồi đọc tình huống minh họa."
-        )
-
         if (isLoading) {
             LoadingStrip("Đang tải thẻ học...")
         }
-
-        EmotionPillRow(
-            emotions = emotions,
-            selectedEmotionId = selectedEmotionId,
-            onSelect = { emotion ->
-                selectedEmotionId = emotion.id
-                pageIndex = 0
-            }
-        )
 
         LearnMediaCarousel(
             emotion = selectedEmotion,
@@ -141,7 +122,15 @@ fun LearnPage(
             onNext = { pageIndex = if (pageIndex == 0) 1 else 0 },
             onSelectDetail = { onSelectEmotion(selectedEmotion.id) }
         )
-        Spacer(modifier = Modifier.height(10.dp))
+
+        EmotionGrid(
+            emotions = gridEmotions,
+            selectedEmotionId = selectedEmotionId,
+            onSelect = { emotion ->
+                selectedEmotionId = emotion.id
+                pageIndex = 0
+            }
+        )
     }
 }
 
@@ -166,39 +155,70 @@ private fun LoadingStrip(message: String) {
 }
 
 @Composable
-private fun EmotionPillRow(
+private fun EmotionGrid(
     emotions: List<EmotionUiItem>,
     selectedEmotionId: String,
     onSelect: (EmotionUiItem) -> Unit
 ) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(emotions) { emotion ->
-            val selected = emotion.id == selectedEmotionId
-            Surface(
-                modifier = Modifier.clickable { onSelect(emotion) },
-                shape = RoundedCornerShape(EgDesign.pillRadius),
-                color = Color.Transparent,
-                border = BorderStroke(1.dp, if (selected) EgDesign.blue else EgDesign.cardBorder),
-                shadowElevation = if (selected) 2.dp else 1.dp
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        emotions.take(6).chunked(3).forEach { rowEmotions ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .background(if (selected) EgDesign.primaryGradient else Brush.linearGradient(listOf(emotionPillColor(emotion.id), EgDesign.card)))
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(emotionIcon(emotion.id), fontSize = 18.sp)
-                    Text(
-                        emotion.name,
-                        color = if (selected) Color.White else EgDesign.blue,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                rowEmotions.forEach { emotion ->
+                    EmotionGridItem(
+                        emotion = emotion,
+                        selected = emotion.id == selectedEmotionId,
+                        onClick = { onSelect(emotion) },
+                        modifier = Modifier.weight(1f)
                     )
                 }
+                repeat(3 - rowEmotions.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun EmotionGridItem(
+    emotion: EmotionUiItem,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val key = emotionKey(emotion)
+    Surface(
+        modifier = modifier
+            .height(72.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
+        shadowElevation = if (selected) 2.dp else 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .background(if (selected) EgDesign.primaryGradient else Brush.linearGradient(listOf(emotionPillColor(key), EgDesign.card)))
+                .padding(horizontal = 6.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(emotionIcon(key), fontSize = 20.sp, lineHeight = 22.sp)
+            Text(
+                text = emotionDisplayName(emotion),
+                color = if (selected) Color.White else EgDesign.textPrimary,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 12.sp,
+                lineHeight = 15.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 2
+            )
         }
     }
 }
@@ -219,7 +239,7 @@ private fun LearnMediaCarousel(
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        "${emotionIcon(emotion.id)} ${emotion.name}",
+                        "${emotionIcon(emotionKey(emotion))} ${emotionDisplayName(emotion)}",
                         color = EgDesign.blue,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -246,11 +266,11 @@ private fun LearnMediaCarousel(
                 contentAlignment = Alignment.Center
             ) {
                 if (pageIndex == 0) {
-                    AssetVideoPlayer(emotionId = emotion.id)
+                    AssetVideoPlayer(emotionId = emotionKey(emotion))
                 } else {
                     Image(
-                        painter = painterResource(id = rememberEmotionImageResource(emotion.id)),
-                        contentDescription = emotion.name,
+                        painter = painterResource(id = rememberEmotionImageResource(emotionKey(emotion))),
+                        contentDescription = emotionDisplayName(emotion),
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
@@ -332,7 +352,7 @@ private fun SituationPanel(emotion: EmotionUiItem, onSelectDetail: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                text = situationForEmotion(emotion.id),
+                text = situationForEmotion(emotionKey(emotion)),
                 color = EgDesign.textPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -386,6 +406,48 @@ private fun emotionPillColor(emotionId: String): Color {
         "surprise" -> Color(0xFFFFEDD5)
         "disgust" -> Color(0xFFDCFCE7)
         else -> Color(0xFFF4F4F5)
+    }
+}
+
+private val EmotionDisplayOrder = listOf("happy", "sad", "angry", "fear", "surprise", "disgust")
+
+private fun learningEmotionGridItems(emotions: List<EmotionUiItem>): List<EmotionUiItem> {
+    val emotionsByKey = emotions.groupBy { emotionKey(it) }
+    return EmotionDisplayOrder.map { key ->
+        emotionsByKey[key]?.firstOrNull()
+            ?: GameUiCatalog.emotionById(key)
+            ?: EmotionUiItem(
+                id = key,
+                name = emotionDisplayName(key),
+                emoji = emotionIcon(key),
+                description = ""
+            )
+    }
+}
+
+private fun emotionKey(emotion: EmotionUiItem): String {
+    val idKey = normalizeEmotionId(emotion.id)
+    if (idKey in EmotionDisplayOrder) return idKey
+
+    val nameKey = normalizeEmotionId(emotion.name)
+    if (nameKey in EmotionDisplayOrder) return nameKey
+
+    return idKey
+}
+
+private fun emotionDisplayName(emotion: EmotionUiItem): String {
+    return emotionDisplayName(emotionKey(emotion))
+}
+
+private fun emotionDisplayName(emotionId: String): String {
+    return when (normalizeEmotionId(emotionId)) {
+        "happy" -> "Vui vẻ"
+        "sad" -> "Buồn bã"
+        "angry" -> "Tức giận"
+        "fear" -> "Sợ hãi"
+        "surprise" -> "Ngạc nhiên"
+        "disgust" -> "Ghê tởm"
+        else -> emotionId
     }
 }
 
