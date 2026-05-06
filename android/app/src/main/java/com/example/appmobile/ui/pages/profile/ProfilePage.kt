@@ -5,15 +5,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,7 +29,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,11 +51,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.NetworkClient
@@ -57,6 +70,8 @@ import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -73,6 +88,7 @@ private val ProfileTextPrimary = Color(0xFF073B73)
 private val ProfileTextSecondary = Color(0xFF64748B)
 private val ProfileBlue = Color(0xFF0B5DAE)
 private val ProfileCardBorder = Color(0xFFD7E7F3)
+private val ProfileSoftSection = Color(0xFFF3FBFF)
 
 private data class ProfileBadge(
     val id: String,
@@ -109,11 +125,22 @@ fun ProfilePage(onBack: () -> Unit) {
     var showEdit by remember { mutableStateOf(false) }
 
     suspend fun loadProfileData() {
-        loading = true
-        profile = repository.getProfile(userId)
-        recentGames = repository.getRecentGames(userId)
-        sessions = repository.getSessionHistory(userId)
-        cvEmotionScores = repository.getCvEmotionScores(userId)?.scores.orEmpty()
+        loading = profile == null
+        message = null
+        coroutineScope {
+            val profileDeferred = async { repository.getProfile(userId) }
+            val recentGamesDeferred = async { repository.getRecentGames(userId) }
+            val sessionsDeferred = async { repository.getSessionHistory(userId) }
+            val cvScoresDeferred = async { repository.getCvEmotionScores(userId)?.scores.orEmpty() }
+
+            profile = profileDeferred.await()
+            message = if (profile == null) "Chưa tải được hồ sơ từ backend." else null
+            loading = false
+
+            recentGames = recentGamesDeferred.await()
+            sessions = sessionsDeferred.await()
+            cvEmotionScores = cvScoresDeferred.await()
+        }
         message = if (profile == null) "Chưa tải được hồ sơ từ backend." else null
         loading = false
     }
@@ -178,8 +205,8 @@ fun ProfilePage(onBack: () -> Unit) {
         }
     }
 
-    if (showEdit && profile != null) {
-        EditProfileDialog(
+    if (showEdit) {
+        EditProfileDialogV2(
             profile = profile,
             saving = saving,
             onDismiss = { if (!saving) showEdit = false },
@@ -190,7 +217,7 @@ fun ProfilePage(onBack: () -> Unit) {
                     saving = false
                     if (updated != null) {
                         profile = updated
-                        message = "Đã cập nhật hồ sơ."
+                        message = "Cập nhật hồ sơ thành công."
                         showEdit = false
                     } else {
                         message = "Cập nhật hồ sơ chưa thành công."
@@ -623,6 +650,359 @@ private fun EditProfileDialog(
             TextButton(enabled = !saving, onClick = onDismiss) { Text("Hủy") }
         }
     )
+}
+
+@Composable
+private fun EditProfileDialogV2(
+    profile: UserProfileDto?,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (UserProfileUpdateDto) -> Unit
+) {
+    var name by rememberSaveable(profile?.userId) { mutableStateOf(profile?.name.orEmpty()) }
+    var username by rememberSaveable(profile?.userId) { mutableStateOf(profile?.username.orEmpty()) }
+    var email by rememberSaveable(profile?.userId) { mutableStateOf(profile?.email.orEmpty()) }
+    var newPassword by rememberSaveable(profile?.userId) { mutableStateOf("") }
+    var confirmPassword by rememberSaveable(profile?.userId) { mutableStateOf("") }
+    var age by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.age?.toString().orEmpty()) }
+    var gender by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.gender.orEmpty()) }
+    var dateOfBirth by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.dob.orEmpty()) }
+    var phone by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.phone.orEmpty()) }
+    var formError by rememberSaveable(profile?.userId) { mutableStateOf<String?>(null) }
+
+    fun validate(): Boolean {
+        val trimmedEmail = email.trim()
+        val trimmedAge = age.trim()
+        val trimmedPhone = phone.trim()
+        formError = when {
+            trimmedEmail.isNotEmpty() && !trimmedEmail.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) ->
+                "Email không đúng định dạng."
+            trimmedAge.isNotEmpty() && (trimmedAge.toIntOrNull() == null || trimmedAge.toInt() !in 1..120) ->
+                "Tuổi phải là số hợp lệ từ 1 đến 120."
+            trimmedPhone.isNotEmpty() && !trimmedPhone.matches(Regex("^\\d{8,15}$")) ->
+                "Số điện thoại chỉ gồm số và dài 8-15 ký tự."
+            newPassword.isNotBlank() && newPassword != confirmPassword ->
+                "Mật khẩu mới và nhập lại mật khẩu mới không trùng nhau."
+            else -> null
+        }
+        return formError == null
+    }
+
+    Dialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp, vertical = 18.dp)
+                .imePadding()
+                .navigationBarsPadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            val twoColumns = maxWidth >= 620.dp
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.94f)
+                    .widthIn(max = 720.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, ProfileCardBorder),
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    EditProfileHeader(saving = saving, onDismiss = onDismiss)
+                    formError?.let { FormErrorBanner(it) }
+
+                    ProfileSectionCard(title = "Thông tin tài khoản") {
+                        if (twoColumns) {
+                            TwoColumnFields(
+                                first = { ProfileTextField(username, { username = it }, "Tên đăng nhập", "Nhập tên đăng nhập") },
+                                second = { ProfileTextField(email, { email = it }, "Email", "email@example.com", keyboardType = KeyboardType.Email) }
+                            )
+                            TwoColumnFields(
+                                first = {
+                                    ProfileTextField(
+                                        newPassword,
+                                        { newPassword = it },
+                                        "Mật khẩu mới",
+                                        "Để trống nếu không đổi",
+                                        keyboardType = KeyboardType.Password,
+                                        visualTransformation = PasswordVisualTransformation()
+                                    )
+                                },
+                                second = {
+                                    ProfileTextField(
+                                        confirmPassword,
+                                        { confirmPassword = it },
+                                        "Nhập lại mật khẩu mới",
+                                        "Để trống nếu không đổi",
+                                        keyboardType = KeyboardType.Password,
+                                        visualTransformation = PasswordVisualTransformation()
+                                    )
+                                }
+                            )
+                        } else {
+                            ProfileTextField(username, { username = it }, "Tên đăng nhập", "Nhập tên đăng nhập")
+                            ProfileTextField(email, { email = it }, "Email", "email@example.com", keyboardType = KeyboardType.Email)
+                            ProfileTextField(newPassword, { newPassword = it }, "Mật khẩu mới", "Để trống nếu không đổi", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
+                            ProfileTextField(confirmPassword, { confirmPassword = it }, "Nhập lại mật khẩu mới", "Để trống nếu không đổi", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
+                        }
+                    }
+
+                    ProfileSectionCard(title = "Thông tin cá nhân") {
+                        if (twoColumns) {
+                            TwoColumnFields(
+                                first = { ProfileTextField(name, { name = it }, "Tên hiển thị", "Tên của bé") },
+                                second = { ProfileTextField(age, { input -> if (input.all(Char::isDigit) && input.length <= 3) age = input }, "Tuổi", "Ví dụ: 6", keyboardType = KeyboardType.Number) }
+                            )
+                            TwoColumnFields(
+                                first = { GenderDropdown(gender, onValueChange = { gender = it }) },
+                                second = { ProfileTextField(dateOfBirth, { dateOfBirth = it.take(10) }, "Ngày sinh", "YYYY-MM-DD", trailing = "📅") }
+                            )
+                            ProfileTextField(phone, { input -> if (input.all(Char::isDigit) && input.length <= 15) phone = input }, "Số điện thoại", "Nhập số điện thoại", keyboardType = KeyboardType.Phone)
+                        } else {
+                            ProfileTextField(name, { name = it }, "Tên hiển thị", "Tên của bé")
+                            ProfileTextField(age, { input -> if (input.all(Char::isDigit) && input.length <= 3) age = input }, "Tuổi", "Ví dụ: 6", keyboardType = KeyboardType.Number)
+                            GenderDropdown(gender, onValueChange = { gender = it })
+                            ProfileTextField(dateOfBirth, { dateOfBirth = it.take(10) }, "Ngày sinh", "YYYY-MM-DD", trailing = "📅")
+                            ProfileTextField(phone, { input -> if (input.all(Char::isDigit) && input.length <= 15) phone = input }, "Số điện thoại", "Nhập số điện thoại", keyboardType = KeyboardType.Phone)
+                        }
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SecondaryPillButton("❌ Hủy", enabled = !saving, onClick = onDismiss, modifier = Modifier.weight(1f))
+                        GradientPill(
+                            text = if (saving) "Đang lưu..." else "💾 Lưu thay đổi",
+                            onClick = {
+                                if (!saving && validate()) {
+                                    // TODO: Backend DTO hiện chưa có field password. Khi có API/Firebase update password,
+                                    // chỉ gửi newPassword nếu người dùng nhập mật khẩu mới.
+                                    onSave(
+                                        UserProfileUpdateDto(
+                                            name = name.trim().ifBlank { null },
+                                            username = username.trim().ifBlank { null },
+                                            email = email.trim().ifBlank { null },
+                                            age = age.trim().toIntOrNull(),
+                                            gender = gender.trim().ifBlank { null },
+                                            dateOfBirth = dateOfBirth.trim().ifBlank { null },
+                                            phoneNumber = phone.trim().ifBlank { null }
+                                        )
+                                    )
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            heightDp = 48,
+                            horizontalPaddingDp = 10,
+                            fontSizeSp = 13,
+                            shadowDp = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditProfileHeader(saving: Boolean, onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Surface(
+            modifier = Modifier.size(46.dp),
+            shape = CircleShape,
+            color = Color(0xFFE8F7FF),
+            border = BorderStroke(1.dp, Color(0xFFCDE7FA))
+        ) {
+            Box(contentAlignment = Alignment.Center) { Text("✏️", fontSize = 22.sp) }
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("Chỉnh sửa hồ sơ", color = ProfileTextPrimary, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                "Cập nhật thông tin cá nhân để đồng bộ với trang hồ sơ của bạn.",
+                color = ProfileTextSecondary,
+                fontSize = 13.sp,
+                lineHeight = 18.sp
+            )
+        }
+        CloseButton(enabled = !saving, onClick = onDismiss)
+    }
+}
+
+@Composable
+private fun CloseButton(enabled: Boolean, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .size(36.dp)
+            .clickable(enabled = enabled, onClick = onClick),
+        shape = CircleShape,
+        color = Color(0xFFF8FBFF),
+        border = BorderStroke(1.dp, ProfileCardBorder)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text("×", color = ProfileTextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun FormErrorBanner(message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFFFF1F2),
+        border = BorderStroke(1.dp, Color(0xFFFDA4AF))
+    ) {
+        Text(
+            text = "⚠️ $message",
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            color = Color(0xFF9F1239),
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun ProfileSectionCard(title: String, content: @Composable () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = ProfileSoftSection,
+        border = BorderStroke(1.dp, ProfileCardBorder),
+        shadowElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(text = title, color = ProfileTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun TwoColumnFields(first: @Composable () -> Unit, second: @Composable () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(modifier = Modifier.weight(1f)) { first() }
+        Box(modifier = Modifier.weight(1f)) { second() }
+    }
+}
+
+@Composable
+private fun ProfileTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailing: String? = null
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth(),
+        label = { Text(label, color = ProfileBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+        placeholder = { Text(placeholder, color = ProfileTextSecondary, fontSize = 13.sp) },
+        singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        visualTransformation = visualTransformation,
+        trailingIcon = trailing?.let { icon -> { Text(icon, fontSize = 16.sp) } },
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = ProfileBlue,
+            unfocusedBorderColor = ProfileCardBorder,
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White,
+            focusedTextColor = ProfileTextPrimary,
+            unfocusedTextColor = ProfileTextPrimary,
+            cursorColor = ProfileBlue
+        )
+    )
+}
+
+@Composable
+private fun GenderDropdown(value: String, onValueChange: (String) -> Unit) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val options = listOf("Nam", "Nữ", "Khác")
+
+    Box {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .clickable { expanded = true },
+            shape = RoundedCornerShape(14.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, ProfileCardBorder)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Giới tính", color = ProfileBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = value.ifBlank { "Chọn giới tính" },
+                        color = if (value.isBlank()) ProfileTextSecondary else ProfileTextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text("⌄", color = ProfileTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option, color = ProfileTextPrimary, fontWeight = FontWeight.SemiBold) },
+                    onClick = {
+                        onValueChange(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SecondaryPillButton(
+    text: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(48.dp)
+            .clickable(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(999.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, ProfileCardBorder),
+        shadowElevation = 1.dp
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(text = text, color = ProfileTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        }
+    }
 }
 
 private fun profileStats(

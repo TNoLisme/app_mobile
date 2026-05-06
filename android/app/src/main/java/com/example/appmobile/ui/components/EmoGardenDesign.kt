@@ -3,6 +3,7 @@ package com.example.appmobile.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +44,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -119,7 +121,9 @@ fun EgCollapsibleMainScaffold(
     val density = LocalDensity.current
     var navHeightPx by remember(density) { mutableIntStateOf(with(density) { 128.dp.roundToPx() }) }
     var navOffsetPx by remember { mutableFloatStateOf(0f) }
+    var horizontalDragPx by remember { mutableFloatStateOf(0f) }
     val navHeightDp = with(density) { navHeightPx.toDp() }
+    val swipeThresholdPx = with(density) { 72.dp.toPx() }
     val navProgress = if (navHeightPx == 0) {
         1f
     } else {
@@ -129,6 +133,10 @@ fun EgCollapsibleMainScaffold(
     val nestedScrollConnection = remember(navHeightPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (scrollState.maxValue <= 0) {
+                    navOffsetPx = 0f
+                    return Offset.Zero
+                }
                 if (navHeightPx <= 0) return Offset.Zero
                 val nextOffset = (navOffsetPx + available.y)
                     .coerceIn(-navHeightPx.toFloat(), 0f)
@@ -138,9 +146,13 @@ fun EgCollapsibleMainScaffold(
         }
     }
 
+    LaunchedEffect(activeTab) {
+        navOffsetPx = 0f
+    }
+
     LaunchedEffect(scrollState) {
-        snapshotFlow { scrollState.value }.collect { currentScroll ->
-            if (currentScroll <= 0) {
+        snapshotFlow { scrollState.value to scrollState.maxValue }.collect { (currentScroll, maxScroll) ->
+            if (maxScroll <= 0 || currentScroll <= 0) {
                 navOffsetPx = 0f
             }
         }
@@ -156,6 +168,28 @@ fun EgCollapsibleMainScaffold(
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(nestedScrollConnection)
+                .pointerInput(activeTab, swipeThresholdPx) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { horizontalDragPx = 0f },
+                        onHorizontalDrag = { _, dragAmount ->
+                            horizontalDragPx += dragAmount
+                        },
+                        onDragEnd = {
+                            when {
+                                horizontalDragPx > swipeThresholdPx -> {
+                                    navOffsetPx = 0f
+                                    handleMainSwipe(activeTab, toRight = true, onHome, onLearn, onGames)
+                                }
+                                horizontalDragPx < -swipeThresholdPx -> {
+                                    navOffsetPx = 0f
+                                    handleMainSwipe(activeTab, toRight = false, onHome, onLearn, onGames)
+                                }
+                            }
+                            horizontalDragPx = 0f
+                        },
+                        onDragCancel = { horizontalDragPx = 0f }
+                    )
+                }
                 .verticalScroll(scrollState)
                 .padding(horizontal = EgDesign.screenPadding)
                 .padding(top = navHeightDp + 10.dp),
@@ -189,6 +223,20 @@ fun EgCollapsibleMainScaffold(
                     }
                 }
         )
+    }
+}
+
+private fun handleMainSwipe(
+    activeTab: EgTab,
+    toRight: Boolean,
+    onHome: () -> Unit,
+    onLearn: () -> Unit,
+    onGames: () -> Unit
+) {
+    when (activeTab) {
+        EgTab.Home -> if (toRight) onLearn()
+        EgTab.Learn -> if (toRight) onGames() else onHome()
+        EgTab.Games -> if (!toRight) onLearn()
     }
 }
 

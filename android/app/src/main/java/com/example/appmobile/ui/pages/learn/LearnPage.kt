@@ -56,6 +56,11 @@ import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgGradientPill
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgTab
+import com.example.appmobile.ui.components.egEmotionDisplayName
+import com.example.appmobile.ui.components.egEmotionIcon
+import com.example.appmobile.ui.components.egEmotionKey
+import com.example.appmobile.ui.components.egEmotionPastelColor
+import com.example.appmobile.ui.components.egLearningEmotionGridItems
 
 @Composable
 fun LearnPage(
@@ -92,7 +97,7 @@ fun LearnPage(
         isLoading = false
     }
 
-    val gridEmotions = remember(emotions) { learningEmotionGridItems(emotions) }
+    val gridEmotions = remember(emotions) { egLearningEmotionGridItems(emotions) }
     val selectedEmotion = gridEmotions.firstOrNull { it.id == selectedEmotionId }
         ?: gridEmotions.firstOrNull()
         ?: GameUiCatalog.emotions.first()
@@ -192,7 +197,7 @@ private fun EmotionGridItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val key = emotionKey(emotion)
+    val key = egEmotionKey(emotion)
     Surface(
         modifier = modifier
             .height(72.dp)
@@ -204,14 +209,14 @@ private fun EmotionGridItem(
     ) {
         Column(
             modifier = Modifier
-                .background(if (selected) EgDesign.primaryGradient else Brush.linearGradient(listOf(emotionPillColor(key), EgDesign.card)))
+                .background(if (selected) EgDesign.primaryGradient else Brush.linearGradient(listOf(egEmotionPastelColor(key), EgDesign.card)))
                 .padding(horizontal = 6.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(emotionIcon(key), fontSize = 20.sp, lineHeight = 22.sp)
+            Text(egEmotionIcon(key), fontSize = 20.sp, lineHeight = 22.sp)
             Text(
-                text = emotionDisplayName(emotion),
+                text = egEmotionDisplayName(emotion),
                 color = if (selected) Color.White else EgDesign.textPrimary,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 12.sp,
@@ -239,7 +244,7 @@ private fun LearnMediaCarousel(
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        "${emotionIcon(emotionKey(emotion))} ${emotionDisplayName(emotion)}",
+                        "${egEmotionIcon(egEmotionKey(emotion))} ${egEmotionDisplayName(emotion)}",
                         color = EgDesign.blue,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -266,11 +271,11 @@ private fun LearnMediaCarousel(
                 contentAlignment = Alignment.Center
             ) {
                 if (pageIndex == 0) {
-                    AssetVideoPlayer(emotionId = emotionKey(emotion))
+                    AssetVideoPlayer(emotionId = egEmotionKey(emotion))
                 } else {
                     Image(
-                        painter = painterResource(id = rememberEmotionImageResource(emotionKey(emotion))),
-                        contentDescription = emotionDisplayName(emotion),
+                        painter = painterResource(id = rememberEmotionImageResource(egEmotionKey(emotion))),
+                        contentDescription = egEmotionDisplayName(emotion),
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
@@ -317,7 +322,7 @@ private fun MediaArrow(text: String, modifier: Modifier, onClick: () -> Unit) {
 @Composable
 private fun AssetVideoPlayer(emotionId: String) {
     val context = LocalContext.current
-    val assetName = "${normalizeEmotionId(emotionId)}.mp4"
+    val assetName = "${egEmotionKey(emotionId)}.mp4"
     val uri = remember(assetName) {
         Uri.parse("file:///android_asset/fe/assets/videos/$assetName")
     }
@@ -352,7 +357,7 @@ private fun SituationPanel(emotion: EmotionUiItem, onSelectDetail: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                text = situationForEmotion(emotionKey(emotion)),
+                text = situationForEmotion(egEmotionKey(emotion)),
                 color = EgDesign.textPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -379,7 +384,7 @@ private fun Dot(active: Boolean) {
 @Composable
 private fun rememberEmotionImageResource(emotionId: String): Int {
     val context = LocalContext.current
-    val resourceName = when (normalizeEmotionId(emotionId)) {
+    val resourceName = when (egEmotionKey(emotionId)) {
         "happy" -> "happy_1"
         "sad" -> "sad_1"
         "angry" -> "angry_1"
@@ -397,62 +402,8 @@ private fun rememberEmotionImageResource(emotionId: String): Int {
     return R.drawable.logo_emo
 }
 
-private fun emotionPillColor(emotionId: String): Color {
-    return when (normalizeEmotionId(emotionId)) {
-        "happy" -> Color(0xFFFFF7CC)
-        "sad" -> Color(0xFFE0F2FE)
-        "angry" -> Color(0xFFFFE4E6)
-        "fear" -> Color(0xFFEDE9FE)
-        "surprise" -> Color(0xFFFFEDD5)
-        "disgust" -> Color(0xFFDCFCE7)
-        else -> Color(0xFFF4F4F5)
-    }
-}
-
-private val EmotionDisplayOrder = listOf("happy", "sad", "angry", "fear", "surprise", "disgust")
-
-private fun learningEmotionGridItems(emotions: List<EmotionUiItem>): List<EmotionUiItem> {
-    val emotionsByKey = emotions.groupBy { emotionKey(it) }
-    return EmotionDisplayOrder.map { key ->
-        emotionsByKey[key]?.firstOrNull()
-            ?: GameUiCatalog.emotionById(key)
-            ?: EmotionUiItem(
-                id = key,
-                name = emotionDisplayName(key),
-                emoji = emotionIcon(key),
-                description = ""
-            )
-    }
-}
-
-private fun emotionKey(emotion: EmotionUiItem): String {
-    val idKey = normalizeEmotionId(emotion.id)
-    if (idKey in EmotionDisplayOrder) return idKey
-
-    val nameKey = normalizeEmotionId(emotion.name)
-    if (nameKey in EmotionDisplayOrder) return nameKey
-
-    return idKey
-}
-
-private fun emotionDisplayName(emotion: EmotionUiItem): String {
-    return emotionDisplayName(emotionKey(emotion))
-}
-
-private fun emotionDisplayName(emotionId: String): String {
-    return when (normalizeEmotionId(emotionId)) {
-        "happy" -> "Vui vẻ"
-        "sad" -> "Buồn bã"
-        "angry" -> "Tức giận"
-        "fear" -> "Sợ hãi"
-        "surprise" -> "Ngạc nhiên"
-        "disgust" -> "Ghê tởm"
-        else -> emotionId
-    }
-}
-
 private fun situationForEmotion(emotionId: String): String {
-    return when (normalizeEmotionId(emotionId)) {
+    return when (egEmotionKey(emotionId)) {
         "happy" -> "Lan được tặng một món quà bất ngờ nên Lan rất vui và mỉm cười."
         "sad" -> "An đánh rơi cây kem yêu thích nên An buồn và muốn khóc."
         "angry" -> "Nam bị bạn giật đồ chơi mà không xin phép nên Nam tức giận."
@@ -460,30 +411,5 @@ private fun situationForEmotion(emotionId: String): String {
         "surprise" -> "Huy mở hộp quà và thấy món đồ chơi mình thích nên rất ngạc nhiên."
         "disgust" -> "Minh ngửi thấy mùi rác thối nên cảm thấy ghê tởm."
         else -> "Hãy quan sát khuôn mặt và cơ thể để đoán cảm xúc của bạn nhỏ."
-    }
-}
-
-private fun emotionIcon(emotionId: String): String {
-    return when (normalizeEmotionId(emotionId)) {
-        "happy" -> "😊"
-        "sad" -> "😢"
-        "angry" -> "😠"
-        "fear" -> "😨"
-        "surprise" -> "😲"
-        "disgust" -> "🤢"
-        else -> "🙂"
-    }
-}
-
-private fun normalizeEmotionId(value: String): String {
-    val lower = value.trim().lowercase()
-    return when {
-        lower.contains("happy") || lower.contains("vui") -> "happy"
-        lower.contains("sad") || lower.contains("buồn") || lower.contains("buon") || lower.contains("buá") -> "sad"
-        lower.contains("angry") || lower.contains("tức") || lower.contains("tuc") || lower.contains("tá") -> "angry"
-        lower.contains("fear") || lower.contains("sợ") || lower.contains("so") || lower.contains("sá") -> "fear"
-        lower.contains("surprise") || lower.contains("ngạc") || lower.contains("ngac") || lower.contains("ngá") -> "surprise"
-        lower.contains("disgust") || lower.contains("ghê") || lower.contains("ghe") || lower.contains("ghã") -> "disgust"
-        else -> lower
     }
 }

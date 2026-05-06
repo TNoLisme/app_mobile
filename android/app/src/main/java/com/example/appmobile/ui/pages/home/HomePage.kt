@@ -44,7 +44,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appmobile.R
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
+import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgTab
+import com.example.appmobile.ui.components.egEmotionDisplayName
+import com.example.appmobile.ui.components.egEmotionIcon
+import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.example.appmobile.ui.viewmodel.HomeEmotionUi
 import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
 import com.example.appmobile.ui.viewmodel.HomeViewModel
@@ -57,7 +61,6 @@ private val HomeBackgroundGradient = Brush.verticalGradient(
     )
 )
 private val HomePrimaryGradient = Brush.horizontalGradient(listOf(Color(0xFF38BDF8), Color(0xFF60A5FA)))
-private val HomeSoftGradient = Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFE8F7FF)))
 private val HomeCard = Color.White.copy(alpha = 0.98f)
 private val HomeCardBorder = Color(0xFFD7E7F3)
 private val HomeTextPrimary = Color(0xFF073B73)
@@ -233,6 +236,9 @@ private fun EmotionAccuracySection(emotions: List<HomeEmotionUi>) {
 
 @Composable
 private fun EmotionStatCard(emotion: HomeEmotionUi, modifier: Modifier = Modifier) {
+    val emotionName = egEmotionDisplayName(emotion.name)
+    val emotionColor = egEmotionPastelColor(emotion.name)
+
     Card(
         modifier = modifier.height(104.dp),
         shape = RoundedCornerShape(16.dp),
@@ -243,14 +249,14 @@ private fun EmotionStatCard(emotion: HomeEmotionUi, modifier: Modifier = Modifie
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(HomeSoftGradient)
+                .background(Brush.linearGradient(listOf(emotionColor, EgDesign.card)))
                 .padding(horizontal = 8.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(text = emotionIcon(emotion.name), fontSize = 25.sp)
+            Text(text = egEmotionIcon(emotion.name), fontSize = 25.sp)
             Text(
-                emotion.name,
+                emotionName,
                 color = HomeTextPrimary,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 12.sp,
