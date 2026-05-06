@@ -1,5 +1,6 @@
 package com.example.appmobile.ui.pages.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,16 +8,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -42,12 +46,27 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appmobile.R
 import com.example.appmobile.ui.catalog.GameUiCatalog
-import com.example.appmobile.ui.components.EmoGardenBackground
-import com.example.appmobile.ui.components.EmoGardenNavItem
-import com.example.appmobile.ui.components.EmoGardenTopNav
 import com.example.appmobile.ui.viewmodel.HomeEmotionUi
 import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
 import com.example.appmobile.ui.viewmodel.HomeViewModel
+
+private val HomeBackgroundGradient = Brush.verticalGradient(
+    listOf(
+        Color(0xFFF4FBFF),
+        Color(0xFFE6F5FD),
+        Color(0xFFD9EEF9)
+    )
+)
+private val HomePrimaryGradient = Brush.horizontalGradient(listOf(Color(0xFF38BDF8), Color(0xFF2563EB)))
+private val HomeSoftGradient = Brush.linearGradient(listOf(Color(0xFF7DD3FC), Color(0xFF3B82F6)))
+private val HomeCard = Color.White.copy(alpha = 0.96f)
+private val HomeCardBorder = Color(0xFFDDEAF5)
+private val HomeTextPrimary = Color(0xFF1F2937)
+private val HomeTextSecondary = Color(0xFF6B7280)
+private val HomeBlue = Color(0xFF0B66C3)
+private val HomeRadiusCard = 18.dp
+private val HomeRadiusPill = 999.dp
+private val HomeScreenPadding = 16.dp
 
 @Composable
 fun HomePage(
@@ -65,48 +84,128 @@ fun HomePage(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(EmoGardenBackground)
+            .background(HomeBackgroundGradient)
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = HomeScreenPadding, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        EmoGardenTopNav(
-            activeItem = EmoGardenNavItem.Home,
-            onHome = {},
-            onLearn = onNavigateToLearn,
-            onGames = { onNavigateToGame("all") },
+        HomeHeader(
             onProfile = onNavigateToProfile,
             onSettings = onNavigateToSettings
         )
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(22.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            errorMessage?.let { message ->
-                ErrorBanner(message = message, onRetry = vm::refresh)
-            }
+        SegmentedTabs(
+            onHome = {},
+            onLearn = onNavigateToLearn,
+            onGames = { onNavigateToGame("all") }
+        )
 
-            if (loading) {
-                LoadingStrip("Đang tải dữ liệu trang chủ...")
-            }
+        errorMessage?.let { message ->
+            ErrorBanner(message = message, onRetry = vm::refresh)
+        }
 
-            EmotionAccuracySection(emotions = vm.emotions)
+        if (loading) {
+            LoadingStrip("Đang tải dữ liệu trang chủ...")
+        }
 
-            RecentGamesSection(
-                games = vm.recentGames,
-                onOpenGame = { game ->
-                    if (!game.id.isNullOrBlank()) {
-                        onNavigateToLevel(game.id)
-                    } else {
-                        onNavigateToGame(gameCategory(game))
-                    }
+        EmotionAccuracySection(emotions = vm.emotions)
+
+        RecentGamesSection(
+            games = vm.recentGames,
+            onOpenGame = { game ->
+                if (!game.id.isNullOrBlank()) {
+                    onNavigateToLevel(game.id)
+                } else {
+                    onNavigateToGame(gameCategory(game))
                 }
-            )
+            }
+        )
 
-            ReportSection(onNavigateToReport = onNavigateToReport)
+        ProgressReportCard(onNavigateToReport = onNavigateToReport)
+        Spacer(modifier = Modifier.height(6.dp))
+    }
+}
+
+@Composable
+private fun HomeHeader(
+    onProfile: () -> Unit,
+    onSettings: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        HeaderIconButton(icon = "👤", onClick = onProfile)
+        Spacer(modifier = Modifier.weight(1f))
+        HeaderIconButton(icon = "⚙️", onClick = onSettings)
+    }
+}
+
+@Composable
+private fun HeaderIconButton(icon: String, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .size(42.dp)
+            .clickable(onClick = onClick),
+        shape = CircleShape,
+        color = HomeCard,
+        border = BorderStroke(1.dp, HomeCardBorder),
+        shadowElevation = 2.dp
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(text = icon, fontSize = 19.sp)
+        }
+    }
+}
+
+@Composable
+private fun SegmentedTabs(
+    onHome: () -> Unit,
+    onLearn: () -> Unit,
+    onGames: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        SegmentedTab(text = "Trang chủ", active = true, onClick = onHome, modifier = Modifier.weight(1f))
+        SegmentedTab(text = "Học", active = false, onClick = onLearn, modifier = Modifier.weight(1f))
+        SegmentedTab(text = "Chơi game", active = false, onClick = onGames, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun SegmentedTab(
+    text: String,
+    active: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(44.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(HomeRadiusPill),
+        color = Color.Transparent,
+        border = if (active) null else BorderStroke(1.dp, HomeCardBorder),
+        shadowElevation = if (active) 2.dp else 1.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .background(if (active) HomePrimaryGradient else Brush.linearGradient(listOf(HomeCard, Color(0xFFF8FBFF))))
+                .padding(horizontal = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                color = if (active) Color.White else HomeBlue,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -115,10 +214,9 @@ fun HomePage(
 private fun EmotionAccuracySection(emotions: List<HomeEmotionUi>) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        SectionTitle("Tỉ lệ đúng của các cảm xúc", center = true)
+        SectionTitle("Tỉ lệ đúng của các cảm xúc")
 
         if (emotions.isEmpty()) {
             EmptyHomeCard("Chưa có dữ liệu độ chính xác. Bé hãy chơi vài câu hỏi để có thống kê nhé.")
@@ -129,7 +227,7 @@ private fun EmotionAccuracySection(emotions: List<HomeEmotionUi>) {
             emotions.take(6).chunked(3).forEach { rowEmotions ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     rowEmotions.forEach { emotion ->
-                        EmotionScoreCard(
+                        EmotionStatCard(
                             emotion = emotion,
                             modifier = Modifier.weight(1f)
                         )
@@ -144,44 +242,37 @@ private fun EmotionAccuracySection(emotions: List<HomeEmotionUi>) {
 }
 
 @Composable
-private fun EmotionScoreCard(emotion: HomeEmotionUi, modifier: Modifier = Modifier) {
+private fun EmotionStatCard(emotion: HomeEmotionUi, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.height(112.dp),
-        shape = RoundedCornerShape(13.dp),
+        modifier = modifier.height(106.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFF9CCFE4), Color(0xFF478FEE))
-                    )
-                )
-                .padding(9.dp)
+                .background(HomeSoftGradient)
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(text = emotionIcon(emotion.name), fontSize = 25.sp)
-                Text(
-                    emotion.name,
-                    color = Color.White,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    "${formatPercent(emotion.accuracy)}%",
-                    color = Color.White,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 19.sp
-                )
-            }
+            Text(text = emotionIcon(emotion.name), fontSize = 25.sp)
+            Text(
+                emotion.name,
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                "${formatPercent(emotion.accuracy)}%",
+                color = Color.White,
+                fontWeight = FontWeight.Black,
+                fontSize = 21.sp,
+                lineHeight = 24.sp
+            )
         }
     }
 }
@@ -191,7 +282,7 @@ private fun RecentGamesSection(
     games: List<HomeRecentGameUi>,
     onOpenGame: (HomeRecentGameUi) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle("Trò chơi đã chơi gần đây")
 
         if (games.isEmpty()) {
@@ -211,12 +302,13 @@ private fun RecentGamesSection(
 private fun RecentGameCard(game: HomeRecentGameUi, onClick: () -> Unit) {
     Card(
         modifier = Modifier
-            .width(142.dp)
+            .width(148.dp)
             .height(132.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = HomeCard),
+        border = BorderStroke(1.dp, HomeCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Image(
@@ -224,13 +316,14 @@ private fun RecentGameCard(game: HomeRecentGameUi, onClick: () -> Unit) {
                 contentDescription = game.name,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(82.dp),
+                    .height(78.dp)
+                    .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)),
                 contentScale = ContentScale.Crop
             )
             Text(
                 text = game.name,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                color = Color(0xFF0B3C7D),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                color = HomeTextPrimary,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 12.sp,
                 lineHeight = 15.sp,
@@ -243,66 +336,110 @@ private fun RecentGameCard(game: HomeRecentGameUi, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ReportSection(onNavigateToReport: () -> Unit) {
+private fun ProgressReportCard(onNavigateToReport: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 118.dp)
+            .heightIn(min = 104.dp)
             .clickable(onClick = onNavigateToReport),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(HomeRadiusCard),
+        colors = CardDefaults.cardColors(containerColor = HomeCard),
+        border = BorderStroke(1.dp, HomeCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("📋", fontSize = 42.sp)
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Báo cáo tiến bộ", color = Color(0xFF0B3C7D), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                Text("Xem tổng kết luyện tập và gợi ý cảm xúc cần ôn thêm.", color = Color(0xFF52616F))
+            Surface(
+                modifier = Modifier.size(48.dp),
+                shape = CircleShape,
+                color = Color(0xFFE8F7FF),
+                border = BorderStroke(1.dp, Color(0xFFCDE7FA))
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("📋", fontSize = 27.sp)
+                }
             }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "Báo cáo tiến bộ",
+                    color = HomeBlue,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 17.sp
+                )
+                Text(
+                    "Xem tổng kết luyện tập và gợi ý cảm xúc cần ôn thêm.",
+                    color = HomeTextSecondary,
+                    fontSize = 14.sp,
+                    lineHeight = 19.sp
+                )
+            }
+            Text("›", color = HomeBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-private fun SectionTitle(title: String, center: Boolean = false) {
+private fun SectionTitle(title: String) {
     Text(
         text = title,
         modifier = Modifier.fillMaxWidth(),
-        fontSize = 20.sp,
+        fontSize = 18.sp,
         fontWeight = FontWeight.ExtraBold,
-        color = Color(0xFF0B3C7D),
-        textAlign = if (center) TextAlign.Center else TextAlign.Start
+        color = HomeBlue,
+        textAlign = TextAlign.Start
     )
 }
 
 @Composable
 private fun LoadingStrip(message: String) {
-    Surface(shape = RoundedCornerShape(22.dp), color = Color.White, modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = HomeCard,
+        border = BorderStroke(1.dp, HomeCardBorder),
+        shadowElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color(0xFF1976D2))
-            Text(message, color = Color(0xFF6B7280))
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = HomeBlue)
+            Text(message, color = HomeTextSecondary, fontSize = 13.sp)
         }
     }
 }
 
 @Composable
 private fun ErrorBanner(message: String, onRetry: () -> Unit) {
-    Surface(shape = RoundedCornerShape(22.dp), color = Color(0xFFFFEBEE), modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFFFF8E7),
+        border = BorderStroke(1.dp, Color(0xFFF9D26A)),
+        shadowElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(message, color = Color(0xFFC62828), modifier = Modifier.weight(1f), fontSize = 13.sp)
-            TextButton(onClick = onRetry) { Text("Thử lại", color = Color(0xFF1976D2)) }
+            Text("⚠️", fontSize = 15.sp)
+            Text(
+                message,
+                color = Color(0xFF8A4B00),
+                modifier = Modifier.weight(1f),
+                fontSize = 12.sp,
+                lineHeight = 15.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            TextButton(onClick = onRetry, modifier = Modifier.height(32.dp)) {
+                Text("Thử lại", color = HomeBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -311,13 +448,16 @@ private fun ErrorBanner(message: String, onRetry: () -> Unit) {
 private fun EmptyHomeCard(message: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        shape = RoundedCornerShape(HomeRadiusCard),
+        colors = CardDefaults.cardColors(containerColor = HomeCard),
+        border = BorderStroke(1.dp, HomeCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Text(
             text = message,
             modifier = Modifier.padding(16.dp),
-            color = Color(0xFF6B7280),
+            color = HomeTextSecondary,
+            fontSize = 14.sp,
             lineHeight = 20.sp
         )
     }

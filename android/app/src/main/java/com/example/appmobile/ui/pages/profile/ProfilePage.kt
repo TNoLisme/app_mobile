@@ -1,5 +1,6 @@
 package com.example.appmobile.ui.pages.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,9 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +24,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -58,12 +56,23 @@ import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
-import com.example.appmobile.ui.components.EmoGardenBackground
-import com.example.appmobile.ui.components.EmoGardenButtonGradient
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
+
+private val ProfileBackgroundGradient = Brush.verticalGradient(
+    listOf(
+        Color(0xFFF4FBFF),
+        Color(0xFFE6F5FD),
+        Color(0xFFD9EEF9)
+    )
+)
+private val ProfileButtonGradient = Brush.horizontalGradient(listOf(Color(0xFF38BDF8), Color(0xFF2563EB)))
+private val ProfileTextPrimary = Color(0xFF1F2937)
+private val ProfileTextSecondary = Color(0xFF6B7280)
+private val ProfileBlue = Color(0xFF0B66C3)
+private val ProfileCardBorder = Color(0xFFDDEAF5)
 
 private data class ProfileBadge(
     val id: String,
@@ -73,7 +82,8 @@ private data class ProfileBadge(
 
 private data class ProfileStat(
     val value: String,
-    val label: String
+    val label: String,
+    val icon: String
 )
 
 @Composable
@@ -115,51 +125,56 @@ fun ProfilePage(onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(EmoGardenBackground)
+            .background(ProfileBackgroundGradient)
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         ProfileTopBar(onBack = onBack)
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (loading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(260.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = Color(0xFF1976D2))
-                }
-            } else {
-                message?.let {
-                    MessageBanner(it)
-                }
-
-                val unlockedBadges = unlockedBadgeIds(sessions, cvEmotionScores)
-                ProfileHeroCard(
-                    profile = profile,
-                    badges = profileBadges(),
-                    unlocked = unlockedBadges
-                )
-                ProfileInfoGrid(profile)
-                ProfileStatsSection(
-                    stats = profileStats(
-                        sessions = sessions,
-                        recentGames = recentGames,
-                        unlockedBadges = unlockedBadges.size
-                    )
-                )
-                ProfileActions(
-                    onEdit = { showEdit = true }
-                )
+        if (loading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(360.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = ProfileBlue)
             }
+        } else {
+            message?.let { currentMessage ->
+                if (profile == null) {
+                    ErrorAlert(
+                        message = "Chưa tải được hồ sơ từ backend.",
+                        onRetry = {
+                            scope.launch {
+                                loadProfileData()
+                            }
+                        }
+                    )
+                } else {
+                    StatusBanner(currentMessage)
+                }
+            }
+
+            val unlockedBadges = unlockedBadgeIds(sessions, cvEmotionScores)
+            ProfileCard(
+                profile = profile,
+                badges = profileBadges(),
+                unlocked = unlockedBadges
+            )
+            ProfileInfoGrid(profile)
+            ProfileStatsSection(
+                stats = profileStats(
+                    sessions = sessions,
+                    recentGames = recentGames,
+                    unlockedBadges = unlockedBadges.size
+                )
+            )
+            ProfileActions(onEdit = { showEdit = true })
+            Spacer(modifier = Modifier.height(4.dp))
         }
     }
 
@@ -188,118 +203,219 @@ fun ProfilePage(onBack: () -> Unit) {
 
 @Composable
 private fun ProfileTopBar(onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        GradientPill(
+            text = "← Quay lại",
+            onClick = onBack,
+            heightDp = 34,
+            horizontalPaddingDp = 14,
+            fontSizeSp = 13,
+            shadowDp = 2
+        )
+        Spacer(modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun ErrorAlert(message: String, onRetry: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White.copy(alpha = 0.98f),
-        shadowElevation = 8.dp
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFFFF8E7),
+        border = BorderStroke(1.dp, Color(0xFFF9D26A)),
+        shadowElevation = 1.dp
     ) {
         Row(
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            GradientPill(text = "← Quay lại", onClick = onBack)
-            Spacer(modifier = Modifier.weight(1f))
+            Text("⚠️", fontSize = 15.sp)
+            Text(
+                text = message,
+                modifier = Modifier.weight(1f),
+                color = Color(0xFF8A4B00),
+                fontSize = 12.sp,
+                lineHeight = 15.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Thử lại",
+                modifier = Modifier.clickable(onClick = onRetry),
+                color = Color(0xFF0B66C3),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
 
 @Composable
-private fun ProfileHeroCard(
+private fun ProfileCard(
     profile: UserProfileDto?,
     badges: List<ProfileBadge>,
     unlocked: Set<String>
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ProfileSurface {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
-                modifier = Modifier.width(104.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Box(contentAlignment = Alignment.BottomEnd) {
-                    Box(
-                        modifier = Modifier
-                            .size(76.dp)
-                            .background(Brush.linearGradient(listOf(Color(0xFFFFF1A8), Color(0xFFFFD54F))), CircleShape)
-                            .padding(5.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Surface(modifier = Modifier.fillMaxSize(), shape = CircleShape, color = Color(0xFFFFE082)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text("👶", fontSize = 38.sp)
-                            }
-                        }
-                    }
-                    Surface(shape = CircleShape, color = Color(0xFFFFD700), shadowElevation = 3.dp) {
-                        Text("🏅", modifier = Modifier.padding(5.dp), fontSize = 14.sp)
-                    }
+                Avatar()
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        text = profile?.name?.takeIf { it.isNotBlank() } ?: "Bé yêu",
+                        color = ProfileTextPrimary,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Cấp độ 1",
+                        color = ProfileTextSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
-                Text(
-                    profile?.name?.ifBlank { null } ?: "Bé yêu",
-                    color = Color(0xFF263238),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text("Cấp độ 1", color = Color(0xFF52616F), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
 
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("🏆 Huy hiệu", color = Color(0xFF263238), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(badges) { badge ->
-                        BadgeCircle(badge = badge, unlocked = badge.id in unlocked)
-                    }
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "🏆 Huy hiệu",
+                    color = ProfileTextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                BadgeGrid(badges = badges, unlocked = unlocked)
             }
+        }
+    }
+}
+
+@Composable
+private fun Avatar() {
+    Box(
+        modifier = Modifier
+            .size(54.dp)
+            .background(
+                Brush.linearGradient(listOf(Color(0xFFFFF1A8), Color(0xFFFFD54F))),
+                CircleShape
+            )
+            .padding(4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            shape = CircleShape,
+            color = Color(0xFFFFE082)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("👶", fontSize = 27.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BadgeGrid(badges: List<ProfileBadge>, unlocked: Set<String>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        badges.forEach { badge ->
+            BadgeCircle(badge = badge, unlocked = badge.id in unlocked)
+        }
+    }
+}
+
+@Composable
+private fun BadgeCircle(
+    badge: ProfileBadge,
+    unlocked: Boolean
+) {
+    Box(
+        modifier = Modifier.size(34.dp),
+        contentAlignment = Alignment.TopEnd
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            shape = CircleShape,
+            color = if (unlocked) Color(0xFFFFF4B8) else Color(0xFFE5E7EB),
+            border = BorderStroke(1.dp, if (unlocked) Color(0xFFFFD54F) else Color(0xFFD1D5DB)),
+            shadowElevation = if (unlocked) 2.dp else 0.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = badge.icon,
+                    modifier = Modifier.alpha(if (unlocked) 1f else 0.38f),
+                    fontSize = 15.sp
+                )
+            }
+        }
+        if (!unlocked) {
+            Text("🔒", fontSize = 7.sp)
         }
     }
 }
 
 @Composable
 private fun ProfileInfoGrid(profile: UserProfileDto?) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            InfoCard("👤", "Tên đăng nhập", profile?.username ?: "---", Modifier.weight(1f))
-            InfoCard("✉️", "Email", profile?.email ?: "---", Modifier.weight(1f))
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoTile("👤", "Tên đăng nhập", fallback(profile?.username), Modifier.weight(1f))
+            InfoTile("✉️", "Email", fallback(profile?.email), Modifier.weight(1f))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            InfoCard("🗓️", "Ngày tham gia", formatDate(profile?.createdAt), Modifier.weight(1f))
-            InfoCard("🎂", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "---", Modifier.weight(1f))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoTile("🗓️", "Ngày tham gia", formatDate(profile?.createdAt), Modifier.weight(1f))
+            InfoTile("🎂", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun InfoCard(icon: String, title: String, value: String, modifier: Modifier = Modifier) {
+private fun InfoTile(icon: String, label: String, value: String, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.height(78.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        modifier = modifier.height(62.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.96f)),
+        border = BorderStroke(1.dp, ProfileCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(11.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text("$icon $title", color = Color(0xFF0B3C7D), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
             Text(
-                value,
-                color = Color(0xFF455A64),
-                fontSize = 12.sp,
-                maxLines = 2,
+                text = "$icon $label",
+                color = ProfileBlue,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = value,
+                color = ProfileTextPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -308,19 +424,22 @@ private fun InfoCard(icon: String, title: String, value: String, modifier: Modif
 
 @Composable
 private fun ProfileStatsSection(stats: List<ProfileStat>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("📊 Thống kê chơi game", color = Color(0xFF263238), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    ProfileSurface {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "📊 Thống kê chơi game",
+                color = ProfileTextPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 stats.chunked(2).forEach { rowStats ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         rowStats.forEach { stat ->
-                            StatBox(stat, Modifier.weight(1f))
+                            StatTile(stat, Modifier.weight(1f))
                         }
                     }
                 }
@@ -330,89 +449,118 @@ private fun ProfileStatsSection(stats: List<ProfileStat>) {
 }
 
 @Composable
-private fun StatBox(stat: ProfileStat, modifier: Modifier = Modifier) {
+private fun StatTile(stat: ProfileStat, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier.height(74.dp),
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.height(62.dp),
+        shape = RoundedCornerShape(14.dp),
         color = Color.Transparent,
-        shadowElevation = 2.dp
+        border = BorderStroke(1.dp, Color(0xFFCDE7FA)),
+        shadowElevation = 1.dp
     ) {
         Column(
             modifier = Modifier
-                .background(Brush.linearGradient(listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB))))
-                .padding(10.dp),
+                .background(Brush.linearGradient(listOf(Color(0xFFE8F7FF), Color(0xFFCFEAFE))))
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(stat.value, color = Color(0xFF1976D2), fontSize = 22.sp, fontWeight = FontWeight.Black)
-            Text(stat.label, color = Color(0xFF52616F), fontSize = 11.sp, textAlign = TextAlign.Center)
-        }
-    }
-}
-
-@Composable
-private fun BadgeCircle(badge: ProfileBadge, unlocked: Boolean) {
-    Box(contentAlignment = Alignment.TopEnd) {
-        Surface(
-            modifier = Modifier.size(52.dp),
-            shape = CircleShape,
-            color = Color.Transparent,
-            shadowElevation = if (unlocked) 5.dp else 0.dp
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        if (unlocked) {
-                            Brush.linearGradient(listOf(Color(0xFFFFD700), Color(0xFFFFF176)))
-                        } else {
-                            Brush.linearGradient(listOf(Color(0xFFE5E7EB), Color(0xFFF1F5F9)))
-                        },
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(badge.icon, fontSize = 23.sp, color = if (unlocked) Color.Unspecified else Color.Gray)
-            }
-        }
-        if (!unlocked) {
-            Surface(shape = CircleShape, color = Color(0xFFE0E0E0)) {
-                Text("🔒", modifier = Modifier.padding(3.dp), fontSize = 10.sp)
-            }
+            Text(
+                text = "${stat.icon} ${stat.value}",
+                color = Color(0xFF0B66C3),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = stat.label,
+                color = Color(0xFF4B5563),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
 
 @Composable
 private fun ProfileActions(onEdit: () -> Unit) {
-    GradientPill(text = "✏️ Chỉnh sửa thông tin", onClick = onEdit, modifier = Modifier.fillMaxWidth())
+    GradientPill(
+        text = "✏️ Chỉnh sửa hồ sơ",
+        onClick = onEdit,
+        modifier = Modifier.fillMaxWidth(),
+        heightDp = 44,
+        horizontalPaddingDp = 16,
+        fontSizeSp = 14,
+        shadowDp = 2
+    )
 }
 
 @Composable
-private fun GradientPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ProfileSurface(content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.96f)),
+        border = BorderStroke(1.dp, ProfileCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun GradientPill(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    heightDp: Int,
+    horizontalPaddingDp: Int,
+    fontSizeSp: Int,
+    shadowDp: Int
+) {
     Surface(
         modifier = modifier
-            .height(42.dp)
+            .height(heightDp.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(999.dp),
         color = Color.Transparent,
-        shadowElevation = 5.dp
+        shadowElevation = shadowDp.dp
     ) {
         Box(
             modifier = Modifier
-                .background(EmoGardenButtonGradient)
-                .padding(horizontal = 14.dp),
+                .background(ProfileButtonGradient)
+                .padding(horizontal = horizontalPaddingDp.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(text, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, maxLines = 1)
+            Text(
+                text = text,
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = fontSizeSp.sp,
+                maxLines = 1
+            )
         }
     }
 }
 
 @Composable
-private fun MessageBanner(message: String) {
-    Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFFFFF3E0), modifier = Modifier.fillMaxWidth()) {
-        Text(message, modifier = Modifier.padding(12.dp), color = Color(0xFF8A4B00), lineHeight = 19.sp)
+private fun StatusBanner(message: String) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFEFFAF3),
+        border = BorderStroke(1.dp, Color(0xFFC7E9D0)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            color = Color(0xFF166534),
+            lineHeight = 17.sp,
+            fontSize = 13.sp
+        )
     }
 }
 
@@ -485,10 +633,10 @@ private fun profileStats(
     val totalScore = sessions.sumOf { it.score ?: 0 }
     val playTimeHours = sessions.sumOf { sessionDurationMillis(it) }.toDouble() / (1000 * 60 * 60)
     return listOf(
-        ProfileStat((sessions.size.takeIf { it > 0 } ?: recentGames.size).toString(), "Trò chơi đã chơi"),
-        ProfileStat(totalScore.toString(), "Tổng điểm"),
-        ProfileStat(unlockedBadges.toString(), "Thành tích"),
-        ProfileStat("${"%.1f".format(playTimeHours)}h", "Thời gian chơi")
+        ProfileStat((sessions.size.takeIf { it > 0 } ?: recentGames.size).toString(), "Từ vựng đã chơi", "🎮"),
+        ProfileStat(totalScore.toString(), "Đúng điểm", "⭐"),
+        ProfileStat(unlockedBadges.toString(), "Thành tích", "🏆"),
+        ProfileStat(String.format(Locale.US, "%.1fh", playTimeHours), "Thời gian chơi", "⏱️")
     )
 }
 
@@ -526,8 +674,12 @@ private fun unlockedBadgeIds(sessions: List<SessionHistoryItemDto>, cvEmotionSco
     return unlocked
 }
 
+private fun fallback(value: String?): String {
+    return value?.takeIf { it.isNotBlank() } ?: "Chưa có"
+}
+
 private fun formatDate(value: String?): String {
-    if (value.isNullOrBlank()) return "---"
+    if (value.isNullOrBlank()) return "Chưa có"
     return value.substringBefore("T").substringBefore(" ")
 }
 

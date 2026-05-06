@@ -15,3 +15,4 @@ env/
 
 # Imported web reference project
 TTNM-Game/**/node_modules/
+TTNM-Game/ 

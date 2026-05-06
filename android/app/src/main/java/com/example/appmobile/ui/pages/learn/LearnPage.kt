@@ -24,10 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,12 +38,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,10 +54,13 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.EmotionUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
-import com.example.appmobile.ui.components.EmoGardenBackground
-import com.example.appmobile.ui.components.EmoGardenNavItem
-import com.example.appmobile.ui.components.EmoGardenTopNav
-import com.example.appmobile.ui.components.GradientActionButton
+import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgGradientPill
+import com.example.appmobile.ui.components.EgHeroCard
+import com.example.appmobile.ui.components.EgSegmentedTabs
+import com.example.appmobile.ui.components.EgSoftCard
+import com.example.appmobile.ui.components.EgTab
+import com.example.appmobile.ui.components.EgTopActions
 
 @Composable
 fun LearnPage(
@@ -103,83 +103,64 @@ fun LearnPage(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(EmoGardenBackground)
+            .background(EgDesign.background)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        EmoGardenTopNav(
-            activeItem = EmoGardenNavItem.Learn,
+        EgTopActions(onProfile = onOpenProfile, onSettings = onOpenSettings)
+        EgSegmentedTabs(
+            activeTab = EgTab.Learn,
             onHome = onGoHome,
             onLearn = {},
-            onGames = onOpenGames,
-            onProfile = onOpenProfile,
-            onSettings = onOpenSettings
+            onGames = onOpenGames
         )
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            LearnHeader()
+        EgHeroCard(
+            title = "HỌC CẢM XÚC",
+            description = "Chọn một cảm xúc, xem video mẫu rồi đọc tình huống minh họa."
+        )
 
-            if (isLoading) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color(0xFF1976D2))
-                    Text("Đang tải thẻ học...", color = Color(0xFF6B7280))
-                }
-            }
-
-            EmotionPillRow(
-                emotions = emotions,
-                selectedEmotionId = selectedEmotionId,
-                onSelect = { emotion ->
-                    selectedEmotionId = emotion.id
-                    pageIndex = 0
-                }
-            )
-
-            LearnMediaCarousel(
-                emotion = selectedEmotion,
-                pageIndex = pageIndex,
-                onPrevious = { pageIndex = if (pageIndex == 0) 1 else 0 },
-                onNext = { pageIndex = if (pageIndex == 0) 1 else 0 },
-                onSelectDetail = { onSelectEmotion(selectedEmotion.id) }
-            )
+        if (isLoading) {
+            LoadingStrip("Đang tải thẻ học...")
         }
+
+        EmotionPillRow(
+            emotions = emotions,
+            selectedEmotionId = selectedEmotionId,
+            onSelect = { emotion ->
+                selectedEmotionId = emotion.id
+                pageIndex = 0
+            }
+        )
+
+        LearnMediaCarousel(
+            emotion = selectedEmotion,
+            pageIndex = pageIndex,
+            onPrevious = { pageIndex = if (pageIndex == 0) 1 else 0 },
+            onNext = { pageIndex = if (pageIndex == 0) 1 else 0 },
+            onSelectDetail = { onSelectEmotion(selectedEmotion.id) }
+        )
+        Spacer(modifier = Modifier.height(10.dp))
     }
 }
 
 @Composable
-private fun LearnHeader() {
-    Card(
+private fun LoadingStrip(message: String) {
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        shape = RoundedCornerShape(14.dp),
+        color = EgDesign.card,
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
+        shadowElevation = 1.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text(
-                text = "HỌC CẢM XÚC",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF0B3C7D)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.58f)
-                    .height(3.dp)
-                    .background(Color(0xFF4FACFE), CircleShape)
-            )
-            Text(
-                text = "Chọn một cảm xúc, xem video mẫu rồi đọc tình huống minh họa.",
-                color = Color(0xFF6B7280),
-                lineHeight = 19.sp
-            )
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = EgDesign.blue)
+            Text(message, color = EgDesign.textSecondary, fontSize = 13.sp)
         }
     }
 }
@@ -195,21 +176,24 @@ private fun EmotionPillRow(
             val selected = emotion.id == selectedEmotionId
             Surface(
                 modifier = Modifier.clickable { onSelect(emotion) },
-                shape = CircleShape,
-                color = emotionPillColor(emotion.id),
-                border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) Color(0xFF1976D2) else Color.White.copy(alpha = 0.6f)),
-                shadowElevation = if (selected) 7.dp else 2.dp
+                shape = RoundedCornerShape(EgDesign.pillRadius),
+                color = Color.Transparent,
+                border = BorderStroke(1.dp, if (selected) EgDesign.blue else EgDesign.cardBorder),
+                shadowElevation = if (selected) 2.dp else 1.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier
+                        .background(if (selected) EgDesign.primaryGradient else Brush.linearGradient(listOf(emotionPillColor(emotion.id), EgDesign.card)))
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(emotion.emoji.ifBlank { emotionIcon(emotion.id) }, fontSize = 20.sp)
+                    Text(emotionIcon(emotion.id), fontSize = 18.sp)
                     Text(
                         emotion.name,
-                        color = Color(0xFF0B3C7D),
+                        color = if (selected) Color.White else EgDesign.blue,
                         fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -227,36 +211,37 @@ private fun LearnMediaCarousel(
     onNext: () -> Unit,
     onSelectDetail: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
-    ) {
+    EgSoftCard {
         Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        "${emotion.emoji.ifBlank { emotionIcon(emotion.id) }} ${emotion.name}",
-                        color = Color(0xFF0B3C7D),
-                        fontSize = 21.sp,
+                        "${emotionIcon(emotion.id)} ${emotion.name}",
+                        color = EgDesign.blue,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(if (pageIndex == 0) "Video mẫu" else "Tình huống minh họa", color = Color(0xFF6B7280))
+                    Text(
+                        if (pageIndex == 0) "Video mẫu" else "Tình huống minh họa",
+                        color = EgDesign.textSecondary,
+                        fontSize = 13.sp
+                    )
                 }
-                TextButton(onClick = onSelectDetail) { Text("Chi tiết") }
+                TextButton(onClick = onSelectDetail) {
+                    Text("Chi tiết", color = EgDesign.blue, fontWeight = FontWeight.Bold)
+                }
             }
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(22.dp))
+                    .clip(RoundedCornerShape(18.dp))
                     .background(Color.Black),
                 contentAlignment = Alignment.Center
             ) {
@@ -296,14 +281,15 @@ private fun MediaArrow(text: String, modifier: Modifier, onClick: () -> Unit) {
     Surface(
         modifier = modifier
             .padding(horizontal = 8.dp)
-            .size(42.dp)
+            .size(40.dp)
             .clickable(onClick = onClick),
         shape = CircleShape,
         color = Color.White.copy(alpha = 0.92f),
-        shadowElevation = 5.dp
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
+        shadowElevation = 2.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(text, color = Color(0xFF1976D2), fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text(text, color = EgDesign.blue, fontSize = 30.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -339,16 +325,20 @@ private fun AssetVideoPlayer(emotionId: String) {
 
 @Composable
 private fun SituationPanel(emotion: EmotionUiItem, onSelectDetail: () -> Unit) {
-    Surface(shape = RoundedCornerShape(18.dp), color = Color(0xFFF8FAFC)) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFFF8FBFF),
+        border = BorderStroke(1.dp, EgDesign.cardBorder)
+    ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = situationForEmotion(emotion.id),
-                color = Color(0xFF111827),
-                fontSize = 16.sp,
+                color = EgDesign.textPrimary,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                lineHeight = 23.sp
+                lineHeight = 22.sp
             )
-            GradientActionButton(
+            EgGradientPill(
                 text = "Xem dấu hiệu nhận biết",
                 onClick = onSelectDetail,
                 modifier = Modifier.fillMaxWidth()
@@ -362,7 +352,7 @@ private fun Dot(active: Boolean) {
     Box(
         modifier = Modifier
             .size(if (active) 10.dp else 8.dp)
-            .background(if (active) Color(0xFF1976D2) else Color(0xFFD1D5DB), CircleShape)
+            .background(if (active) EgDesign.blue else Color(0xFFD1D5DB), CircleShape)
     )
 }
 
@@ -389,10 +379,10 @@ private fun rememberEmotionImageResource(emotionId: String): Int {
 
 private fun emotionPillColor(emotionId: String): Color {
     return when (normalizeEmotionId(emotionId)) {
-        "happy" -> Color(0xFFFFF2B3)
-        "sad" -> Color(0xFFD9F1FF)
-        "angry" -> Color(0xFFFFE1E6)
-        "fear" -> Color(0xFFEEE9FF)
+        "happy" -> Color(0xFFFFF7CC)
+        "sad" -> Color(0xFFE0F2FE)
+        "angry" -> Color(0xFFFFE4E6)
+        "fear" -> Color(0xFFEDE9FE)
         "surprise" -> Color(0xFFFFEDD5)
         "disgust" -> Color(0xFFDCFCE7)
         else -> Color(0xFFF4F4F5)
@@ -427,11 +417,11 @@ private fun normalizeEmotionId(value: String): String {
     val lower = value.trim().lowercase()
     return when {
         lower.contains("happy") || lower.contains("vui") -> "happy"
-        lower.contains("sad") || lower.contains("buồn") || lower.contains("buon") -> "sad"
-        lower.contains("angry") || lower.contains("tức") || lower.contains("tuc") -> "angry"
-        lower.contains("fear") || lower.contains("sợ") || lower.contains("so") -> "fear"
-        lower.contains("surprise") || lower.contains("ngạc") || lower.contains("ngac") -> "surprise"
-        lower.contains("disgust") || lower.contains("ghê") || lower.contains("ghe") -> "disgust"
+        lower.contains("sad") || lower.contains("buồn") || lower.contains("buon") || lower.contains("buá") -> "sad"
+        lower.contains("angry") || lower.contains("tức") || lower.contains("tuc") || lower.contains("tá") -> "angry"
+        lower.contains("fear") || lower.contains("sợ") || lower.contains("so") || lower.contains("sá") -> "fear"
+        lower.contains("surprise") || lower.contains("ngạc") || lower.contains("ngac") || lower.contains("ngá") -> "surprise"
+        lower.contains("disgust") || lower.contains("ghê") || lower.contains("ghe") || lower.contains("ghã") -> "disgust"
         else -> lower
     }
 }
