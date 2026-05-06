@@ -39,17 +39,59 @@ object GameUiCatalog {
     const val GAME_CV_REQUEST = "61f5e09e-eefa-44c1-86e1-87dfceac3b8e"
 
     val games = listOf(
-        GameUiItem(GAME_RECOGNIZE_EMOTION, "Chiếc hộp cảm xúc", "Chọn cảm xúc đúng qua hình ảnh", "click_game", R.drawable.recognize_emotion, 3),
-        GameUiItem(GAME_FACE_ASSEMBLY, "Xưởng lắp ghép", "Ghép các bộ phận khuôn mặt", "click_game", R.drawable.game_click_2, 3),
-        GameUiItem(GAME_EMOTION_MATCH, "Cảm xúc đúng chỗ", "Đặt cảm xúc vào đúng ngữ cảnh", "click_game", R.drawable.game_click_3, 3),
-        GameUiItem(GAME_DETECTIVE, "Thám tử cảm xúc", "Tìm cảm xúc ẩn giấu trong tình huống", "click_game", R.drawable.game_click_4, 3),
-        GameUiItem(GAME_CV_STORY, "Câu chuyện khuôn mặt", "Bắt chước biểu cảm của nhân vật", "camera_game", R.drawable.game_cv, 6),
-        GameUiItem(GAME_CV_REQUEST, "Thử thách biểu cảm", "Thể hiện biểu cảm theo yêu cầu", "camera_game", R.drawable.game_cv_2, 6)
+        GameUiItem(
+            GAME_RECOGNIZE_EMOTION,
+            "Chiếc hộp cảm xúc",
+            "Chọn cảm xúc đúng qua hình ảnh",
+            "click_game",
+            R.drawable.recognize_emotion,
+            3
+        ),
+        GameUiItem(
+            GAME_FACE_ASSEMBLY,
+            "Xưởng lắp ghép cảm xúc",
+            "Ghép các bộ phận khuôn mặt",
+            "click_game",
+            R.drawable.game_click_2,
+            3
+        ),
+        GameUiItem(
+            GAME_EMOTION_MATCH,
+            "Cảm xúc đúng chỗ",
+            "Đặt cảm xúc vào đúng ngữ cảnh",
+            "click_game",
+            R.drawable.game_click_3,
+            3
+        ),
+        GameUiItem(
+            GAME_DETECTIVE,
+            "Thám tử cảm xúc",
+            "Tìm cảm xúc ẩn giấu trong tình huống",
+            "click_game",
+            R.drawable.game_click_4,
+            3
+        ),
+        GameUiItem(
+            GAME_CV_STORY,
+            "Câu chuyện trên khuôn mặt",
+            "Bắt chước biểu cảm của nhân vật",
+            "camera_game",
+            R.drawable.game_cv,
+            6
+        ),
+        GameUiItem(
+            GAME_CV_REQUEST,
+            "Thử thách cảm xúc",
+            "Thể hiện biểu cảm theo yêu cầu",
+            "camera_game",
+            R.drawable.game_cv_2,
+            6
+        )
     )
 
     val emotions = listOf(
-        EmotionUiItem("happy", "Vui vẻ", "😊", "Miệng cười, mắt sáng và có thể cười thành tiếng."),
-        EmotionUiItem("sad", "Buồn bã", "😢", "Mắt nhìn xuống, miệng trầm và giọng nói nhỏ hơn."),
+        EmotionUiItem("happy", "Vui", "😊", "Miệng cười, mắt sáng và có thể cười thành tiếng."),
+        EmotionUiItem("sad", "Buồn", "😢", "Mắt nhìn xuống, miệng trầm và giọng nói nhỏ hơn."),
         EmotionUiItem("angry", "Tức giận", "😠", "Lông mày chau lại, mặt nghiêm và có thể nói to hơn."),
         EmotionUiItem("fear", "Sợ hãi", "😨", "Mắt mở to, có thể lùi lại vì cần cảm thấy an toàn."),
         EmotionUiItem("surprise", "Ngạc nhiên", "😲", "Mắt mở to, miệng chữ O khi thấy điều bất ngờ."),

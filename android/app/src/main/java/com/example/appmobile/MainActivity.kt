@@ -1,20 +1,31 @@
 package com.example.appmobile
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.appmobile.ui.components.AssistantChatBubble
 import com.example.appmobile.ui.pages.assistant.AssistantPage
 import com.example.appmobile.ui.pages.auth.LoginPage
 import com.example.appmobile.ui.pages.auth.RegisterPage
@@ -26,6 +37,7 @@ import com.example.appmobile.ui.pages.profile.ProfilePage
 import com.example.appmobile.ui.pages.report.ReportPage
 import com.example.appmobile.ui.pages.select.LevelSelectPage
 import com.example.appmobile.ui.pages.select.SelectGamePage
+import com.example.appmobile.ui.pages.settings.SettingsPage
 import com.example.appmobile.ui.theme.AppMobileTheme
 import com.google.firebase.auth.FirebaseAuth
 
@@ -47,13 +59,51 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val auth = FirebaseAuth.getInstance()
+    val context = LocalContext.current
+    val preferences = remember {
+        context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+    }
+    var assistantBubbleEnabled by remember {
+        mutableStateOf(preferences.getBoolean("assistant_bubble_enabled", false))
+    }
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route
     val startDestination = if (auth.currentUser != null) "home" else "login"
 
     fun assistantRoute(gameId: String, level: Int? = null): String {
         return if (level == null) "assistant/$gameId" else "assistant/$gameId?level=$level"
     }
 
-    NavHost(navController = navController, startDestination = startDestination, modifier = modifier) {
+    fun goHome() {
+        navController.navigate("home") {
+            launchSingleTop = true
+            popUpTo("home") { inclusive = false }
+        }
+    }
+
+    fun goLearn() {
+        navController.navigate("learn") { launchSingleTop = true }
+    }
+
+    fun goGames() {
+        navController.navigate("select_game/all") { launchSingleTop = true }
+    }
+
+    fun goProfile() {
+        navController.navigate("profile") { launchSingleTop = true }
+    }
+
+    fun goSettings() {
+        navController.navigate("settings") { launchSingleTop = true }
+    }
+
+    fun logout() {
+        auth.signOut()
+        navController.navigate("login") { popUpTo("home") { inclusive = true } }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        NavHost(navController = navController, startDestination = startDestination, modifier = Modifier.fillMaxSize()) {
         composable("login") {
             LoginPage(
                 onNavigateToRegister = { navController.navigate("register") },
@@ -63,15 +113,11 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         composable("register") { RegisterPage(onNavigateBack = { navController.popBackStack() }) }
         composable("home") {
             HomePage(
-                onLogout = {
-                    auth.signOut()
-                    navController.navigate("login") { popUpTo("home") { inclusive = true } }
-                },
                 onNavigateToGame = { gameType -> navController.navigate("select_game/$gameType") },
-                onNavigateToLearn = { navController.navigate("learn") },
+                onNavigateToLearn = ::goLearn,
                 onNavigateToReport = { navController.navigate("report") },
-                onNavigateToProfile = { navController.navigate("profile") },
-                onNavigateToAssistant = { navController.navigate(assistantRoute("home")) },
+                onNavigateToProfile = ::goProfile,
+                onNavigateToSettings = ::goSettings,
                 onNavigateToLevel = { gameId -> navController.navigate("level_select/$gameId") }
             )
         }
@@ -81,7 +127,10 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 type = type,
                 onBack = { navController.popBackStack() },
                 onOpenLevel = { id -> navController.navigate("level_select/$id") },
-                onOpenAssistant = { navController.navigate(assistantRoute("select_game")) }
+                onGoHome = ::goHome,
+                onOpenLearn = ::goLearn,
+                onOpenProfile = ::goProfile,
+                onOpenSettings = ::goSettings
             )
         }
         composable("level_select/{gameId}") { backStackEntry ->
@@ -117,7 +166,10 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             LearnPage(
                 onBack = { navController.popBackStack() },
                 onSelectEmotion = { id -> navController.navigate("learn_detail/$id") },
-                onOpenAssistant = { navController.navigate(assistantRoute("learn")) }
+                onGoHome = ::goHome,
+                onOpenGames = ::goGames,
+                onOpenProfile = ::goProfile,
+                onOpenSettings = ::goSettings
             )
         }
         composable("learn_detail/{emotionId}") { backStackEntry ->
@@ -152,5 +204,43 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 }
             )
         }
+        composable("settings") {
+            SettingsPage(
+                assistantBubbleEnabled = assistantBubbleEnabled,
+                onAssistantBubbleChanged = { enabled ->
+                    assistantBubbleEnabled = enabled
+                    preferences.edit().putBoolean("assistant_bubble_enabled", enabled).apply()
+                },
+                onBack = { navController.popBackStack() },
+                onLogout = ::logout
+            )
+        }
+    }
+
+        if (assistantBubbleEnabled && shouldShowAssistantBubble(currentRoute, auth.currentUser != null)) {
+            AssistantChatBubble(
+                onClick = { navController.navigate(assistantRoute(assistantContext(currentRoute))) },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 18.dp, bottom = 24.dp)
+            )
+        }
+    }
+}
+
+private fun shouldShowAssistantBubble(route: String?, loggedIn: Boolean): Boolean {
+    if (!loggedIn) return false
+    if (route == null) return false
+    return route != "login" && route != "register" && !route.startsWith("assistant") && route != "settings"
+}
+
+private fun assistantContext(route: String?): String {
+    return when {
+        route == null -> "home"
+        route.startsWith("learn") -> "learn"
+        route.startsWith("select_game") -> "select_game"
+        route.startsWith("level_select") -> "level_select"
+        route.startsWith("game/") -> "game"
+        else -> route.substringBefore("/")
     }
 }

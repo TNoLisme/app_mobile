@@ -7,7 +7,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,16 +18,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,12 +41,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -57,13 +57,19 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.EmotionUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
-import com.example.appmobile.ui.theme.SoftWhite
+import com.example.appmobile.ui.components.EmoGardenBackground
+import com.example.appmobile.ui.components.EmoGardenNavItem
+import com.example.appmobile.ui.components.EmoGardenTopNav
+import com.example.appmobile.ui.components.GradientActionButton
 
 @Composable
 fun LearnPage(
     onBack: () -> Unit,
     onSelectEmotion: (String) -> Unit,
-    onOpenAssistant: () -> Unit = {}
+    onGoHome: () -> Unit = onBack,
+    onOpenGames: () -> Unit = {},
+    onOpenProfile: (() -> Unit)? = null,
+    onOpenSettings: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val repository = remember {
@@ -97,49 +103,54 @@ fun LearnPage(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.linearGradient(
-                    listOf(SoftWhite, Color(0xFFE3F2FD), Color(0xFFBBDEFB))
-                )
-            )
-            .verticalScroll(rememberScrollState())
-            .padding(18.dp)
+            .background(EmoGardenBackground)
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← Quay lại") }
-            Spacer(modifier = Modifier.weight(1f))
-            TextButton(onClick = onOpenAssistant) { Text("Trợ lý") }
-        }
-
-        LearnHeader()
-        Spacer(modifier = Modifier.height(18.dp))
-
-        if (isLoading) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text("Đang tải thẻ học...", color = Color.Gray)
-            }
-            Spacer(modifier = Modifier.height(14.dp))
-        }
-
-        EmotionPillRow(
-            emotions = emotions,
-            selectedEmotionId = selectedEmotionId,
-            onSelect = { emotion ->
-                selectedEmotionId = emotion.id
-                pageIndex = 0
-            }
+        EmoGardenTopNav(
+            activeItem = EmoGardenNavItem.Learn,
+            onHome = onGoHome,
+            onLearn = {},
+            onGames = onOpenGames,
+            onProfile = onOpenProfile,
+            onSettings = onOpenSettings
         )
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            LearnHeader()
 
-        LearnMediaCarousel(
-            emotion = selectedEmotion,
-            pageIndex = pageIndex,
-            onPrevious = { pageIndex = if (pageIndex == 0) 1 else 0 },
-            onNext = { pageIndex = if (pageIndex == 0) 1 else 0 },
-            onSelectDetail = { onSelectEmotion(selectedEmotion.id) }
-        )
+            if (isLoading) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color(0xFF1976D2))
+                    Text("Đang tải thẻ học...", color = Color(0xFF6B7280))
+                }
+            }
+
+            EmotionPillRow(
+                emotions = emotions,
+                selectedEmotionId = selectedEmotionId,
+                onSelect = { emotion ->
+                    selectedEmotionId = emotion.id
+                    pageIndex = 0
+                }
+            )
+
+            LearnMediaCarousel(
+                emotion = selectedEmotion,
+                pageIndex = pageIndex,
+                onPrevious = { pageIndex = if (pageIndex == 0) 1 else 0 },
+                onNext = { pageIndex = if (pageIndex == 0) 1 else 0 },
+                onSelectDetail = { onSelectEmotion(selectedEmotion.id) }
+            )
+        }
     }
 }
 
@@ -147,20 +158,27 @@ fun LearnPage(
 private fun LearnHeader() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Text(
-                text = "Học cảm xúc",
-                fontSize = 28.sp,
+                text = "HỌC CẢM XÚC",
+                fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFF0B3C7D)
             )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.58f)
+                    .height(3.dp)
+                    .background(Color(0xFF4FACFE), CircleShape)
+            )
             Text(
                 text = "Chọn một cảm xúc, xem video mẫu rồi đọc tình huống minh họa.",
-                color = Color.Gray
+                color = Color(0xFF6B7280),
+                lineHeight = 19.sp
             )
         }
     }
@@ -172,31 +190,28 @@ private fun EmotionPillRow(
     selectedEmotionId: String,
     onSelect: (EmotionUiItem) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        emotions.forEach { emotion ->
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(emotions) { emotion ->
             val selected = emotion.id == selectedEmotionId
             Surface(
                 modifier = Modifier.clickable { onSelect(emotion) },
                 shape = CircleShape,
-                color = if (selected) Color(0xFFE3F2FD) else Color.White,
-                border = BorderStroke(1.dp, if (selected) Color(0xFF1976D2) else Color(0xFFE5E7EB)),
-                shadowElevation = if (selected) 4.dp else 1.dp
+                color = emotionPillColor(emotion.id),
+                border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) Color(0xFF1976D2) else Color.White.copy(alpha = 0.6f)),
+                shadowElevation = if (selected) 7.dp else 2.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(emotion.emoji.ifBlank { emotionIcon(emotion.id) }, fontSize = 20.sp)
                     Text(
                         emotion.name,
-                        color = if (selected) Color(0xFF0B3C7D) else Color.DarkGray,
-                        fontWeight = FontWeight.SemiBold
+                        color = Color(0xFF0B3C7D),
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -214,25 +229,52 @@ private fun LearnMediaCarousel(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("${emotion.name} ${emotion.emoji}", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(if (pageIndex == 0) "Video mẫu" else "Tình huống minh họa", color = Color.Gray)
+                    Text(
+                        "${emotion.emoji.ifBlank { emotionIcon(emotion.id) }} ${emotion.name}",
+                        color = Color(0xFF0B3C7D),
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(if (pageIndex == 0) "Video mẫu" else "Tình huống minh họa", color = Color(0xFF6B7280))
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onPrevious) { Text("‹") }
-                    OutlinedButton(onClick = onNext) { Text("›") }
-                }
+                TextButton(onClick = onSelectDetail) { Text("Chi tiết") }
             }
 
-            if (pageIndex == 0) {
-                AssetVideoPlayer(emotionId = emotion.id)
-            } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                if (pageIndex == 0) {
+                    AssetVideoPlayer(emotionId = emotion.id)
+                } else {
+                    Image(
+                        painter = painterResource(id = rememberEmotionImageResource(emotion.id)),
+                        contentDescription = emotion.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                MediaArrow(text = "‹", modifier = Modifier.align(Alignment.CenterStart), onClick = onPrevious)
+                MediaArrow(text = "›", modifier = Modifier.align(Alignment.CenterEnd), onClick = onNext)
+            }
+
+            if (pageIndex == 1) {
                 SituationPanel(emotion = emotion, onSelectDetail = onSelectDetail)
             }
 
@@ -242,9 +284,26 @@ private fun LearnMediaCarousel(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Dot(active = pageIndex == 0)
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.size(8.dp))
                 Dot(active = pageIndex == 1)
             }
+        }
+    }
+}
+
+@Composable
+private fun MediaArrow(text: String, modifier: Modifier, onClick: () -> Unit) {
+    Surface(
+        modifier = modifier
+            .padding(horizontal = 8.dp)
+            .size(42.dp)
+            .clickable(onClick = onClick),
+        shape = CircleShape,
+        color = Color.White.copy(alpha = 0.92f),
+        shadowElevation = 5.dp
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(text, color = Color(0xFF1976D2), fontSize = 32.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -258,11 +317,7 @@ private fun AssetVideoPlayer(emotionId: String) {
     }
 
     AndroidView(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(16f / 9f)
-            .clip(MaterialTheme.shapes.extraLarge)
-            .background(Color.Black),
+        modifier = Modifier.fillMaxSize(),
         factory = {
             VideoView(it).apply {
                 val controller = MediaController(context)
@@ -284,31 +339,20 @@ private fun AssetVideoPlayer(emotionId: String) {
 
 @Composable
 private fun SituationPanel(emotion: EmotionUiItem, onSelectDetail: () -> Unit) {
-    val imageRes = rememberEmotionImageResource(emotion.id)
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp),
-            shape = MaterialTheme.shapes.extraLarge
-        ) {
-            Image(
-                painter = painterResource(id = imageRes),
-                contentDescription = emotion.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        }
-        Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFF8FAFC)) {
+    Surface(shape = RoundedCornerShape(18.dp), color = Color(0xFFF8FAFC)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = situationForEmotion(emotion.id),
-                modifier = Modifier.padding(14.dp),
                 color = Color(0xFF111827),
-                lineHeight = 21.sp
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 23.sp
             )
-        }
-        Button(onClick = onSelectDetail, modifier = Modifier.fillMaxWidth()) {
-            Text("Xem dấu hiệu nhận biết")
+            GradientActionButton(
+                text = "Xem dấu hiệu nhận biết",
+                onClick = onSelectDetail,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -341,6 +385,18 @@ private fun rememberEmotionImageResource(emotionId: String): Int {
     }
 
     return R.drawable.logo_emo
+}
+
+private fun emotionPillColor(emotionId: String): Color {
+    return when (normalizeEmotionId(emotionId)) {
+        "happy" -> Color(0xFFFFF2B3)
+        "sad" -> Color(0xFFD9F1FF)
+        "angry" -> Color(0xFFFFE1E6)
+        "fear" -> Color(0xFFEEE9FF)
+        "surprise" -> Color(0xFFFFEDD5)
+        "disgust" -> Color(0xFFDCFCE7)
+        else -> Color(0xFFF4F4F5)
+    }
 }
 
 private fun situationForEmotion(emotionId: String): String {
