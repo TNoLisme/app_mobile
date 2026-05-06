@@ -197,11 +197,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         }
         composable("profile") {
             ProfilePage(
-                onBack = { navController.popBackStack() },
-                onLogout = {
-                    auth.signOut()
-                    navController.navigate("login") { popUpTo("home") { inclusive = true } }
-                }
+                onBack = { navController.popBackStack() }
             )
         }
         composable("settings") {

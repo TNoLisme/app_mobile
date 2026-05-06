@@ -1,6 +1,7 @@
 package com.example.appmobile.ui.pages.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,8 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -20,8 +26,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -41,20 +45,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.NetworkClient
-import com.example.appmobile.data.remote.dto.EmotionAccuracyDto
 import com.example.appmobile.data.remote.dto.RecentGameDto
 import com.example.appmobile.data.remote.dto.SessionHistoryItemDto
 import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
-import com.example.appmobile.data.remote.dto.WeakEmotionDto
 import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
-import com.example.appmobile.ui.theme.SoftWhite
+import com.example.appmobile.ui.components.EmoGardenBackground
+import com.example.appmobile.ui.components.EmoGardenButtonGradient
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -63,12 +68,16 @@ import java.util.Locale
 private data class ProfileBadge(
     val id: String,
     val title: String,
-    val icon: String,
-    val description: String
+    val icon: String
+)
+
+private data class ProfileStat(
+    val value: String,
+    val label: String
 )
 
 @Composable
-fun ProfilePage(onBack: () -> Unit, onLogout: () -> Unit) {
+fun ProfilePage(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "local-player" }
@@ -83,12 +92,9 @@ fun ProfilePage(onBack: () -> Unit, onLogout: () -> Unit) {
     var profile by remember { mutableStateOf<UserProfileDto?>(null) }
     var recentGames by remember { mutableStateOf<List<RecentGameDto>>(emptyList()) }
     var sessions by remember { mutableStateOf<List<SessionHistoryItemDto>>(emptyList()) }
-    var accuracy by remember { mutableStateOf<Map<String, EmotionAccuracyDto>>(emptyMap()) }
-    var weakEmotions by remember { mutableStateOf<List<WeakEmotionDto>>(emptyList()) }
     var cvEmotionScores by remember { mutableStateOf<Map<String, Float>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
-    var requestingReportType by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var showEdit by remember { mutableStateOf(false) }
 
@@ -97,25 +103,9 @@ fun ProfilePage(onBack: () -> Unit, onLogout: () -> Unit) {
         profile = repository.getProfile(userId)
         recentGames = repository.getRecentGames(userId)
         sessions = repository.getSessionHistory(userId)
-        accuracy = repository.getEmotionAccuracy(userId)
-        weakEmotions = repository.getWeakEmotions(userId)
         cvEmotionScores = repository.getCvEmotionScores(userId)?.scores.orEmpty()
         message = if (profile == null) "Chưa tải được hồ sơ từ backend." else null
         loading = false
-    }
-
-    fun requestReport(reportType: String) {
-        scope.launch {
-            requestingReportType = reportType
-            val report = repository.requestReport(userId, reportType)
-            requestingReportType = null
-            message = if (report != null) {
-                val label = if (reportType == "monthly") "tháng" else "tuần"
-                "Đã tạo báo cáo $label. Mở trang Báo cáo để xem chi tiết."
-            } else {
-                "Chưa tạo được báo cáo. Vui lòng thử lại."
-            }
-        }
     }
 
     LaunchedEffect(userId) {
@@ -125,54 +115,52 @@ fun ProfilePage(onBack: () -> Unit, onLogout: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.linearGradient(listOf(SoftWhite, Color(0xFFE3F2FD), Color(0xFFBBDEFB))))
-            .verticalScroll(rememberScrollState())
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .background(EmoGardenBackground)
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← Quay lại") }
-            Spacer(modifier = Modifier.weight(1f))
-            TextButton(onClick = onLogout) { Text("Đăng xuất", color = Color.Red) }
-        }
+        ProfileTopBar(onBack = onBack)
 
-        Text("Hồ sơ của bé", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0B3C7D))
-        Text("Thông tin tài khoản, huy hiệu và tiến độ luyện tập.", color = Color.Gray)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (loading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF1976D2))
+                }
+            } else {
+                message?.let {
+                    MessageBanner(it)
+                }
 
-        if (loading) {
-            Box(modifier = Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                val unlockedBadges = unlockedBadgeIds(sessions, cvEmotionScores)
+                ProfileHeroCard(
+                    profile = profile,
+                    badges = profileBadges(),
+                    unlocked = unlockedBadges
+                )
+                ProfileInfoGrid(profile)
+                ProfileStatsSection(
+                    stats = profileStats(
+                        sessions = sessions,
+                        recentGames = recentGames,
+                        unlockedBadges = unlockedBadges.size
+                    )
+                )
+                ProfileActions(
+                    onEdit = { showEdit = true }
+                )
             }
-            return@Column
         }
-
-        message?.let {
-            Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFFFF3E0), modifier = Modifier.fillMaxWidth()) {
-                Text(it, modifier = Modifier.padding(12.dp), color = Color(0xFF8A4B00))
-            }
-        }
-
-        ProfileHeaderCard(profile)
-        ProfileInfoGrid(profile)
-        ProfileStatsCard(sessions = sessions, recentGames = recentGames, accuracy = accuracy, weakEmotions = weakEmotions)
-        BadgesCard(sessions = sessions, cvEmotionScores = cvEmotionScores)
-        ReportRequestCard(
-            requestingReportType = requestingReportType,
-            onRequestWeekly = { requestReport("weekly") },
-            onRequestMonthly = { requestReport("monthly") }
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = { showEdit = true }, modifier = Modifier.weight(1f)) {
-                Text("Chỉnh sửa")
-            }
-            OutlinedButton(onClick = { scope.launch { loadProfileData() } }, modifier = Modifier.weight(1f)) {
-                Text("Tải lại")
-            }
-        }
-
-        RecentGamesCard(recentGames)
-        EmotionAccuracyCard(accuracy, weakEmotions)
     }
 
     if (showEdit && profile != null) {
@@ -199,206 +187,80 @@ fun ProfilePage(onBack: () -> Unit, onLogout: () -> Unit) {
 }
 
 @Composable
-private fun ProfileHeaderCard(profile: UserProfileDto?) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(3.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Surface(modifier = Modifier.size(94.dp), shape = CircleShape, color = Color(0xFFFFEAA7)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("👶", fontSize = 46.sp)
-                }
-            }
-            Text(profile?.name ?: "Bé yêu", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = Color(0xFF0B3C7D))
-            Text(profile?.email ?: "Chưa có email", color = Color.Gray)
-            Surface(shape = CircleShape, color = Color(0xFFE3F2FD)) {
-                Text("Cấp độ 1", modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp), color = Color(0xFF1976D2), fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProfileInfoGrid(profile: UserProfileDto?) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            InfoTile("Tên đăng nhập", profile?.username ?: "---", Modifier.weight(1f))
-            InfoTile("Email", profile?.email ?: "---", Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            InfoTile("Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "---", Modifier.weight(1f))
-            InfoTile("Ngày tham gia", formatDate(profile?.createdAt), Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            InfoTile("Giới tính", displayGender(profile?.child?.gender), Modifier.weight(1f))
-            InfoTile("Số điện thoại", profile?.child?.phone ?: "---", Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun InfoTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier = modifier, shape = MaterialTheme.shapes.large, colors = CardDefaults.cardColors(containerColor = Color.White)) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = Color(0xFF1976D2), fontWeight = FontWeight.Bold)
-            Text(value, color = Color.DarkGray)
-        }
-    }
-}
-
-@Composable
-private fun ProfileStatsCard(
-    sessions: List<SessionHistoryItemDto>,
-    recentGames: List<RecentGameDto>,
-    accuracy: Map<String, EmotionAccuracyDto>,
-    weakEmotions: List<WeakEmotionDto>
-) {
-    val avgAccuracy = accuracy.values.mapNotNull { it.accuracy }.takeIf { it.isNotEmpty() }?.average() ?: 0.0
-    val totalAnswers = accuracy.values.sumOf { (it.correct ?: 0) + (it.incorrect ?: 0) }
-    val totalScore = sessions.sumOf { it.score ?: 0 }
-    val playTimeHours = sessions.sumOf { sessionDurationMillis(it) }.toDouble() / (1000 * 60 * 60)
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("Thống kê chơi game", fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E4E8C))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                StatTile("Phiên chơi", sessions.size.toString(), Modifier.weight(1f))
-                StatTile("Tổng điểm", totalScore.toString(), Modifier.weight(1f))
-                StatTile("Thời gian", "${"%.1f".format(playTimeHours)}h", Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                StatTile("Game gần đây", recentGames.size.toString(), Modifier.weight(1f))
-                StatTile("Đáp án", totalAnswers.toString(), Modifier.weight(1f))
-                StatTile("Cần ôn", weakEmotions.size.toString(), Modifier.weight(1f))
-            }
-            LinearProgressIndicator(
-                progress = { (avgAccuracy / 100.0).toFloat().coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(8.dp),
-                color = Color(0xFF2E7D32),
-                trackColor = Color(0xFFE0E0E0)
-            )
-            Text("Độ chính xác trung bình: ${"%.1f".format(avgAccuracy)}%", color = Color.Gray)
-        }
-    }
-}
-
-@Composable
-private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, shape = MaterialTheme.shapes.large, color = Color(0xFFF1F8E9)) {
-        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(value, fontWeight = FontWeight.ExtraBold, color = Color(0xFF2E7D32), fontSize = 18.sp)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-        }
-    }
-}
-
-@Composable
-private fun BadgesCard(sessions: List<SessionHistoryItemDto>, cvEmotionScores: Map<String, Float>) {
-    val badges = profileBadges()
-    val unlocked = unlockedBadgeIds(sessions, cvEmotionScores)
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("🏆 Huy hiệu", fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E4E8C))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                badges.take(4).forEach { badge ->
-                    BadgeBubble(badge = badge, unlocked = badge.id in unlocked, modifier = Modifier.weight(1f))
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                badges.drop(4).forEach { badge ->
-                    BadgeBubble(badge = badge, unlocked = badge.id in unlocked, modifier = Modifier.weight(1f))
-                }
-            }
-            Text(
-                "Mở khóa huy hiệu bằng cách hoàn thành game, đạt điểm cao hoặc luyện đủ 6 cảm xúc CV.",
-                color = Color.Gray,
-                fontSize = 13.sp
-            )
-        }
-    }
-}
-
-@Composable
-private fun BadgeBubble(badge: ProfileBadge, unlocked: Boolean, modifier: Modifier = Modifier) {
+private fun ProfileTopBar(onBack: () -> Unit) {
     Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        color = if (unlocked) Color(0xFFE3F2FD) else Color(0xFFF3F4F6)
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.98f),
+        shadowElevation = 8.dp
     ) {
-        Column(
-            modifier = Modifier.padding(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Row(
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(if (unlocked) badge.icon else "🔒", fontSize = 28.sp)
-            Text(badge.title, fontSize = 11.sp, color = if (unlocked) Color(0xFF0B3C7D) else Color.Gray, fontWeight = FontWeight.Bold)
+            GradientPill(text = "← Quay lại", onClick = onBack)
+            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun ReportRequestCard(
-    requestingReportType: String?,
-    onRequestWeekly: () -> Unit,
-    onRequestMonthly: () -> Unit
+private fun ProfileHeroCard(
+    profile: UserProfileDto?,
+    badges: List<ProfileBadge>,
+    unlocked: Set<String>
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("📊 Báo cáo tiến độ", fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B5E20))
-            Text("Tạo báo cáo học tập giống phần hồ sơ web và lưu vào lịch sử báo cáo.", color = Color(0xFF52616F))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    enabled = requestingReportType == null,
-                    onClick = onRequestWeekly,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(if (requestingReportType == "weekly") "Đang tạo..." else "Báo cáo tuần")
+        Row(
+            modifier = Modifier.padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Column(
+                modifier = Modifier.width(104.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Box(
+                        modifier = Modifier
+                            .size(76.dp)
+                            .background(Brush.linearGradient(listOf(Color(0xFFFFF1A8), Color(0xFFFFD54F))), CircleShape)
+                            .padding(5.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(modifier = Modifier.fillMaxSize(), shape = CircleShape, color = Color(0xFFFFE082)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("👶", fontSize = 38.sp)
+                            }
+                        }
+                    }
+                    Surface(shape = CircleShape, color = Color(0xFFFFD700), shadowElevation = 3.dp) {
+                        Text("🏅", modifier = Modifier.padding(5.dp), fontSize = 14.sp)
+                    }
                 }
-                OutlinedButton(
-                    enabled = requestingReportType == null,
-                    onClick = onRequestMonthly,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(if (requestingReportType == "monthly") "Đang tạo..." else "Báo cáo tháng")
-                }
+                Text(
+                    profile?.name?.ifBlank { null } ?: "Bé yêu",
+                    color = Color(0xFF263238),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text("Cấp độ 1", color = Color(0xFF52616F), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
-        }
-    }
-}
 
-@Composable
-private fun RecentGamesCard(games: List<RecentGameDto>) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = Color.White)) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Game chơi gần đây", fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E4E8C))
-            if (games.isEmpty()) {
-                Text("Chưa có lịch sử chơi game.", color = Color.Gray)
-            } else {
-                games.forEach { game ->
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(game.name ?: "Game", fontWeight = FontWeight.SemiBold, color = Color.DarkGray)
-                        Text(formatDate(game.lastPlayed), style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("🏆 Huy hiệu", color = Color(0xFF263238), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(badges) { badge ->
+                        BadgeCircle(badge = badge, unlocked = badge.id in unlocked)
                     }
                 }
             }
@@ -407,29 +269,150 @@ private fun RecentGamesCard(games: List<RecentGameDto>) {
 }
 
 @Composable
-private fun EmotionAccuracyCard(
-    accuracy: Map<String, EmotionAccuracyDto>,
-    weakEmotions: List<WeakEmotionDto>
-) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = Color.White)) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Cảm xúc cần luyện thêm", fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E4E8C))
-            if (weakEmotions.isEmpty()) {
-                Text("Chưa có cảm xúc yếu hoặc chưa đủ dữ liệu.", color = Color.Gray)
-            } else {
-                weakEmotions.forEach { item ->
-                    Text("${item.emotion ?: "Cảm xúc"}: sai ${"%.1f".format(item.errorRate ?: 0f)}%", color = Color.DarkGray)
-                }
-            }
+private fun ProfileInfoGrid(profile: UserProfileDto?) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            InfoCard("👤", "Tên đăng nhập", profile?.username ?: "---", Modifier.weight(1f))
+            InfoCard("✉️", "Email", profile?.email ?: "---", Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            InfoCard("🗓️", "Ngày tham gia", formatDate(profile?.createdAt), Modifier.weight(1f))
+            InfoCard("🎂", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "---", Modifier.weight(1f))
+        }
+    }
+}
 
-            if (accuracy.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Độ chính xác theo cảm xúc", fontWeight = FontWeight.Bold, color = Color.Gray)
-                accuracy.entries.sortedByDescending { it.value.accuracy ?: 0f }.forEach { (emotion, stat) ->
-                    Text("$emotion: ${"%.1f".format(stat.accuracy ?: 0f)}%", color = Color.DarkGray)
+@Composable
+private fun InfoCard(icon: String, title: String, value: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.height(78.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(11.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Text("$icon $title", color = Color(0xFF0B3C7D), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                value,
+                color = Color(0xFF455A64),
+                fontSize = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileStatsSection(stats: List<ProfileStat>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("📊 Thống kê chơi game", color = Color(0xFF263238), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                stats.chunked(2).forEach { rowStats ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        rowStats.forEach { stat ->
+                            StatBox(stat, Modifier.weight(1f))
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StatBox(stat: ProfileStat, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.height(74.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = Color.Transparent,
+        shadowElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .background(Brush.linearGradient(listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB))))
+                .padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(stat.value, color = Color(0xFF1976D2), fontSize = 22.sp, fontWeight = FontWeight.Black)
+            Text(stat.label, color = Color(0xFF52616F), fontSize = 11.sp, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun BadgeCircle(badge: ProfileBadge, unlocked: Boolean) {
+    Box(contentAlignment = Alignment.TopEnd) {
+        Surface(
+            modifier = Modifier.size(52.dp),
+            shape = CircleShape,
+            color = Color.Transparent,
+            shadowElevation = if (unlocked) 5.dp else 0.dp
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        if (unlocked) {
+                            Brush.linearGradient(listOf(Color(0xFFFFD700), Color(0xFFFFF176)))
+                        } else {
+                            Brush.linearGradient(listOf(Color(0xFFE5E7EB), Color(0xFFF1F5F9)))
+                        },
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(badge.icon, fontSize = 23.sp, color = if (unlocked) Color.Unspecified else Color.Gray)
+            }
+        }
+        if (!unlocked) {
+            Surface(shape = CircleShape, color = Color(0xFFE0E0E0)) {
+                Text("🔒", modifier = Modifier.padding(3.dp), fontSize = 10.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileActions(onEdit: () -> Unit) {
+    GradientPill(text = "✏️ Chỉnh sửa thông tin", onClick = onEdit, modifier = Modifier.fillMaxWidth())
+}
+
+@Composable
+private fun GradientPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier
+            .height(42.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(999.dp),
+        color = Color.Transparent,
+        shadowElevation = 5.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .background(EmoGardenButtonGradient)
+                .padding(horizontal = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun MessageBanner(message: String) {
+    Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFFFFF3E0), modifier = Modifier.fillMaxWidth()) {
+        Text(message, modifier = Modifier.padding(12.dp), color = Color(0xFF8A4B00), lineHeight = 19.sp)
     }
 }
 
@@ -494,15 +477,30 @@ private fun EditProfileDialog(
     )
 }
 
+private fun profileStats(
+    sessions: List<SessionHistoryItemDto>,
+    recentGames: List<RecentGameDto>,
+    unlockedBadges: Int
+): List<ProfileStat> {
+    val totalScore = sessions.sumOf { it.score ?: 0 }
+    val playTimeHours = sessions.sumOf { sessionDurationMillis(it) }.toDouble() / (1000 * 60 * 60)
+    return listOf(
+        ProfileStat((sessions.size.takeIf { it > 0 } ?: recentGames.size).toString(), "Trò chơi đã chơi"),
+        ProfileStat(totalScore.toString(), "Tổng điểm"),
+        ProfileStat(unlockedBadges.toString(), "Thành tích"),
+        ProfileStat("${"%.1f".format(playTimeHours)}h", "Thời gian chơi")
+    )
+}
+
 private fun profileBadges(): List<ProfileBadge> {
     return listOf(
-        ProfileBadge(GameUiCatalog.GAME_RECOGNIZE_EMOTION, "Hộp", "📦", "Hoàn thành Chiếc hộp cảm xúc"),
-        ProfileBadge(GameUiCatalog.GAME_DETECTIVE, "Thám tử", "🕵️", "Hoàn thành Thám tử cảm xúc"),
-        ProfileBadge(GameUiCatalog.GAME_EMOTION_MATCH, "Đúng chỗ", "🎯", "Hoàn thành Cảm xúc đúng chỗ"),
-        ProfileBadge(GameUiCatalog.GAME_FACE_ASSEMBLY, "Lắp ghép", "🧩", "Hoàn thành Xưởng lắp ghép"),
-        ProfileBadge(GameUiCatalog.GAME_CV_STORY, "Khuôn mặt", "🎭", "Hoàn thành Game CV câu chuyện"),
-        ProfileBadge(GameUiCatalog.GAME_CV_REQUEST, "CV 6 cảm xúc", "📷", "Đạt 100% cho 6 cảm xúc"),
-        ProfileBadge("all", "Siêu sao", "🌟", "Mở khóa tất cả huy hiệu")
+        ProfileBadge(GameUiCatalog.GAME_RECOGNIZE_EMOTION, "Hộp", "📦"),
+        ProfileBadge(GameUiCatalog.GAME_DETECTIVE, "Thám tử", "🕵️"),
+        ProfileBadge(GameUiCatalog.GAME_EMOTION_MATCH, "Đúng chỗ", "🎯"),
+        ProfileBadge(GameUiCatalog.GAME_FACE_ASSEMBLY, "Lắp ghép", "🧩"),
+        ProfileBadge(GameUiCatalog.GAME_CV_STORY, "Khuôn mặt", "🎭"),
+        ProfileBadge(GameUiCatalog.GAME_CV_REQUEST, "CV 6 cảm xúc", "📷"),
+        ProfileBadge("all", "Siêu sao", "🌟")
     )
 }
 
@@ -526,15 +524,6 @@ private fun unlockedBadgeIds(sessions: List<SessionHistoryItemDto>, cvEmotionSco
         unlocked += "all"
     }
     return unlocked
-}
-
-private fun displayGender(value: String?): String {
-    return when (value?.lowercase()) {
-        "male", "nam" -> "Nam"
-        "female", "nữ", "nu" -> "Nữ"
-        "other" -> "Khác"
-        else -> value ?: "---"
-    }
 }
 
 private fun formatDate(value: String?): String {
