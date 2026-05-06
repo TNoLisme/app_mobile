@@ -31,6 +31,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -90,6 +92,10 @@ fun CvTrainingGamePage(
     val capturedBitmap = remember(level, gameId) { mutableStateOf<Bitmap?>(null) }
     val isSubmitting = remember(level, gameId) { mutableStateOf(false) }
     val questionStartMs = remember(level, gameId) { mutableStateOf(System.currentTimeMillis()) }
+    val maxErrors = remember(level, gameId) { mutableIntStateOf(2) }
+    val emotionErrors = remember(level, gameId) { mutableStateMapOf<String, Int>() }
+    val learnedEmotions = remember(level, gameId) { mutableStateListOf<String>() }
+    val learningEmotionId = remember(level, gameId) { mutableStateOf<String?>(null) }
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
         capturedBitmap.value = bitmap
         feedback.value = null
@@ -99,7 +105,9 @@ fun CvTrainingGamePage(
         if (isSubmitting.value || summary.value != null) return
         scope.launch {
             isSubmitting.value = true
-            val response = sessionId.value?.let { repository.endLevel(it, finalResults) }
+            val response = sessionId.value?.let {
+                repository.endLevel(it, finalResults, learnedEmotions.distinct())
+            }
             summary.value = if (response != null) {
                 val status = if (response.passed) "Đã qua level" else "Chưa qua level"
                 "$status. Điểm: ${response.score}/100."
@@ -114,6 +122,15 @@ fun CvTrainingGamePage(
         if (feedback.value != null) return
         val question = questions.value[currentIndex.intValue]
         if (success) score.intValue += 10
+        val reviewEmotion = normalizeEmotionForLearning(question.prompt.correctAnswer)
+        if (!success) {
+            val nextErrorCount = (emotionErrors[reviewEmotion] ?: 0) + 1
+            emotionErrors[reviewEmotion] = nextErrorCount
+            if (nextErrorCount >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
+                learnedEmotions.add(reviewEmotion)
+                learningEmotionId.value = reviewEmotion
+            }
+        }
         val updatedResults = results.value + AnswerResultDto(
             questionId = question.questionId,
             answer = if (success) question.prompt.correctAnswer else "not_matched",
@@ -142,6 +159,7 @@ fun CvTrainingGamePage(
     LaunchedEffect(gameId, level, userId) {
         val started = repository.startGame(gameId, userId, level)
         sessionId.value = started?.sessionId
+        maxErrors.intValue = started?.maxErrors ?: 2
         val backendQuestions = started?.questions
             ?.mapNotNull { content ->
                 val emotion = (content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null }
@@ -160,6 +178,9 @@ fun CvTrainingGamePage(
         summary.value = null
         feedback.value = null
         capturedBitmap.value = null
+        emotionErrors.clear()
+        learnedEmotions.clear()
+        learningEmotionId.value = null
         questionStartMs.value = System.currentTimeMillis()
     }
 
@@ -243,6 +264,10 @@ fun CvTrainingGamePage(
                     }
                 }
             }
+            EmotionLearningDialog(
+                emotionId = learningEmotionId.value,
+                onDismiss = { learningEmotionId.value = null }
+            )
         }
     }
 }

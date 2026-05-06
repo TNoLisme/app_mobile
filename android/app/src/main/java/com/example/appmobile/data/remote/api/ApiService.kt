@@ -43,6 +43,13 @@ interface ApiService {
         @Query("limit") limit: Int = 3
     ): Response<WeakEmotionsResponseDto>
 
+    @GET("sessions/user/{userId}/history")
+    suspend fun getSessionHistory(
+        @Path("userId") userId: String,
+        @Query("skip") skip: Int = 0,
+        @Query("limit") limit: Int = 1000
+    ): Response<SessionHistoryResponseDto>
+
     // --- GAMES ---
     @GET("games")
     suspend fun getGames(): Response<List<GameDto>>
@@ -71,6 +78,9 @@ interface ApiService {
         @Path("gameId") gameId: String,
         @Query("user_id") userId: String
     ): Response<GameProgressDto?>
+
+    @GET("games/cv/emotion-scores")
+    suspend fun getCvEmotionScores(@Query("user_id") userId: String): Response<CvEmotionScoresResponseDto>
 
     @POST("sessions/save")
     suspend fun saveSession(@Body session: SessionDto): Response<Boolean>

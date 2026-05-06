@@ -21,6 +21,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -60,6 +62,10 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
     val summary = remember(level) { mutableStateOf<String?>(null) }
     val isSubmitting = remember(level) { mutableStateOf(false) }
     val questionStartMs = remember(level) { mutableStateOf(System.currentTimeMillis()) }
+    val maxErrors = remember(level) { mutableIntStateOf(3) }
+    val emotionErrors = remember(level) { mutableStateMapOf<String, Int>() }
+    val learnedEmotions = remember(level) { mutableStateListOf<String>() }
+    val learningEmotionId = remember(level) { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "local-player" }
@@ -71,7 +77,9 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
         if (isSubmitting.value || summary.value != null) return
         scope.launch {
             isSubmitting.value = true
-            val response = sessionId.value?.let { repository.endLevel(it, finalResults) }
+            val response = sessionId.value?.let {
+                repository.endLevel(it, finalResults, learnedEmotions.distinct())
+            }
             summary.value = if (response != null) {
                 val status = if (response.passed) "Đã qua level" else "Chưa qua level"
                 "$status. Điểm: ${response.score}/100."
@@ -85,6 +93,7 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
     LaunchedEffect(level, userId) {
         val started = repository.startGame(GameUiCatalog.GAME_DETECTIVE, userId, level)
         sessionId.value = started?.sessionId
+        maxErrors.intValue = started?.maxErrors ?: 3
         val backendQuestions = started?.questions
             ?.mapNotNull { content ->
                 val emotion = (content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null }
@@ -103,6 +112,9 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
         feedback.value = null
         results.value = emptyList()
         summary.value = null
+        emotionErrors.clear()
+        learnedEmotions.clear()
+        learningEmotionId.value = null
         questionStartMs.value = System.currentTimeMillis()
     }
 
@@ -195,6 +207,15 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                         val selected = selectedEmotionId.value ?: return@Button
                         val isCorrect = selected == question.correctEmotion
                         if (isCorrect) score.intValue += 10
+                        val reviewEmotion = normalizeEmotionForLearning(question.correctEmotion)
+                        if (!isCorrect) {
+                            val nextErrorCount = (emotionErrors[reviewEmotion] ?: 0) + 1
+                            emotionErrors[reviewEmotion] = nextErrorCount
+                            if (nextErrorCount >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
+                                learnedEmotions.add(reviewEmotion)
+                                learningEmotionId.value = reviewEmotion
+                            }
+                        }
                         val updatedResults = results.value + AnswerResultDto(
                             questionId = question.questionId,
                             answer = selected,
@@ -229,6 +250,10 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                     }
                 )
             }
+            EmotionLearningDialog(
+                emotionId = learningEmotionId.value,
+                onDismiss = { learningEmotionId.value = null }
+            )
         }
     }
 }

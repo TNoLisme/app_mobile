@@ -5,59 +5,64 @@ import com.example.appmobile.data.local.entity.ChildEntity
 import com.example.appmobile.data.local.entity.UserEntity
 import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.api.ApiService
+import com.example.appmobile.data.remote.dto.CvEmotionScoresResponseDto
 import com.example.appmobile.data.remote.dto.EmotionAccuracyDto
 import com.example.appmobile.data.remote.dto.RecentGameDto
+import com.example.appmobile.data.remote.dto.ReportPayloadDto
+import com.example.appmobile.data.remote.dto.ReportRequestDto
+import com.example.appmobile.data.remote.dto.SessionHistoryItemDto
 import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateRequestDto
 import com.example.appmobile.data.remote.dto.WeakEmotionDto
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 class UserRepository(
     private val apiService: ApiService,
     private val firebaseAuthHelper: FirebaseAuthHelper,
-    private val userDao: UserDao // Thêm UserDao để lưu local
+    private val userDao: UserDao
 ) {
     suspend fun registerNewAccount(
         email: String,
         pass: String,
         name: String,
         age: Int,
-        gender: String
+        gender: String,
+        username: String? = null,
+        dateOfBirth: String? = null,
+        phoneNumber: String? = null
     ): Result<String> {
         return try {
-            // 1. Tạo tài khoản trên Firebase
             val authResult = firebaseAuthHelper.auth.createUserWithEmailAndPassword(email, pass).await()
             val uid = authResult.user?.uid ?: throw Exception("Không lấy được Firebase UID")
 
             val currentTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            val safeUsername = username?.takeIf { it.isNotBlank() } ?: email.substringBefore("@")
 
-            // 2. Đóng gói dữ liệu cho cả bảng User và Child
             val syncData = mapOf(
                 "user_id" to uid,
+                "username" to safeUsername,
                 "email" to email,
                 "name" to name,
                 "role" to "child",
                 "created_at" to currentTime,
                 "age" to age.toString(),
                 "gender" to gender,
-                "date_of_birth" to "", // Có thể bổ sung thêm field nếu cần
-                "phone_number" to ""
+                "date_of_birth" to dateOfBirth.orEmpty(),
+                "phone_number" to phoneNumber.orEmpty()
             )
 
-            // 3. Gửi sang Backend FastAPI
             val response = apiService.registerUserSync(syncData)
 
             if (response.isSuccessful) {
-                // 4. Nếu thành công, lưu vào Local DB (Room) để dùng offline
-                userDao.insertUser(UserEntity(uid, null, email, "child", name, currentTime))
-                userDao.insertChild(ChildEntity(uid, age, gender, null, null, null))
-
+                userDao.insertUser(UserEntity(uid, safeUsername, email, "child", name, currentTime))
+                userDao.insertChild(ChildEntity(uid, age, gender, dateOfBirth, phoneNumber, null))
                 Result.success(uid)
             } else {
-                Result.failure(Exception("Lỗi đồng bộ CSDL SQL Server: ${response.code()}"))
+                Result.failure(Exception("Lỗi đồng bộ SQL Server: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -106,6 +111,33 @@ class UserRepository(
             if (response.isSuccessful) response.body()?.data.orEmpty() else emptyList()
         } catch (e: Exception) {
             emptyList()
+        }
+    }
+
+    suspend fun getSessionHistory(userId: String): List<SessionHistoryItemDto> {
+        return try {
+            val response = apiService.getSessionHistory(userId)
+            if (response.isSuccessful) response.body()?.sessions.orEmpty() else emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getCvEmotionScores(userId: String): CvEmotionScoresResponseDto? {
+        return try {
+            val response = apiService.getCvEmotionScores(userId)
+            if (response.isSuccessful) response.body() else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun requestReport(userId: String, reportType: String): ReportPayloadDto? {
+        return try {
+            val response = apiService.requestReport(ReportRequestDto(childUserId = userId, reportType = reportType))
+            if (response.isSuccessful) response.body()?.data else null
+        } catch (e: Exception) {
+            null
         }
     }
 }

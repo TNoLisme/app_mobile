@@ -2,6 +2,7 @@ package com.example.appmobile.ui.pages.learn
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,6 +32,7 @@ import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.pages.game.emotionLearningInfo
 import com.example.appmobile.ui.theme.SoftWhite
 
 @Composable
@@ -58,8 +60,8 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
         if (backendEmotion != null) emotion = backendEmotion
     }
 
-    val example = emotion?.description
-        ?: "Tình huống ví dụ"
+    val learningInfo = emotionLearningInfo(emotionId)
+    val example = learningInfo.situation
 
     Column(
         modifier = Modifier
@@ -109,11 +111,18 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
         Text(text = "Dấu hiệu nhận biết:", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(modifier = Modifier.height(8.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = emotion?.description ?: "Chưa có mô tả cho cảm xúc này.",
+            Column(
                 modifier = Modifier.padding(16.dp),
-                fontSize = 14.sp
-            )
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = emotion?.description ?: learningInfo.description,
+                    fontSize = 14.sp
+                )
+                learningInfo.cues.forEach { cue ->
+                    Text("• $cue", fontSize = 14.sp, color = Color.DarkGray)
+                }
+            }
         }
     }
 }
