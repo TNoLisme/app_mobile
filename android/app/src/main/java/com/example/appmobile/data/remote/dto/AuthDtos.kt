@@ -34,6 +34,7 @@ data class UserProfileDto(
     @SerializedName("email") val email: String? = null,
     @SerializedName("role") val role: String? = null,
     @SerializedName("name") val name: String? = null,
+    @SerializedName("avatar_url") val avatarUrl: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("child") val child: ChildDto? = null
 )
@@ -42,6 +43,7 @@ data class UserProfileUpdateDto(
     @SerializedName("name") val name: String? = null,
     @SerializedName("username") val username: String? = null,
     @SerializedName("email") val email: String? = null,
+    @SerializedName("password") val password: String? = null,
     @SerializedName("age") val age: Int? = null,
     @SerializedName("gender") val gender: String? = null,
     @SerializedName("date_of_birth") val dateOfBirth: String? = null,
@@ -51,6 +53,40 @@ data class UserProfileUpdateDto(
 data class UserProfileUpdateRequestDto(
     @SerializedName("user_id") val userId: String,
     @SerializedName("update") val update: UserProfileUpdateDto
+)
+
+data class ChildRegisterRequestDto(
+    @SerializedName("username") val username: String? = null,
+    @SerializedName("email") val email: String,
+    @SerializedName("password") val password: String,
+    @SerializedName("role") val role: String = "child",
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("age") val age: Int? = null,
+    @SerializedName("gender") val gender: String? = null,
+    @SerializedName("date_of_birth") val dateOfBirth: String? = null,
+    @SerializedName("phone_number") val phoneNumber: String? = null,
+    @SerializedName("report_preferences") val reportPreferences: String? = null
+)
+
+data class BackendRegisterDataDto(
+    @SerializedName("user_id") val userId: String? = null
+)
+
+data class BackendRegisterResponseDto(
+    @SerializedName("status") val status: String? = null,
+    @SerializedName("message") val message: String? = null,
+    @SerializedName("data") val data: BackendRegisterDataDto? = null
+)
+
+data class BackendLoginRequestDto(
+    @SerializedName("username") val username: String,
+    @SerializedName("password") val password: String
+)
+
+data class BackendLoginResponseDto(
+    @SerializedName("success") val success: Boolean? = null,
+    @SerializedName("message") val message: String? = null,
+    @SerializedName("user") val user: UserProfileDto? = null
 )
 
 data class RecentGameDto(

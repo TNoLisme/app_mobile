@@ -1,5 +1,9 @@
 package com.example.appmobile.ui.pages.profile
 
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,8 +51,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -61,6 +67,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.RecentGameDto
@@ -69,7 +76,9 @@ import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.state.UserAvatarState
 import com.google.firebase.auth.FirebaseAuth
+import coil.compose.AsyncImage
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -106,7 +115,7 @@ private data class ProfileStat(
 fun ProfilePage(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "local-player" }
+    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
     val repository = remember {
         UserRepository(
             NetworkClient.apiService,
@@ -123,6 +132,19 @@ fun ProfilePage(onBack: () -> Unit) {
     var saving by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var showEdit by remember { mutableStateOf(false) }
+    val avatarUri = UserAvatarState.avatarUri.value
+    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        uri?.let { selectedUri ->
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    selectedUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            UserAvatarState.save(context, userId, selectedUri.toString())
+            message = "Đã cập nhật ảnh đại diện."
+        }
+    }
 
     suspend fun loadProfileData() {
         loading = profile == null
@@ -134,6 +156,9 @@ fun ProfilePage(onBack: () -> Unit) {
             val cvScoresDeferred = async { repository.getCvEmotionScores(userId)?.scores.orEmpty() }
 
             profile = profileDeferred.await()
+            profile?.avatarUrl?.takeIf { it.isNotBlank() }?.let { backendAvatarUrl ->
+                UserAvatarState.save(context, userId, backendAvatarUrl)
+            }
             message = if (profile == null) "Chưa tải được hồ sơ từ backend." else null
             loading = false
 
@@ -146,6 +171,7 @@ fun ProfilePage(onBack: () -> Unit) {
     }
 
     LaunchedEffect(userId) {
+        UserAvatarState.load(context, userId)
         loadProfileData()
     }
 
@@ -190,9 +216,11 @@ fun ProfilePage(onBack: () -> Unit) {
             ProfileCard(
                 profile = profile,
                 badges = profileBadges(),
-                unlocked = unlockedBadges
+                unlocked = unlockedBadges,
+                avatarUri = avatarUri,
+                onChangeAvatar = { avatarPicker.launch(arrayOf("image/*")) }
             )
-            ProfileInfoGrid(profile)
+            ProfilePersonalInfoGrid(profile)
             ProfileStatsSection(
                 stats = profileStats(
                     sessions = sessions,
@@ -206,7 +234,7 @@ fun ProfilePage(onBack: () -> Unit) {
     }
 
     if (showEdit) {
-        EditProfileDialogV2(
+        EditPersonalProfileDialog(
             profile = profile,
             saving = saving,
             onDismiss = { if (!saving) showEdit = false },
@@ -285,7 +313,9 @@ private fun ErrorAlert(message: String, onRetry: () -> Unit) {
 private fun ProfileCard(
     profile: UserProfileDto?,
     badges: List<ProfileBadge>,
-    unlocked: Set<String>
+    unlocked: Set<String>,
+    avatarUri: String?,
+    onChangeAvatar: () -> Unit
 ) {
     ProfileSurface {
         Column(
@@ -297,7 +327,7 @@ private fun ProfileCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Avatar()
+                Avatar(avatarUri = avatarUri, onClick = onChangeAvatar)
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(3.dp)
@@ -327,6 +357,58 @@ private fun ProfileCard(
                     fontWeight = FontWeight.Bold
                 )
                 BadgeGrid(badges = badges, unlocked = unlocked)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Avatar(avatarUri: String?, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(64.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.BottomEnd
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            shape = CircleShape,
+            color = Color(0xFFFFE082),
+            border = BorderStroke(2.dp, Color.White),
+            shadowElevation = 2.dp
+        ) {
+            if (!avatarUri.isNullOrBlank()) {
+                AsyncImage(
+                    model = avatarUri,
+                    contentDescription = "Đổi ảnh đại diện",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(listOf(Color(0xFFFFF1A8), Color(0xFFFFD54F))),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("👶", fontSize = 28.sp)
+                }
+            }
+        }
+        Surface(
+            modifier = Modifier.size(23.dp),
+            shape = CircleShape,
+            color = Color.White,
+            border = BorderStroke(1.dp, ProfileCardBorder),
+            shadowElevation = 1.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("📷", fontSize = 12.sp)
             }
         }
     }
@@ -395,6 +477,23 @@ private fun BadgeCircle(
         }
         if (!unlocked) {
             Text("🔒", fontSize = 7.sp)
+        }
+    }
+}
+
+@Composable
+private fun ProfilePersonalInfoGrid(profile: UserProfileDto?) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoTile("👶", "Tên hiển thị", personalFallback(profile?.name), Modifier.weight(1f))
+            InfoTile("🎂", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoTile("📅", "Ngày sinh", formatPersonalDate(profile?.child?.dob), Modifier.weight(1f))
+            InfoTile("🗓️", "Ngày tham gia", formatPersonalDate(profile?.createdAt), Modifier.weight(1f))
         }
     }
 }
@@ -650,6 +749,113 @@ private fun EditProfileDialog(
             TextButton(enabled = !saving, onClick = onDismiss) { Text("Hủy") }
         }
     )
+}
+
+@Composable
+private fun EditPersonalProfileDialog(
+    profile: UserProfileDto?,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (UserProfileUpdateDto) -> Unit
+) {
+    var name by rememberSaveable(profile?.userId) { mutableStateOf(profile?.name.orEmpty()) }
+    var age by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.age?.toString().orEmpty()) }
+    var dateOfBirth by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.dob.orEmpty()) }
+    var formError by rememberSaveable(profile?.userId) { mutableStateOf<String?>(null) }
+
+    fun validate(): Boolean {
+        val cleanName = name.trim()
+        val cleanAge = age.trim()
+        val cleanDob = dateOfBirth.trim()
+        formError = when {
+            cleanName.length !in 2..50 -> "Tên hiển thị phải từ 2 đến 50 ký tự."
+            cleanAge.toIntOrNull() == null || cleanAge.toInt() !in 1..120 -> "Tuổi phải là số hợp lệ từ 1 đến 120."
+            cleanDob.isNotEmpty() && !isValidBackendDate(cleanDob) -> "Ngày sinh phải đúng định dạng yyyy-MM-dd và là ngày hợp lệ."
+            else -> null
+        }
+        return formError == null
+    }
+
+    Dialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp, vertical = 18.dp)
+                .imePadding()
+                .navigationBarsPadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 560.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, ProfileCardBorder),
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    EditProfileHeader(saving = saving, onDismiss = onDismiss)
+                    Text(
+                        text = "Ngày tham gia: ${formatPersonalDate(profile?.createdAt)}",
+                        color = ProfileTextSecondary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    formError?.let { FormErrorBanner(it) }
+
+                    ProfileSectionCard(title = "Thông tin cá nhân") {
+                        ProfileTextField(name, { name = it }, "Tên hiển thị", "Tên của bé")
+                        ProfileTextField(
+                            value = age,
+                            onValueChange = { input -> if (input.all(Char::isDigit) && input.length <= 3) age = input },
+                            label = "Tuổi",
+                            placeholder = "Ví dụ: 6",
+                            keyboardType = KeyboardType.Number
+                        )
+                        ProfileTextField(
+                            value = dateOfBirth,
+                            onValueChange = { dateOfBirth = it.take(10) },
+                            label = "Ngày sinh",
+                            placeholder = "yyyy-MM-dd",
+                            trailing = "📅"
+                        )
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SecondaryPillButton("❌ Hủy", enabled = !saving, onClick = onDismiss, modifier = Modifier.weight(1f))
+                        GradientPill(
+                            text = if (saving) "Đang lưu..." else "💾 Lưu thay đổi",
+                            onClick = {
+                                if (!saving && validate()) {
+                                    onSave(
+                                        UserProfileUpdateDto(
+                                            name = name.trim(),
+                                            age = age.trim().toIntOrNull(),
+                                            dateOfBirth = dateOfBirth.trim().ifBlank { null }
+                                        )
+                                    )
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            heightDp = 48,
+                            horizontalPaddingDp = 10,
+                            fontSizeSp = 13,
+                            shadowDp = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -1075,4 +1281,23 @@ private fun parseBackendDate(value: String?): Long? {
     return runCatching {
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).parse(normalized)?.time
     }.getOrNull()
+}
+
+private fun personalFallback(value: String?): String {
+    return value?.takeIf { it.isNotBlank() } ?: "Chưa có"
+}
+
+private fun formatPersonalDate(value: String?): String {
+    if (value.isNullOrBlank()) return "Chưa có"
+    val normalized = value.substringBefore("T").substringBefore(" ")
+    return runCatching {
+        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }.parse(normalized)
+        parsed?.let { SimpleDateFormat("dd/MM/yyyy", Locale.US).format(it) }
+    }.getOrNull() ?: normalized
+}
+
+private fun isValidBackendDate(value: String): Boolean {
+    return runCatching {
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }.parse(value)
+    }.getOrNull() != null
 }

@@ -13,6 +13,12 @@ interface ApiService {
     @POST("users/register-sync")
     suspend fun registerUserSync(@Body userData: Map<String, String>): Response<Unit>
 
+    @POST("users/register")
+    suspend fun registerUser(@Body request: ChildRegisterRequestDto): Response<BackendRegisterResponseDto>
+
+    @POST("users/login")
+    suspend fun loginUser(@Body request: BackendLoginRequestDto): Response<BackendLoginResponseDto>
+
     @GET("children/{uid}")
     suspend fun getChildProfile(@Path("uid") uid: String): Response<ChildDto>
 

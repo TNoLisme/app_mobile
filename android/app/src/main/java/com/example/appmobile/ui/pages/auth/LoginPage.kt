@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,13 +50,21 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.R
+import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.FirebaseAuthHelper
+import com.example.appmobile.data.remote.NetworkClient
+import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.theme.SoftWhite
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
     val authHelper = remember { FirebaseAuthHelper() }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val db = remember { AppDatabase.getDatabase(context) }
+    val userRepository = remember { UserRepository(NetworkClient.apiService, authHelper, db.userDao()) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -156,11 +165,25 @@ fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
 
                                 isLoading = true
                                 authHelper.login(email.trim(), password) { success, error ->
-                                    isLoading = false
                                     if (success) {
+                                        isLoading = false
+                                        AppSession.clear(context)
                                         Toast.makeText(context, "Đăng nhập thành công", Toast.LENGTH_SHORT).show()
                                         onLoginSuccess()
                                     } else {
+                                        scope.launch {
+                                            val backendResult = userRepository.loginWithBackend(email.trim(), password)
+                                            isLoading = false
+                                            backendResult
+                                                .onSuccess { profile ->
+                                                    profile.userId?.let { AppSession.saveBackendUserId(context, it) }
+                                                    Toast.makeText(context, "Đăng nhập thành công", Toast.LENGTH_SHORT).show()
+                                                    onLoginSuccess()
+                                                }
+                                                .onFailure {
+                                                    errorMessage = error ?: it.message ?: "Sai tài khoản hoặc mật khẩu."
+                                                }
+                                        }
                                         errorMessage = error ?: "Sai tài khoản hoặc mật khẩu."
                                     }
                                 }

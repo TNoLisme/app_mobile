@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -45,7 +46,7 @@ class HomeViewModel : ViewModel() {
             isLoading.value = true
             errorMessage.value = null
 
-            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "local-player"
+            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player"
             var connected = false
             var failedRequests = 0
 

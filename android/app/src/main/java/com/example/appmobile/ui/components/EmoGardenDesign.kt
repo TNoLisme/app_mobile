@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -46,13 +47,19 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.example.appmobile.data.local.AppSession
+import com.example.appmobile.ui.state.UserAvatarState
+import com.google.firebase.auth.FirebaseAuth
 import kotlin.math.roundToInt
 
 enum class EgTab(val title: String) {
@@ -283,12 +290,22 @@ fun EgTopActions(
     onSettings: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val userId = FirebaseAuth.getInstance().currentUser?.uid
+        ?: AppSession.currentBackendUserId()
+        ?: "local-player"
+    val avatarUri = UserAvatarState.avatarUri.value
+
+    LaunchedEffect(userId) {
+        UserAvatarState.load(context, userId)
+    }
+
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         onProfile?.let {
-            EgIconButton(icon = "👤", onClick = it)
+            EgProfileAvatarButton(avatarUri = avatarUri, onClick = it)
         }
         Spacer(modifier = Modifier.weight(1f))
         onSettings?.let {
@@ -397,6 +414,35 @@ fun EgGradientPill(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+@Composable
+private fun EgProfileAvatarButton(avatarUri: String?, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .size(42.dp)
+            .clickable(onClick = onClick),
+        shape = CircleShape,
+        color = EgDesign.card,
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
+        shadowElevation = 1.dp
+    ) {
+        if (!avatarUri.isNullOrBlank()) {
+            AsyncImage(
+                model = avatarUri,
+                contentDescription = "Hồ sơ",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(3.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(contentAlignment = Alignment.Center) {
+                Text("👤", fontSize = 19.sp)
+            }
         }
     }
 }
