@@ -150,9 +150,20 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 onOpenAssistant = { navController.navigate(assistantRoute("level_select")) }
             )
         }
-        composable("game/{gameId}/{level}") { backStackEntry ->
+        composable(
+            route = "game/{gameId}/{level}?emotion={emotion}",
+            arguments = listOf(
+                navArgument("gameId") { type = NavType.StringType },
+                navArgument("level") { type = NavType.StringType },
+                navArgument("emotion") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
             val id = backStackEntry.arguments?.getString("gameId") ?: ""
             val level = backStackEntry.arguments?.getString("level")?.toIntOrNull() ?: 1
+            val emotion = backStackEntry.arguments?.getString("emotion")?.takeIf { it.isNotBlank() }
             when (id) {
                 // Các game Nhận diện
                 "3bcb2108-721c-4a15-a585-31f3084ed000" -> RecognizeEmotionPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("recognize_emotion", level)) })
@@ -161,7 +172,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 "aacaf79e-e15e-42a9-a3d1-a522720d919b" -> GameClick4Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_click_4", level)) })
                 // Các game Biểu cảm
                 "e05909f3-3dee-42a6-9a75-fd985b1bdf47" -> GameCVPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("gameCV", level)) })
-                "61f5e09e-eefa-44c1-86e1-87dfceac3b8e" -> GameCV2Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_cv_2", level)) })
+                "61f5e09e-eefa-44c1-86e1-87dfceac3b8e" -> GameCV2Page(level = level, selectedEmotion = emotion, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_cv_2", level)) })
                 else -> {
                     // Xử lý an toàn khi không tìm thấy Game ID
                     LaunchedEffect(Unit) {
@@ -236,7 +247,11 @@ fun AppNavigation(modifier: Modifier = Modifier) {
 private fun shouldShowAssistantBubble(route: String?, loggedIn: Boolean): Boolean {
     if (!loggedIn) return false
     if (route == null) return false
-    return route != "login" && route != "register" && !route.startsWith("assistant") && route != "settings"
+    return route != "login" &&
+        route != "register" &&
+        !route.startsWith("assistant") &&
+        route != "settings" &&
+        !route.startsWith("game/")
 }
 
 private fun assistantContext(route: String?): String {

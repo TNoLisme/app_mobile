@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,13 +33,9 @@ enum class EmoGardenNavItem(val title: String) {
     Games("Chơi game")
 }
 
-val EmoGardenBackground = Brush.linearGradient(
-    listOf(Color(0xFFF8FDFF), Color(0xFFDDF2FF))
-)
+val EmoGardenBackground = SolidColor(Color(0xFFEAF7FF))
 
-val EmoGardenButtonGradient = Brush.linearGradient(
-    listOf(Color(0xFF38BDF8), Color(0xFF60A5FA))
-)
+val EmoGardenButtonGradient = SolidColor(Color(0xFF62B5FF))
 
 @Composable
 fun EmoGardenTopNav(
@@ -125,11 +122,7 @@ private fun NavPill(
     modifier: Modifier = Modifier
 ) {
     val active = item == activeItem
-    val background = if (active) {
-        Brush.linearGradient(listOf(Color(0xFF38BDF8), Color(0xFF60A5FA)))
-    } else {
-        Brush.linearGradient(listOf(Color.White, Color(0xFFF8FBFF)))
-    }
+    val background = if (active) Color(0xFF62B5FF) else Color(0xFFF8FCFF)
     Surface(
         modifier = modifier.clickable(onClick = onClick),
         shape = CircleShape,

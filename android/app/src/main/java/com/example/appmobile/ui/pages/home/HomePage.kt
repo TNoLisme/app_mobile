@@ -53,18 +53,12 @@ import com.example.appmobile.ui.viewmodel.HomeEmotionUi
 import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
 import com.example.appmobile.ui.viewmodel.HomeViewModel
 
-private val HomeBackgroundGradient = Brush.verticalGradient(
-    listOf(
-        Color(0xFFF8FDFF),
-        Color(0xFFEAF7FF),
-        Color(0xFFDDF2FF)
-    )
-)
-private val HomePrimaryGradient = Brush.horizontalGradient(listOf(Color(0xFF38BDF8), Color(0xFF60A5FA)))
-private val HomeCard = Color.White.copy(alpha = 0.98f)
-private val HomeCardBorder = Color(0xFFD7E7F3)
-private val HomeTextPrimary = Color(0xFF073B73)
-private val HomeTextSecondary = Color(0xFF64748B)
+private val HomeBackgroundGradient = Color(0xFFEAF7FF)
+private val HomePrimaryGradient = Color(0xFF62B5FF)
+private val HomeCard = Color.White
+private val HomeCardBorder = Color(0xFFD9E8F5)
+private val HomeTextPrimary = Color(0xFF0B3A6E)
+private val HomeTextSecondary = Color(0xFF6B7280)
 private val HomeBlue = Color(0xFF0B5DAE)
 private val HomeRadiusCard = 18.dp
 private val HomeRadiusPill = 999.dp
@@ -183,7 +177,7 @@ private fun SegmentedTab(
     ) {
         Box(
             modifier = Modifier
-                .background(if (active) HomePrimaryGradient else Brush.linearGradient(listOf(HomeCard, Color(0xFFF8FBFF))))
+                .background(if (active) HomePrimaryGradient else Color(0xFFF8FCFF))
                 .padding(horizontal = 8.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -249,7 +243,7 @@ private fun EmotionStatCard(emotion: HomeEmotionUi, modifier: Modifier = Modifie
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Brush.linearGradient(listOf(emotionColor, EgDesign.card)))
+                .background(emotionColor)
                 .padding(horizontal = 8.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center

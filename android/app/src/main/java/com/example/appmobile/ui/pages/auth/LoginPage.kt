@@ -74,7 +74,7 @@ fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.linearGradient(listOf(SoftWhite, Color(0xFFE3F2FD), Color(0xFFBBDEFB))))
+            .background(Color(0xFFEAF7FF))
             .verticalScroll(rememberScrollState())
             .padding(18.dp)
     ) {

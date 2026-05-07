@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,6 +31,7 @@ import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.pages.game.emotionLearningInfo
 import com.example.appmobile.ui.theme.SoftWhite
 
@@ -70,7 +70,7 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
             .padding(16.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            TextButton(onClick = onBack) { Text("← Quay lại") }
+            AppBackButton(onClick = onBack)
             Spacer(modifier = Modifier.weight(1f))
             Text(
                 text = emotion?.let { "${it.name} ${it.emoji}" } ?: "Cảm xúc",

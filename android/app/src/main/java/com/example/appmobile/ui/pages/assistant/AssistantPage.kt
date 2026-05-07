@@ -24,7 +24,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.AssistantRepository
+import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.theme.SoftWhite
 import kotlinx.coroutines.launch
 
@@ -102,7 +102,7 @@ fun AssistantPage(
             .padding(20.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← Quay lại") }
+            AppBackButton(onClick = onBack)
             Spacer(modifier = Modifier.weight(1f))
             Text("Trợ lý", fontWeight = FontWeight.Bold, fontSize = 20.sp)
         }

@@ -59,6 +59,7 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.repository.UserRepository
+import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgGradientPill
 import com.example.appmobile.ui.components.EgSoftCard
@@ -106,7 +107,7 @@ fun SettingsPage(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            EgGradientPill(text = "← Quay lại", onClick = onBack, height = 36.dp, fontSize = 13)
+            AppBackButton(onClick = onBack)
             Spacer(modifier = Modifier.weight(1f))
         }
 

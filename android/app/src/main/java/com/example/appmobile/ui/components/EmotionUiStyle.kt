@@ -43,13 +43,25 @@ fun egEmotionDisplayName(value: String): String {
     }
 }
 
+fun egEmotionRouteValue(value: String): String {
+    return when (egEmotionKey(value)) {
+        "happy" -> "vui vẻ"
+        "sad" -> "buồn bã"
+        "angry" -> "tức giận"
+        "fear" -> "sợ hãi"
+        "surprise" -> "ngạc nhiên"
+        "disgust" -> "ghê tởm"
+        else -> value
+    }
+}
+
 fun egEmotionIcon(value: String): String {
     return when (egEmotionKey(value)) {
         "happy" -> "😊"
         "sad" -> "😢"
-        "angry" -> "😠"
+        "angry" -> "😡"
         "fear" -> "😨"
-        "surprise" -> "😲"
+        "surprise" -> "😮"
         "disgust" -> "🤢"
         else -> "🙂"
     }

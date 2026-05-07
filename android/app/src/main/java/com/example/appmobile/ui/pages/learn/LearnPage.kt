@@ -209,7 +209,7 @@ private fun EmotionGridItem(
     ) {
         Column(
             modifier = Modifier
-                .background(if (selected) EgDesign.primaryGradient else Brush.linearGradient(listOf(egEmotionPastelColor(key), EgDesign.card)))
+                .background(if (selected) EgDesign.primary else egEmotionPastelColor(key))
                 .padding(horizontal = 6.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center

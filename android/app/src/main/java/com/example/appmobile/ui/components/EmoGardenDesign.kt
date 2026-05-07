@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -69,24 +70,18 @@ enum class EgTab(val title: String) {
 }
 
 object EgDesign {
-    val background = Brush.verticalGradient(
-        listOf(
-            Color(0xFFF8FDFF),
-            Color(0xFFEAF7FF),
-            Color(0xFFDDF2FF)
-        )
-    )
-    val primary = Color(0xFF38BDF8)
+    val background = Color(0xFFEAF7FF)
+    val primary = Color(0xFF62B5FF)
     val primaryDark = Color(0xFF2F80ED)
-    val primaryGradient = Brush.horizontalGradient(listOf(Color(0xFF38BDF8), Color(0xFF60A5FA)))
-    val softBlueGradient = Brush.linearGradient(listOf(Color(0xFFF6FCFF), Color(0xFFE2F4FF)))
-    val card = Color.White.copy(alpha = 0.98f)
-    val cardSoft = Color(0xFFF8FCFF)
-    val cardBorder = Color(0xFFD7E7F3)
-    val textPrimary = Color(0xFF073B73)
-    val textSecondary = Color(0xFF64748B)
+    val primaryGradient = SolidColor(primary)
+    val softBlueGradient = SolidColor(Color(0xFFF4FAFF))
+    val card = Color.White
+    val cardSoft = Color(0xFFF4FAFF)
+    val cardBorder = Color(0xFFD9E8F5)
+    val textPrimary = Color(0xFF0B3A6E)
+    val textSecondary = Color(0xFF6B7280)
     val blue = Color(0xFF0B5DAE)
-    val accentSoft = Color(0xFFDDEBFF)
+    val accentSoft = Color(0xFFEAF2FF)
     val cardRadius = 18.dp
     val pillRadius = 999.dp
     val screenPadding = 16.dp
@@ -355,7 +350,7 @@ fun EgHeroCard(
                 modifier = Modifier
                     .fillMaxWidth(0.56f)
                     .height(3.dp)
-                    .background(EgDesign.primaryGradient, CircleShape)
+                    .background(EgDesign.primary, CircleShape)
             )
             Text(
                 text = description,
@@ -402,7 +397,7 @@ fun EgGradientPill(
     ) {
         Box(
             modifier = Modifier
-                .background(EgDesign.primaryGradient)
+                .background(EgDesign.primary)
                 .padding(horizontal = 12.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -410,6 +405,37 @@ fun EgGradientPill(
                 text = text,
                 color = Color.White,
                 fontSize = fontSize.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+fun AppBackButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    text: String = "← Quay lại"
+) {
+    Surface(
+        modifier = modifier
+            .height(42.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.pillRadius),
+        color = EgDesign.card,
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
+        shadowElevation = 1.dp
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                color = EgDesign.blue,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -483,7 +509,7 @@ private fun EgTabButton(
     ) {
         Box(
             modifier = Modifier
-                .background(if (active) EgDesign.primaryGradient else Brush.linearGradient(listOf(EgDesign.card, Color(0xFFF8FBFF))))
+                .background(if (active) EgDesign.primary else EgDesign.cardSoft)
                 .padding(horizontal = 8.dp),
             contentAlignment = Alignment.Center
         ) {

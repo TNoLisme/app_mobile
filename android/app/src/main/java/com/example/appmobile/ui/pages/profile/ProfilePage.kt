@@ -76,6 +76,7 @@ import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.state.UserAvatarState
 import com.google.firebase.auth.FirebaseAuth
 import coil.compose.AsyncImage
@@ -85,16 +86,10 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-private val ProfileBackgroundGradient = Brush.verticalGradient(
-    listOf(
-        Color(0xFFF8FDFF),
-        Color(0xFFEAF7FF),
-        Color(0xFFDDF2FF)
-    )
-)
-private val ProfileButtonGradient = Brush.horizontalGradient(listOf(Color(0xFF38BDF8), Color(0xFF60A5FA)))
-private val ProfileTextPrimary = Color(0xFF073B73)
-private val ProfileTextSecondary = Color(0xFF64748B)
+private val ProfileBackgroundGradient = Color(0xFFEAF7FF)
+private val ProfileButtonGradient = Color(0xFF62B5FF)
+private val ProfileTextPrimary = Color(0xFF0B3A6E)
+private val ProfileTextSecondary = Color(0xFF6B7280)
 private val ProfileBlue = Color(0xFF0B5DAE)
 private val ProfileCardBorder = Color(0xFFD7E7F3)
 private val ProfileSoftSection = Color(0xFFF3FBFF)
@@ -262,14 +257,7 @@ private fun ProfileTopBar(onBack: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        GradientPill(
-            text = "← Quay lại",
-            onClick = onBack,
-            heightDp = 36,
-            horizontalPaddingDp = 14,
-            fontSizeSp = 13,
-            shadowDp = 1
-        )
+        AppBackButton(onClick = onBack)
         Spacer(modifier = Modifier.weight(1f))
     }
 }
@@ -391,7 +379,7 @@ private fun Avatar(avatarUri: String?, onClick: () -> Unit) {
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
-                            Brush.linearGradient(listOf(Color(0xFFFFF1A8), Color(0xFFFFD54F))),
+                            Color(0xFFFFF1A8),
                             CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -420,7 +408,7 @@ private fun Avatar() {
         modifier = Modifier
             .size(54.dp)
             .background(
-                Brush.linearGradient(listOf(Color(0xFFFFF1A8), Color(0xFFFFD54F))),
+                Color(0xFFFFF1A8),
                 CircleShape
             )
             .padding(4.dp),
@@ -585,7 +573,7 @@ private fun StatTile(stat: ProfileStat, modifier: Modifier = Modifier) {
     ) {
         Column(
             modifier = Modifier
-                .background(Brush.linearGradient(listOf(Color(0xFFE8F7FF), Color(0xFFCFEAFE))))
+                .background(Color(0xFFEAF7FF))
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
