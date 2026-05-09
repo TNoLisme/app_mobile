@@ -19,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -26,6 +27,8 @@ fun GameScreenShell(
     modifier: Modifier = Modifier,
     contentMaxWidth: Int = 1120,
     onOpenAssistant: (() -> Unit)? = null,
+    scrollEnabled: Boolean = true,
+    bottomSpacerHeight: Dp = 96.dp,
     content: @Composable () -> Unit,
 ) {
     Box(
@@ -49,11 +52,19 @@ fun GameScreenShell(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
+                        .then(
+                            if (scrollEnabled) {
+                                Modifier.verticalScroll(rememberScrollState())
+                            } else {
+                                Modifier
+                            }
+                        )
                         .padding(16.dp)
                 ) {
                     content()
-                    Spacer(modifier = Modifier.height(96.dp))
+                    if (bottomSpacerHeight > 0.dp) {
+                        Spacer(modifier = Modifier.height(bottomSpacerHeight))
+                    }
                 }
             }
         }

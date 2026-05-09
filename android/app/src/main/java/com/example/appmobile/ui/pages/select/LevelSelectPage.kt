@@ -111,8 +111,12 @@ fun LevelSelectPage(
                 ?: 0
         }.getOrDefault(0)
 
-        val levels = GameUiCatalog.levelsForMaxLevel(maxLevel)
-            .ifEmpty { GameUiCatalog.levelsForGame(gameId) }
+        val levels = if (gameId == GameUiCatalog.GAME_CV_STORY) {
+            GameUiCatalog.levelsForGame(gameId)
+        } else {
+            GameUiCatalog.levelsForMaxLevel(maxLevel)
+                .ifEmpty { GameUiCatalog.levelsForGame(gameId) }
+        }
 
         val progress = repository.getGameProgress(gameId, userId)
         val progressLevel = progress?.level ?: 0
@@ -135,10 +139,18 @@ fun LevelSelectPage(
             )
         }
         progressText = "Level $unlockedLevel đang mở"
+        if (gameId == GameUiCatalog.GAME_CV_STORY) {
+            progressText = "Mỗi cấp độ gồm 5 câu hỏi ngẫu nhiên."
+        }
         isLoading = false
     }
 
-    GameScreenShell(contentMaxWidth = 520, onOpenAssistant = onOpenAssistant) {
+    GameScreenShell(
+        contentMaxWidth = 520,
+        onOpenAssistant = if (gameId == GameUiCatalog.GAME_CV_STORY) null else onOpenAssistant,
+        scrollEnabled = gameId != GameUiCatalog.GAME_CV_STORY,
+        bottomSpacerHeight = if (gameId == GameUiCatalog.GAME_CV_STORY) 0.dp else 96.dp
+    ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AppBackButton(onClick = onBack); if (false) {

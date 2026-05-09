@@ -1,4 +1,5 @@
 import json
+import random
 import uuid
 from datetime import datetime
 from urllib.request import Request, urlopen
@@ -38,6 +39,13 @@ class CvEndRequest(BaseModel):
     session_id: str
 
 
+CV_STORY_GAME_ID = "e05909f3-3dee-42a6-9a75-fd985b1bdf47"
+CV_REQUEST_GAME_ID = "61f5e09e-eefa-44c1-86e1-87dfceac3b8e"
+CV_STORY_QUESTION_COUNT = 5
+CV_STORY_MAX_LEVEL = 5
+CV_REQUEST_QUESTION_COUNT = 6
+
+
 def _question_count_for_level(level: int) -> int:
     if level <= 2:
         return 10
@@ -48,6 +56,58 @@ def _question_count_for_level(level: int) -> int:
     if level <= 8:
         return 25
     return 30
+
+
+def _question_count_for_game_level(game_id: str, level: int) -> int:
+    if game_id == CV_STORY_GAME_ID:
+        return CV_STORY_QUESTION_COUNT
+    if game_id == CV_REQUEST_GAME_ID:
+        return CV_REQUEST_QUESTION_COUNT
+    return _question_count_for_level(level)
+
+
+def _select_questions_for_run(db: Session, game_id: str, level: int) -> list[GameContent]:
+    count = _question_count_for_game_level(game_id, level)
+
+    if game_id != CV_STORY_GAME_ID:
+        questions = (
+            db.query(GameContent)
+            .filter(GameContent.game_id == game_id, GameContent.level == level)
+            .order_by(GameContent.content_id)
+            .limit(count)
+            .all()
+        )
+        if questions:
+            return questions
+        return (
+            db.query(GameContent)
+            .filter(GameContent.game_id == game_id)
+            .order_by(GameContent.level, GameContent.content_id)
+            .limit(count)
+            .all()
+        )
+
+    level_questions = (
+        db.query(GameContent)
+        .filter(GameContent.game_id == game_id, GameContent.level == level)
+        .order_by(GameContent.content_id)
+        .all()
+    )
+    if len(level_questions) >= count:
+        return random.sample(level_questions, count)
+
+    used_ids = {question.content_id for question in level_questions}
+    fallback_questions = (
+        db.query(GameContent)
+        .filter(GameContent.game_id == game_id)
+        .order_by(GameContent.level, GameContent.content_id)
+        .all()
+    )
+    fallback_questions = [question for question in fallback_questions if question.content_id not in used_ids]
+    combined_questions = level_questions + fallback_questions
+    if len(combined_questions) <= count:
+        return combined_questions
+    return random.sample(combined_questions, count)
 
 
 def _threshold_for_level(game: Game, level: int) -> float:
@@ -126,7 +186,7 @@ def list_game_content(game_id: str, level: int | None = Query(default=None), db:
 def list_cv_scenarios(level: int = 1, db: Session = Depends(get_db)):
     rows = (
         db.query(GameContent)
-        .filter(GameContent.game_id == "e05909f3-3dee-42a6-9a75-fd985b1bdf47")
+        .filter(GameContent.game_id == CV_STORY_GAME_ID)
         .filter(GameContent.level == level)
         .order_by(GameContent.content_id)
         .all()
@@ -138,7 +198,7 @@ def list_cv_scenarios(level: int = 1, db: Session = Depends(get_db)):
 def list_cv_requests(db: Session = Depends(get_db)):
     rows = (
         db.query(GameContent)
-        .filter(GameContent.game_id == "61f5e09e-eefa-44c1-86e1-87dfceac3b8e")
+        .filter(GameContent.game_id == CV_REQUEST_GAME_ID)
         .order_by(GameContent.level, GameContent.content_id)
         .all()
     )
@@ -155,7 +215,7 @@ def get_game(game_id: str, db: Session = Depends(get_db)):
 
 @router.post("/games/cv/start")
 def start_cv_session(body: CvStartRequest, db: Session = Depends(get_db)):
-    game_id = "61f5e09e-eefa-44c1-86e1-87dfceac3b8e" if body.game_type == "request" else "e05909f3-3dee-42a6-9a75-fd985b1bdf47"
+    game_id = CV_REQUEST_GAME_ID if body.game_type == "request" else CV_STORY_GAME_ID
     result = start_game(game_id, StartGameRequest(user_id=body.user_id, level=1), db)
     return {"session_id": result["session_id"], "message": "Session started"}
 
@@ -217,20 +277,14 @@ def end_cv_session(body: CvEndRequest, db: Session = Depends(get_db)):
 
 @router.get("/games/cv/emotion-scores")
 def get_cv_emotion_scores(user_id: str, db: Session = Depends(get_db)):
-    scores = {"vui": 0.0, "buồn": 0.0, "ngạc nhiên": 0.0, "tức giận": 0.0, "sợ hãi": 0.0, "ghê tởm": 0.0}
-    emotion_map = {
-        "happy": "vui",
-        "sad": "buồn",
-        "surprise": "ngạc nhiên",
-        "angry": "tức giận",
-        "fear": "sợ hãi",
-        "disgust": "ghê tởm",
-    }
+    scores = {"happy": 0.0, "sad": 0.0, "surprise": 0.0, "angry": 0.0, "fear": 0.0, "disgust": 0.0}
+    emotion_map = {key: key for key in scores}
     rows = (
         db.query(GameContent.emotion, SessionQuestion.cv_confidence)
         .join(SessionQuestion, SessionQuestion.question_id == GameContent.content_id)
         .join(PlaySession, PlaySession.session_id == SessionQuestion.session_id)
         .filter(PlaySession.user_id == user_id)
+        .filter(PlaySession.game_id == CV_REQUEST_GAME_ID)
         .all()
     )
     for emotion, confidence in rows:
@@ -242,10 +296,10 @@ def get_cv_emotion_scores(user_id: str, db: Session = Depends(get_db)):
 
 @router.get("/games/cv/completed-levels")
 def get_cv_completed_levels(user_id: str, db: Session = Depends(get_db)):
-    max_level = 6
+    max_level = CV_STORY_MAX_LEVEL
     rows = (
         db.query(ChildProgress)
-        .filter(ChildProgress.child_id == user_id, ChildProgress.game_id == "e05909f3-3dee-42a6-9a75-fd985b1bdf47")
+        .filter(ChildProgress.child_id == user_id, ChildProgress.game_id == CV_STORY_GAME_ID)
         .all()
     )
     progress_by_level = {row.level: row for row in rows}
@@ -281,21 +335,7 @@ def start_game(game_id: str, body: StartGameRequest, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Game not found")
     _ensure_user(db, body.user_id)
 
-    questions = (
-        db.query(GameContent)
-        .filter(GameContent.game_id == game_id, GameContent.level == body.level)
-        .order_by(GameContent.content_id)
-        .limit(_question_count_for_level(body.level))
-        .all()
-    )
-    if not questions:
-        questions = (
-            db.query(GameContent)
-            .filter(GameContent.game_id == game_id)
-            .order_by(GameContent.level, GameContent.content_id)
-            .limit(_question_count_for_level(body.level))
-            .all()
-        )
+    questions = _select_questions_for_run(db, game_id, body.level)
 
     session = PlaySession(
         session_id=str(uuid.uuid4()),

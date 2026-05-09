@@ -77,7 +77,7 @@ object GameUiCatalog {
             "Bắt chước biểu cảm của nhân vật",
             "camera_game",
             R.drawable.game_cv,
-            6
+            5
         ),
         GameUiItem(
             GAME_CV_REQUEST,
@@ -137,8 +137,26 @@ object GameUiCatalog {
     }
 
     fun levelsForGame(gameId: String): List<LevelUiItem> {
+        if (gameId == GAME_CV_STORY) return cvStoryLevels()
         val maxLevel = games.firstOrNull { it.id == gameId }?.maxLevel ?: return emptyList()
         return levelsForMaxLevel(maxLevel)
+    }
+
+    private fun cvStoryLevels(): List<LevelUiItem> {
+        return (1..5).map { level ->
+            LevelUiItem(
+                id = level,
+                name = "Cấp độ $level",
+                description = "5 câu hỏi",
+                colorHex = when (level) {
+                    1 -> 0xFF81C784
+                    2 -> 0xFFFFB74D
+                    3 -> 0xFFE57373
+                    4 -> 0xFF64B5F6
+                    else -> 0xFF9575CD
+                }
+            )
+        }
     }
 
     fun levelsForMaxLevel(maxLevel: Int): List<LevelUiItem> {
