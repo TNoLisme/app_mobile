@@ -1,27 +1,34 @@
 package com.example.appmobile.ui.pages.assistant
 
+import android.content.Context
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,15 +41,23 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
+import com.example.appmobile.data.remote.dto.AssistantChatHistoryDto
 import com.example.appmobile.data.repository.AssistantRepository
 import com.example.appmobile.ui.components.AppBackButton
-import com.example.appmobile.ui.theme.SoftWhite
+import com.example.appmobile.ui.components.EgDesign
+import com.google.firebase.auth.FirebaseAuth
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.launch
 
 private data class AssistantMessage(
@@ -55,41 +70,87 @@ private enum class MessageRole {
     Assistant
 }
 
+private data class StoredAssistantMessage(
+    val role: String,
+    val text: String
+)
+
 @Composable
 fun AssistantPage(
     onBack: () -> Unit,
     gameId: String = "home",
     level: Int? = null
 ) {
+    val context = LocalContext.current
     val repository = remember { AssistantRepository(NetworkClient.apiService) }
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    val messages = remember {
-        mutableStateListOf(
-            AssistantMessage(
-                role = MessageRole.Assistant,
-                text = "Xin chào, mình là trợ lý EmoGarden. Bé có thể hỏi cách chơi, nên luyện cảm xúc nào, hoặc nhờ mình nhắc luật."
-            )
-        )
+    val gson = remember { Gson() }
+    val childId = remember(context) {
+        AppSession.getBackendUserId(context)
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: "local-player"
+    }
+    val historyKey = remember(childId, gameId, level) {
+        "assistant_history_${childId}_${gameId}_${level ?: 0}"
+    }
+    val preferences = remember(context) {
+        context.getSharedPreferences("assistant_chat", Context.MODE_PRIVATE)
+    }
+    val messages = remember(historyKey) {
+        mutableStateListOf<AssistantMessage>().apply {
+            addAll(loadStoredMessages(preferences, gson, historyKey))
+            if (isEmpty()) {
+                add(
+                    AssistantMessage(
+                        role = MessageRole.Assistant,
+                        text = welcomeMessage(gameId, level)
+                    )
+                )
+            }
+        }
     }
     var input by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
 
-    fun sendMessage() {
-        val text = input.trim()
+    fun persistMessages() {
+        saveStoredMessages(preferences, gson, historyKey, messages)
+    }
+
+    fun sendMessage(rawText: String = input) {
+        val text = rawText.trim()
         if (text.isEmpty() || sending) return
 
         input = ""
         messages.add(AssistantMessage(MessageRole.User, text))
+        persistMessages()
+        val requestHistory = messages
+            .takeLast(10)
+            .map {
+                AssistantChatHistoryDto(
+                    role = if (it.role == MessageRole.User) "user" else "assistant",
+                    text = it.text
+                )
+            }
+
         scope.launch {
             sending = true
-            val reply = repository.chat(gameId = gameId, level = level, message = text)
+            repository.uploadLog(childId = childId, sender = "child", content = text)
+            val reply = repository.chat(
+                gameId = gameId,
+                level = level,
+                message = text,
+                childId = childId,
+                history = requestHistory
+            )
             messages.add(AssistantMessage(MessageRole.Assistant, reply))
+            persistMessages()
+            repository.uploadLog(childId = childId, sender = "bot", content = reply)
             sending = false
         }
     }
 
-    LaunchedEffect(messages.size) {
+    LaunchedEffect(messages.size, sending) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.lastIndex)
         }
@@ -98,32 +159,26 @@ fun AssistantPage(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SoftWhite)
-            .padding(20.dp)
+            .background(EgDesign.background)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()
+            .padding(horizontal = EgDesign.screenPadding, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AppBackButton(onClick = onBack)
-            Spacer(modifier = Modifier.weight(1f))
-            Text("Trợ lý", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        }
+        AssistantHeader(onBack = onBack, onClear = {
+            messages.clear()
+            messages.add(AssistantMessage(MessageRole.Assistant, welcomeMessage(gameId, level)))
+            persistMessages()
+        })
 
-        Spacer(modifier = Modifier.height(12.dp))
+        AssistantIntroCard(gameId = gameId, level = level)
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("EmoGarden Assistant", fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E4E8C))
-                Text(
-                    "Hỏi trợ lý nếu bé chưa hiểu luật chơi hoặc cần gợi ý luyện tập.",
-                    color = Color.DarkGray
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
+        SuggestionRow(
+            gameId = gameId,
+            enabled = !sending,
+            onSuggestionClick = { suggestion -> sendMessage(suggestion) }
+        )
 
         LazyColumn(
             modifier = Modifier
@@ -136,42 +191,120 @@ fun AssistantPage(
                 AssistantBubble(message)
             }
             if (sending) {
-                item {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-                        Surface(shape = RoundedCornerShape(18.dp), color = Color.White) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
-                                Text("Đang trả lời...", color = Color.Gray)
-                            }
-                        }
-                    }
-                }
+                item { AssistantTypingBubble() }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        AssistantInputRow(
+            input = input,
+            sending = sending,
+            onInputChange = { input = it },
+            onSend = { sendMessage() }
+        )
+    }
+}
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
+@Composable
+private fun AssistantHeader(onBack: () -> Unit, onClear: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        AppBackButton(onClick = onBack, text = "← Quay lại")
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            "Trợ lý",
+            color = EgDesign.textPrimary,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 22.sp
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Surface(
+            modifier = Modifier
+                .height(38.dp)
+                .clickable(onClick = onClear),
+            shape = RoundedCornerShape(EgDesign.pillRadius),
+            color = EgDesign.card,
+            border = BorderStroke(1.dp, EgDesign.cardBorder),
+            shadowElevation = 1.dp
         ) {
-            OutlinedTextField(
-                value = input,
-                onValueChange = { input = it },
-                modifier = Modifier.weight(1f),
-                label = { Text("Nhập câu hỏi") },
-                singleLine = false,
-                maxLines = 3,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { sendMessage() })
-            )
-            Button(onClick = { sendMessage() }, enabled = input.isNotBlank() && !sending) {
-                Text("Gửi")
+            Box(modifier = Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                Text("Xóa", color = EgDesign.blue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssistantIntroCard(gameId: String, level: Int?) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .height(46.dp)
+                    .widthIn(min = 46.dp)
+                    .clip(CircleShape)
+                    .background(EgDesign.cardSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("💬", fontSize = 24.sp)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    "Trợ lý EmoGarden",
+                    color = EgDesign.textPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 17.sp
+                )
+                Text(
+                    assistantContextText(gameId, level),
+                    color = EgDesign.textSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuggestionRow(
+    gameId: String,
+    enabled: Boolean,
+    onSuggestionClick: (String) -> Unit
+) {
+    val suggestions = quickSuggestions(gameId)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        suggestions.take(3).forEach { suggestion ->
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(42.dp)
+                    .clickable(enabled = enabled) { onSuggestionClick(suggestion) },
+                shape = RoundedCornerShape(EgDesign.pillRadius),
+                color = EgDesign.cardSoft,
+                border = BorderStroke(1.dp, EgDesign.cardBorder)
+            ) {
+                Box(modifier = Modifier.padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        suggestion,
+                        color = EgDesign.blue,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
@@ -189,17 +322,159 @@ private fun AssistantBubble(message: AssistantMessage) {
             shape = RoundedCornerShape(
                 topStart = 18.dp,
                 topEnd = 18.dp,
-                bottomStart = if (isUser) 18.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 18.dp
+                bottomStart = if (isUser) 18.dp else 5.dp,
+                bottomEnd = if (isUser) 5.dp else 18.dp
             ),
-            color = if (isUser) Color(0xFF1976D2) else Color.White
+            color = if (isUser) EgDesign.primary else EgDesign.card,
+            border = if (isUser) null else BorderStroke(1.dp, EgDesign.cardBorder),
+            shadowElevation = 1.dp
         ) {
             Text(
                 text = message.text,
                 modifier = Modifier.padding(14.dp),
-                color = if (isUser) Color.White else Color.DarkGray,
+                color = if (isUser) Color.White else EgDesign.textPrimary,
+                fontSize = 14.sp,
                 lineHeight = 20.sp
             )
         }
+    }
+}
+
+@Composable
+private fun AssistantTypingBubble() {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = EgDesign.card,
+            border = BorderStroke(1.dp, EgDesign.cardBorder),
+            shadowElevation = 1.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.height(18.dp),
+                    strokeWidth = 2.dp,
+                    color = EgDesign.primary
+                )
+                Text("Đang trả lời...", color = EgDesign.textSecondary, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssistantInputRow(
+    input: String,
+    sending: Boolean,
+    onInputChange: (String) -> Unit,
+    onSend: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        OutlinedTextField(
+            value = input,
+            onValueChange = onInputChange,
+            modifier = Modifier.weight(1f),
+            placeholder = { Text("Hỏi cách chơi hoặc gợi ý cảm xúc...") },
+            minLines = 1,
+            maxLines = 3,
+            shape = RoundedCornerShape(18.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = EgDesign.primary,
+                unfocusedBorderColor = EgDesign.cardBorder,
+                focusedContainerColor = EgDesign.card,
+                unfocusedContainerColor = EgDesign.card
+            ),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(onSend = { onSend() })
+        )
+        Surface(
+            modifier = Modifier
+                .height(54.dp)
+                .widthIn(min = 68.dp)
+                .clickable(enabled = input.isNotBlank() && !sending) { onSend() },
+            shape = RoundedCornerShape(EgDesign.pillRadius),
+            color = if (input.isNotBlank() && !sending) EgDesign.primary else Color(0xFFD8E6F3),
+            shadowElevation = if (input.isNotBlank() && !sending) 2.dp else 0.dp
+        ) {
+            Box(modifier = Modifier.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                Text("Gửi", color = Color.White, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+    }
+}
+
+private fun loadStoredMessages(
+    preferences: android.content.SharedPreferences,
+    gson: Gson,
+    key: String
+): List<AssistantMessage> {
+    val raw = preferences.getString(key, null) ?: return emptyList()
+    return runCatching {
+        val type = object : TypeToken<List<StoredAssistantMessage>>() {}.type
+        val stored = gson.fromJson<List<StoredAssistantMessage>>(raw, type) ?: emptyList()
+        stored.takeLast(80).mapNotNull { item ->
+            val role = if (item.role == "user") MessageRole.User else MessageRole.Assistant
+            item.text.takeIf { it.isNotBlank() }?.let { AssistantMessage(role, it) }
+        }
+    }.getOrDefault(emptyList())
+}
+
+private fun saveStoredMessages(
+    preferences: android.content.SharedPreferences,
+    gson: Gson,
+    key: String,
+    messages: List<AssistantMessage>
+) {
+    val stored = messages.takeLast(80).map {
+        StoredAssistantMessage(
+            role = if (it.role == MessageRole.User) "user" else "assistant",
+            text = it.text
+        )
+    }
+    preferences.edit().putString(key, gson.toJson(stored)).apply()
+}
+
+private fun welcomeMessage(gameId: String, level: Int?): String {
+    val context = when (gameId) {
+        "gameCV" -> "màn Câu chuyện khuôn mặt"
+        "game_cv_2" -> "màn Thử thách cảm xúc"
+        "learn" -> "màn Học"
+        "select_game" -> "màn Chơi game"
+        "level_select" -> "màn Chọn cấp độ"
+        else -> "màn hiện tại"
+    }
+    val suffix = if (level != null) " ở cấp độ $level" else ""
+    return "Chào bé! Mình là trợ lý EmoGarden. Con có thể hỏi cách chơi, gợi ý biểu cảm hoặc nhờ mình giải thích $context$suffix."
+}
+
+private fun assistantContextText(gameId: String, level: Int?): String {
+    val levelText = if (level != null) " Cấp độ $level." else ""
+    return when (gameId) {
+        "home" -> "Hỏi mình nên học cảm xúc nào hoặc nên chơi game gì hôm nay."
+        "learn" -> "Mình có thể giải thích dấu hiệu nhận biết từng cảm xúc."
+        "select_game" -> "Mình có thể gợi ý game phù hợp với bé."
+        "level_select" -> "Mình có thể giải thích cách chọn cấp độ.$levelText"
+        "gameCV" -> "Mình có thể nhắc cách đoán tình huống và đứng trước camera.$levelText"
+        "game_cv_2" -> "Mình có thể gợi ý cách thể hiện cảm xúc qua khuôn mặt.$levelText"
+        "recognize_emotion" -> "Mình có thể nhắc cách chọn cảm xúc đúng.$levelText"
+        else -> "Mình sẽ trả lời theo màn bé đang mở.$levelText"
+    }
+}
+
+private fun quickSuggestions(gameId: String): List<String> {
+    return when (gameId) {
+        "learn" -> listOf("Nhận biết vui vẻ", "Nhận biết buồn bã", "Học gì trước?")
+        "select_game" -> listOf("Game nào dễ?", "Nên chơi gì?", "Game camera?")
+        "level_select" -> listOf("Chọn cấp nào?", "Sao bị khóa?", "Cách mở cấp")
+        "gameCV" -> listOf("Cách chơi?", "Đoán tình huống?", "Camera không bật")
+        "game_cv_2" -> listOf("Cách chơi?", "Gợi ý vui vẻ", "Camera không bật")
+        else -> listOf("Con nên chơi gì?", "Gợi ý cảm xúc", "Cách dùng app")
     }
 }
