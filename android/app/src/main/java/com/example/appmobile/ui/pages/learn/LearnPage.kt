@@ -1,12 +1,12 @@
 package com.example.appmobile.ui.pages.learn
 
-import android.net.Uri
-import android.widget.MediaController
 import android.widget.VideoView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -34,9 +36,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import com.example.appmobile.R
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.NetworkClient
@@ -61,6 +67,9 @@ import com.example.appmobile.ui.components.egEmotionIcon
 import com.example.appmobile.ui.components.egEmotionKey
 import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.example.appmobile.ui.components.egLearningEmotionGridItems
+import java.io.File
+import java.io.FileOutputStream
+import kotlinx.coroutines.delay
 
 @Composable
 fun LearnPage(
@@ -322,32 +331,304 @@ private fun MediaArrow(text: String, modifier: Modifier, onClick: () -> Unit) {
 @Composable
 private fun AssetVideoPlayer(emotionId: String) {
     val context = LocalContext.current
-    val assetName = "${egEmotionKey(emotionId)}.mp4"
-    val uri = remember(assetName) {
-        Uri.parse("file:///android_asset/fe/assets/videos/$assetName")
+    val key = egEmotionKey(emotionId)
+    val assetPath = "fe/assets/videos/$key.mp4"
+
+    var videoPath by remember(assetPath) { mutableStateOf<String?>(null) }
+    var errorMessage by remember(assetPath) { mutableStateOf<String?>(null) }
+    var isPrepared by remember(assetPath) { mutableStateOf(false) }
+    var isPlaying by remember(assetPath) { mutableStateOf(false) }
+    var durationMs by remember(assetPath) { mutableIntStateOf(0) }
+    var positionMs by remember(assetPath) { mutableIntStateOf(0) }
+    val videoViewRef = remember(assetPath) { mutableStateOf<VideoView?>(null) }
+
+    fun playVideo() {
+        val view = videoViewRef.value ?: return
+        if (durationMs > 0 && positionMs >= durationMs - 300) {
+            view.seekTo(0)
+            positionMs = 0
+        }
+        view.requestFocus()
+        view.start()
+        isPlaying = true
     }
 
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = {
-            VideoView(it).apply {
-                val controller = MediaController(context)
-                controller.setAnchorView(this)
-                setMediaController(controller)
-                setVideoURI(uri)
-                setOnPreparedListener { player ->
-                    player.isLooping = true
-                    seekTo(1)
+    fun pauseVideo() {
+        videoViewRef.value?.pause()
+        isPlaying = false
+    }
+
+    LaunchedEffect(assetPath) {
+        videoPath = null
+        errorMessage = null
+        isPrepared = false
+        isPlaying = false
+        durationMs = 0
+        positionMs = 0
+        runCatching {
+            val cachedFile = File(context.cacheDir, "learn_video_$key.mp4")
+            if (!cachedFile.exists() || cachedFile.length() == 0L) {
+                context.assets.open(assetPath).use { input ->
+                    FileOutputStream(cachedFile).use { output -> input.copyTo(output) }
                 }
             }
-        },
-        update = { view ->
-            view.setVideoURI(uri)
-            view.seekTo(1)
+            cachedFile.absolutePath
+        }.onSuccess { resolvedPath ->
+            videoPath = resolvedPath
+        }.onFailure {
+            errorMessage = "Không tìm thấy video mẫu."
         }
-    )
+    }
+
+    DisposableEffect(assetPath) {
+        onDispose {
+            videoViewRef.value?.stopPlayback()
+            videoViewRef.value = null
+            isPlaying = false
+        }
+    }
+
+    LaunchedEffect(videoPath) {
+        while (videoPath != null) {
+            videoViewRef.value?.let { view ->
+                val duration = view.duration
+                if (duration > 0) durationMs = duration
+                if (isPrepared) {
+                    positionMs = view.currentPosition.coerceAtLeast(0)
+                    isPlaying = view.isPlaying
+                }
+            }
+            delay(250)
+        }
+    }
+
+    if (videoPath == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage.orEmpty(),
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                CircularProgressIndicator(color = Color.White)
+            }
+        }
+        return
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clipToBounds()
+            .background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        AndroidView(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(0f),
+            factory = { viewContext ->
+                VideoView(viewContext).apply {
+                    videoViewRef.value = this
+                    tag = videoPath
+                    setOnPreparedListener { player ->
+                        player.isLooping = true
+                        durationMs = player.duration.coerceAtLeast(0)
+                        isPrepared = true
+                        requestFocus()
+                        start()
+                        isPlaying = true
+                    }
+                    setOnCompletionListener {
+                        isPlaying = false
+                        positionMs = durationMs
+                    }
+                    setOnErrorListener { _, _, _ ->
+                        errorMessage = "Không phát được video mẫu."
+                        isPlaying = false
+                        true
+                    }
+                    setVideoPath(videoPath)
+                }
+            },
+            update = { view ->
+                val targetPath = videoPath
+                if (targetPath != null && view.tag != targetPath) {
+                    view.tag = targetPath
+                    isPrepared = false
+                    isPlaying = false
+                    positionMs = 0
+                    view.setVideoPath(targetPath)
+                }
+            }
+        )
+
+        if (!isPrepared && errorMessage == null) {
+            CircularProgressIndicator(
+                modifier = Modifier.zIndex(2f),
+                color = Color.White
+            )
+        }
+
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage.orEmpty(),
+                modifier = Modifier
+                    .zIndex(3f)
+                    .padding(horizontal = 16.dp),
+                color = Color.White,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+
+        VideoControlsOverlay(
+            positionMs = positionMs,
+            durationMs = durationMs,
+            isPlaying = isPlaying,
+            onPlayPause = {
+                if (isPlaying) pauseVideo() else playVideo()
+            },
+            onSeek = { nextPosition ->
+                positionMs = nextPosition
+                videoViewRef.value?.seekTo(nextPosition)
+            },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .zIndex(2f)
+        )
+    }
+}
+@Composable
+private fun VideoControlsOverlay(
+    positionMs: Int,
+    durationMs: Int,
+    isPlaying: Boolean,
+    onPlayPause: () -> Unit,
+    onSeek: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(44.dp),
+        color = Color.Black.copy(alpha = 0.48f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.92f))
+                    .clickable(onClick = onPlayPause),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isPlaying) "II" else "\u25B6",
+                    color = EgDesign.blue,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Text(
+                text = "${formatVideoTime(positionMs)} / ${formatVideoTime(durationMs)}",
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.width(74.dp),
+                textAlign = TextAlign.Center
+            )
+            CompactSeekBar(
+                positionMs = positionMs,
+                durationMs = durationMs,
+                onSeek = onSeek,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
 }
 
+@Composable
+private fun CompactSeekBar(
+    positionMs: Int,
+    durationMs: Int,
+    onSeek: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val safeDuration = durationMs.coerceAtLeast(1)
+    var widthPx by remember { mutableIntStateOf(0) }
+    val progress = positionMs.coerceIn(0, safeDuration).toFloat() / safeDuration.toFloat()
+
+    fun positionFromOffset(x: Float): Int {
+        val width = widthPx.coerceAtLeast(1).toFloat()
+        return ((x.coerceIn(0f, width) / width) * safeDuration).toInt()
+    }
+
+    Box(
+        modifier = modifier
+            .height(24.dp)
+            .onSizeChanged { widthPx = it.width }
+            .pointerInput(safeDuration, widthPx) {
+                detectTapGestures { offset -> onSeek(positionFromOffset(offset.x)) }
+            }
+            .pointerInput(safeDuration, widthPx) {
+                detectDragGestures(
+                    onDragStart = { offset -> onSeek(positionFromOffset(offset.x)) },
+                    onDrag = { change, _ -> onSeek(positionFromOffset(change.position.x)) }
+                )
+            },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(Color.White.copy(alpha = 0.35f))
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .height(4.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(EgDesign.primary)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(progress.coerceIn(0.02f, 1f))
+                .height(24.dp),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+            )
+        }
+    }
+}
+
+private fun formatVideoTime(milliseconds: Int): String {
+    val totalSeconds = milliseconds.coerceAtLeast(0) / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%d:%02d".format(minutes, seconds)
+}
 @Composable
 private fun SituationPanel(emotion: EmotionUiItem, onSelectDetail: () -> Unit) {
     Surface(
