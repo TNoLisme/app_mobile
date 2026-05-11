@@ -1,7 +1,16 @@
 package com.example.appmobile.ui.pages.game
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
+import android.webkit.PermissionRequest
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -45,6 +54,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -141,6 +151,7 @@ fun CvTrainingGamePage(
     val startRequested = remember(level, gameId) { mutableStateOf(false) }
     val isRequestingCameraPermission = remember(level, gameId) { mutableStateOf(false) }
     val challengeStarted = remember(level, gameId) { mutableStateOf(false) }
+    val detectorReady = remember(level, gameId) { mutableStateOf(false) }
     val remainingSeconds = remember(level, gameId) { mutableIntStateOf(CvRoundSeconds) }
     val currentConfidence = remember(level, gameId) { mutableStateOf(0f) }
     val detectedEmotion = remember(level, gameId) { mutableStateOf<String?>(null) }
@@ -156,6 +167,7 @@ fun CvTrainingGamePage(
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         isRequestingCameraPermission.value = false
         hasCameraPermission.value = granted
+        detectorReady.value = false
         cameraMessage.value = if (granted) null else "Bạn có thể bật lại quyền camera trong Cài đặt."
         remainingSeconds.intValue = CvRoundSeconds
         if (granted && startRequested.value) {
@@ -175,6 +187,7 @@ fun CvTrainingGamePage(
         lastAttemptSuccess.value = null
         currentConfidence.value = 0f
         detectedEmotion.value = null
+        detectorReady.value = false
         remainingSeconds.intValue = CvRoundSeconds
         questionStartMs.value = System.currentTimeMillis()
         startRequested.value = start
@@ -226,6 +239,7 @@ fun CvTrainingGamePage(
         detectedEmotion.value = if (success) reviewEmotion else null
         lastAttemptSuccess.value = success
         challengeStarted.value = false
+        detectorReady.value = false
         feedback.value = if (success) {
             "Bạn đã thể hiện cảm xúc ${targetMeta.label}."
         } else {
@@ -324,7 +338,8 @@ fun CvTrainingGamePage(
         promptText
     }
     val canShowCameraStep = !isStoryMode || storyReadyToAct.value
-    val cameraReady = canShowCameraStep && startRequested.value && hasCameraPermission.value && cameraMessage.value == null
+    val cameraMayStart = canShowCameraStep && startRequested.value && hasCameraPermission.value && cameraMessage.value == null
+    val cameraReady = cameraMayStart && detectorReady.value
     val timerActive = canShowCameraStep && cameraReady && challengeStarted.value && feedback.value == null && summary.value == null
 
     LaunchedEffect(currentIndex.intValue, timerActive, feedback.value, summary.value) {
@@ -404,11 +419,12 @@ fun CvTrainingGamePage(
                 )
             } else {
                 CvCameraFeedbackCard(
-                hasPermission = cameraReady,
+                hasPermission = cameraMayStart,
                 cameraMessage = cameraMessage.value,
                 onCameraError = {
                     cameraMessage.value = "Không thể mở camera. Vui lòng thử lại."
                     challengeStarted.value = false
+                    detectorReady.value = false
                 },
                 targetEmotion = targetEmotion,
                 detectedEmotionId = detectedEmotion.value,
@@ -426,8 +442,20 @@ fun CvTrainingGamePage(
                     storyScenarioText = if (isStoryMode) storyPromptText else null,
                     isLastQuestion = currentIndex.intValue >= questions.value.lastIndex,
                     isSubmitting = isSubmitting.value,
+                    onCameraReady = {
+                        detectorReady.value = true
+                        cameraMessage.value = null
+                    },
+                    onDetection = { emotionId, confidence ->
+                        detectedEmotion.value = emotionId?.takeIf { it.isNotBlank() }?.let(::normalizeCvEmotion)
+                        currentConfidence.value = confidence.coerceIn(0f, 100f)
+                    },
+                    onEmotionMatched = { confidence ->
+                        recordAttempt(success = true, confidence = confidence.coerceIn(0f, 100f))
+                    },
                 onStart = {
                     startRequested.value = true
+                    detectorReady.value = false
                     if (hasCameraPermission.value) {
                         cameraMessage.value = null
                         resetCurrentRound(start = true)
@@ -1086,6 +1114,9 @@ private fun CvCameraFeedbackCard(
     storyScenarioText: String?,
     isLastQuestion: Boolean,
     isSubmitting: Boolean,
+    onCameraReady: () -> Unit,
+    onDetection: (String?, Float) -> Unit,
+    onEmotionMatched: (Float) -> Unit,
     onStart: () -> Unit,
     onRetry: () -> Unit,
     onMarkSuccess: () -> Unit,
@@ -1183,10 +1214,14 @@ private fun CvCameraFeedbackCard(
                     .background(Color(0xFF102A43)),
                 contentAlignment = Alignment.Center
             ) {
-                if (hasPermission) {
-                    CameraPreview(
+                if (hasPermission && challengeStarted && feedback == null) {
+                    CvEmotionDetectorCamera(
                         modifier = Modifier.fillMaxSize(),
-                        onCameraError = onCameraError
+                        targetEmotionId = targetEmotion.id,
+                        onReady = onCameraReady,
+                        onDetection = onDetection,
+                        onMatched = onEmotionMatched,
+                        onError = { message -> onCameraError(IllegalStateException(message)) }
                     )
                 } else {
                     Column(
@@ -1335,6 +1370,110 @@ private fun CvCameraFeedbackCard(
                 onMarkSuccess = onMarkSuccess,
                 onNext = onNext
             )
+        }
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun CvEmotionDetectorCamera(
+    modifier: Modifier = Modifier,
+    targetEmotionId: String,
+    onReady: () -> Unit,
+    onDetection: (String?, Float) -> Unit,
+    onMatched: (Float) -> Unit,
+    onError: (String) -> Unit
+) {
+    val readyCallback = rememberUpdatedState(onReady)
+    val detectionCallback = rememberUpdatedState(onDetection)
+    val matchedCallback = rememberUpdatedState(onMatched)
+    val errorCallback = rememberUpdatedState(onError)
+    val webViewRef = remember { arrayOfNulls<WebView>(1) }
+
+    DisposableEffect(targetEmotionId) {
+        onDispose {
+            webViewRef[0]?.let { webView ->
+                runCatching { webView.evaluateJavascript("window.stopCvDetector && window.stopCvDetector();", null) }
+                runCatching { webView.stopLoading() }
+                runCatching { webView.destroy() }
+                webViewRef[0] = null
+            }
+        }
+    }
+
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            WebView(context).apply {
+                webViewRef[0] = this
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.mediaPlaybackRequiresUserGesture = false
+                settings.allowFileAccess = true
+                settings.allowContentAccess = true
+                settings.allowFileAccessFromFileURLs = true
+                settings.allowUniversalAccessFromFileURLs = true
+                settings.cacheMode = WebSettings.LOAD_DEFAULT
+                addJavascriptInterface(
+                    CvEmotionJsBridge(
+                        onReady = { readyCallback.value.invoke() },
+                        onDetection = { emotion, confidence -> detectionCallback.value.invoke(emotion, confidence) },
+                        onMatched = { confidence -> matchedCallback.value.invoke(confidence) },
+                        onError = { message -> errorCallback.value.invoke(message) }
+                    ),
+                    "AndroidCvBridge"
+                )
+                webChromeClient = object : WebChromeClient() {
+                    override fun onPermissionRequest(request: PermissionRequest) {
+                        request.grant(request.resources)
+                    }
+                }
+                webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView, url: String?) {
+                        view.evaluateJavascript(
+                            "window.startCvDetector && window.startCvDetector('$targetEmotionId');",
+                            null
+                        )
+                    }
+                }
+                loadUrl("file:///android_asset/cv_emotion_detector.html")
+            }
+        }
+    )
+}
+
+private class CvEmotionJsBridge(
+    private val onReady: () -> Unit,
+    private val onDetection: (String?, Float) -> Unit,
+    private val onMatched: (Float) -> Unit,
+    private val onError: (String) -> Unit
+) {
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    @JavascriptInterface
+    fun onReady() {
+        mainHandler.post(onReady)
+    }
+
+    @JavascriptInterface
+    fun onDetection(emotionId: String?, confidence: Int) {
+        mainHandler.post {
+            onDetection(emotionId?.takeIf { it.isNotBlank() }, confidence.toFloat())
+        }
+    }
+
+    @JavascriptInterface
+    fun onMatched(confidence: Int) {
+        mainHandler.post {
+            onMatched(confidence.toFloat())
+        }
+    }
+
+    @JavascriptInterface
+    fun onError(message: String?) {
+        mainHandler.post {
+            onError(message ?: "Không thể mở camera.")
         }
     }
 }
@@ -1518,6 +1657,17 @@ private fun CvActionRow(
                     Text("Đang chuẩn bị camera...", fontWeight = FontWeight.Bold)
                 }
             } else if (!cameraReady) {
+                if (startRequested && challengeStarted) {
+                    Button(
+                        onClick = {},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        enabled = false
+                    ) {
+                        Text("Đang chuẩn bị camera...", fontWeight = FontWeight.Bold)
+                    }
+                } else {
                 Button(
                     onClick = onStart,
                     modifier = Modifier
@@ -1530,6 +1680,7 @@ private fun CvActionRow(
                         color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
+                }
                 }
             } else if (!challengeStarted) {
                 Button(
