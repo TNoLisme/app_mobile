@@ -45,7 +45,8 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
-    var emotion by remember(emotionId) { mutableStateOf(GameUiCatalog.emotionById(emotionId)) }
+    val localEmotion = remember(emotionId) { GameUiCatalog.emotionById(emotionId) }
+    var emotion by remember(emotionId) { mutableStateOf(localEmotion) }
     val imageResourceId = rememberEmotionImageResource(emotionId)
 
     LaunchedEffect(emotionId) {
@@ -61,7 +62,11 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
                 }
         }.getOrNull()
 
-        if (backendEmotion != null) emotion = backendEmotion
+        if (backendEmotion != null) {
+            emotion = localEmotion?.copy(
+                description = backendEmotion.description.ifBlank { localEmotion.description }
+            ) ?: backendEmotion
+        }
     }
 
     val learningInfo = emotionLearningInfo(emotionId)
