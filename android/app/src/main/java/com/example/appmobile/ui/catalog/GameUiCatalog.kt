@@ -45,7 +45,7 @@ object GameUiCatalog {
             "Chọn cảm xúc đúng qua hình ảnh",
             "click_game",
             R.drawable.recognize_emotion,
-            3
+            8
         ),
         GameUiItem(
             GAME_FACE_ASSEMBLY,
@@ -53,7 +53,7 @@ object GameUiCatalog {
             "Ghép các bộ phận khuôn mặt",
             "click_game",
             R.drawable.game_click_2,
-            3
+            8
         ),
         GameUiItem(
             GAME_EMOTION_MATCH,
@@ -61,7 +61,7 @@ object GameUiCatalog {
             "Đặt cảm xúc vào đúng ngữ cảnh",
             "click_game",
             R.drawable.game_click_3,
-            3
+            8
         ),
         GameUiItem(
             GAME_DETECTIVE,
@@ -69,7 +69,7 @@ object GameUiCatalog {
             "Tìm cảm xúc ẩn giấu trong tình huống",
             "click_game",
             R.drawable.game_click_4,
-            3
+            8
         ),
         GameUiItem(
             GAME_CV_STORY,
@@ -92,7 +92,7 @@ object GameUiCatalog {
     val emotions = listOf(
         EmotionUiItem("happy", "Vui", "😊", "Miệng cười, mắt sáng và có thể cười thành tiếng."),
         EmotionUiItem("sad", "Buồn", "😢", "Mắt nhìn xuống, miệng trầm và giọng nói nhỏ hơn."),
-        EmotionUiItem("angry", "Tức giận", "😠", "Lông mày chau lại, mặt nghiêm và có thể nói to hơn."),
+        EmotionUiItem("angry", "Tức giận", "😡", "Lông mày chau lại, mặt nghiêm và có thể nói to hơn."),
         EmotionUiItem("fear", "Sợ hãi", "😨", "Mắt mở to, có thể lùi lại vì cần cảm thấy an toàn."),
         EmotionUiItem("surprise", "Ngạc nhiên", "😲", "Mắt mở to, miệng chữ O khi thấy điều bất ngờ."),
         EmotionUiItem("disgust", "Ghê tởm", "🤢", "Mũi nhăn lại, đầu quay đi khi gặp mùi vị khó chịu.")
@@ -111,6 +111,8 @@ object GameUiCatalog {
     fun gamesByType(type: String): List<GameUiItem> = games.filter { it.type == type }
 
     fun gameById(id: String): GameUiItem? = games.firstOrNull { it.id == id }
+
+    fun isClickGame(id: String): Boolean = gameById(id)?.type == "click_game"
 
     fun emotionById(id: String): EmotionUiItem? = emotions.firstOrNull { it.id == id }
 
@@ -170,11 +172,7 @@ object GameUiCatalog {
                     3 -> "Khó"
                     else -> "Cấp độ $level"
                 },
-                description = when {
-                    level <= 2 -> "10 câu hỏi"
-                    level <= 4 -> "15 câu hỏi"
-                    else -> "20 câu hỏi"
-                },
+                description = "5 cau hoi",
                 colorHex = when (level) {
                     1 -> 0xFF81C784
                     2 -> 0xFFFFB74D

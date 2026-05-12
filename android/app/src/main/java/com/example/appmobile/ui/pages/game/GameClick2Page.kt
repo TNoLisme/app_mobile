@@ -1,4 +1,4 @@
-package com.example.appmobile.ui.pages.game
+﻿package com.example.appmobile.ui.pages.game
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
@@ -67,12 +67,12 @@ private data class AssemblyQuestionUi(
 )
 
 private val faceEmotions = listOf(
-    FaceEmotionUi("happy", "Vui vẻ", "😊", R.drawable.face_ensemble_happy),
-    FaceEmotionUi("sad", "Buồn bã", "😢", R.drawable.face_ensemble_sad),
-    FaceEmotionUi("angry", "Tức giận", "😠", R.drawable.face_ensemble_angry),
-    FaceEmotionUi("fear", "Sợ hãi", "😨", R.drawable.face_ensemble_fear),
-    FaceEmotionUi("surprise", "Ngạc nhiên", "😲", R.drawable.face_ensemble_surprise),
-    FaceEmotionUi("disgust", "Ghê tởm", "🤢", R.drawable.face_ensemble_disgust)
+    FaceEmotionUi("happy", "Vui váº»", "ðŸ˜Š", R.drawable.face_ensemble_happy),
+    FaceEmotionUi("sad", "Buá»“n bÃ£", "ðŸ˜¢", R.drawable.face_ensemble_sad),
+    FaceEmotionUi("angry", "Tá»©c giáº­n", "ðŸ˜ ", R.drawable.face_ensemble_angry),
+    FaceEmotionUi("fear", "Sá»£ hÃ£i", "ðŸ˜¨", R.drawable.face_ensemble_fear),
+    FaceEmotionUi("surprise", "Ngáº¡c nhiÃªn", "ðŸ˜²", R.drawable.face_ensemble_surprise),
+    FaceEmotionUi("disgust", "GhÃª tá»Ÿm", "ðŸ¤¢", R.drawable.face_ensemble_disgust)
 )
 
 @Composable
@@ -108,11 +108,14 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                 repository.endLevel(it, finalResults, learnedEmotions.distinct())
             }
             summary.value = if (response != null) {
-                val status = if (response.passed) "Đã qua level" else "Chưa qua level"
-                "$status. Điểm: ${response.score}/100."
+                val status = if (response.passed) "ÄÃ£ qua level" else "ChÆ°a qua level"
+                "$status. Äiá»ƒm: ${response.score}/50."
             } else {
-                "Hoàn thành. Điểm tạm tính: ${score.intValue}."
+                "HoÃ n thÃ nh. Äiá»ƒm táº¡m tÃ­nh: ${score.intValue}."
             }
+            response?.reviewEmotionsToLearn
+                ?.firstOrNull()
+                ?.let { learningEmotionId.value = normalizeEmotionForLearning(it) }
             isSubmitting.value = false
         }
     }
@@ -135,7 +138,6 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             emotionErrors[reviewEmotion] = nextErrorCount
             if (nextErrorCount >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
                 learnedEmotions.add(reviewEmotion)
-                learningEmotionId.value = reviewEmotion
             }
         }
 
@@ -156,9 +158,9 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
         )
         feedback.value = if (isCorrect) {
-            "Đúng rồi, con đã ghép khuôn mặt ${target.label}."
+            "ÄÃºng rá»“i, con Ä‘Ã£ ghÃ©p khuÃ´n máº·t ${target.label}."
         } else {
-            "Chưa đúng. Đáp án là khuôn mặt ${target.label}."
+            "ChÆ°a Ä‘Ãºng. ÄÃ¡p Ã¡n lÃ  khuÃ´n máº·t ${target.label}."
         }
     }
 
@@ -177,10 +179,10 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
         maxErrors.intValue = started?.maxErrors ?: 3
         val backendQuestions = started?.questions
             ?.mapNotNull { content ->
-                val emotion = (content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null }
+                val emotion = normalizeEmotionForLearning((content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null })
                 AssemblyQuestionUi(
                     questionId = content.contentId,
-                    text = content.questionText?.ifBlank { "Hãy ghép khuôn mặt phù hợp" } ?: "Hãy ghép khuôn mặt phù hợp",
+                    text = content.questionText?.ifBlank { "HÃ£y ghÃ©p khuÃ´n máº·t phÃ¹ há»£p" } ?: "HÃ£y ghÃ©p khuÃ´n máº·t phÃ¹ há»£p",
                     targetEmotion = emotion
                 )
             }
@@ -203,21 +205,33 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
     GameScreenShell(contentMaxWidth = 900, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onBack) { Text("← Quay lại") }
+                TextButton(onClick = onBack) { Text("â† Quay láº¡i") }
                 Spacer(modifier = Modifier.weight(1f))
-                Text("Xưởng lắp ghép", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("XÆ°á»Ÿng láº¯p ghÃ©p", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GameStatChip("Câu ${currentIndex.intValue + 1}/${questions.value.size}")
-                GameStatChip("Điểm ${score.intValue}")
+                GameStatChip("CÃ¢u ${currentIndex.intValue + 1}/${questions.value.size}")
+                GameStatChip("Äiá»ƒm ${score.intValue}")
                 GameStatChip("Level $level")
             }
 
             if (summary.value != null) {
                 Spacer(modifier = Modifier.height(20.dp))
                 GameLevelSummaryCard(summary = summary.value.orEmpty(), onBack = onBack)
+                EmotionLearningDialog(
+                    emotionId = learningEmotionId.value,
+                    onDismiss = {
+                        val emotion = learningEmotionId.value
+                        learningEmotionId.value = null
+                        if (emotion != null) {
+                            scope.launch {
+                                repository.resetReviewEmotions(GameUiCatalog.GAME_FACE_ASSEMBLY, userId, listOf(emotion))
+                            }
+                        }
+                    }
+                )
                 return@Column
             }
 
@@ -272,7 +286,15 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             }
             EmotionLearningDialog(
                 emotionId = learningEmotionId.value,
-                onDismiss = { learningEmotionId.value = null }
+                onDismiss = {
+                    val emotion = learningEmotionId.value
+                    learningEmotionId.value = null
+                    if (emotion != null) {
+                        scope.launch {
+                            repository.resetReviewEmotions(GameUiCatalog.GAME_FACE_ASSEMBLY, userId, listOf(emotion))
+                        }
+                    }
+                }
             )
         }
     }
@@ -286,7 +308,7 @@ private fun PreviewCard(selectedEyebrow: Int, selectedEyes: Int, selectedMouth: 
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Khuôn mặt đang ghép", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
+            Text("KhuÃ´n máº·t Ä‘ang ghÃ©p", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
             Spacer(modifier = Modifier.height(12.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -295,13 +317,13 @@ private fun PreviewCard(selectedEyebrow: Int, selectedEyes: Int, selectedMouth: 
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
                 Column(modifier = Modifier.fillMaxWidth().height(270.dp)) {
-                    FacePartBand(selectedEyebrow, partIndex = 0, label = "Lông mày")
-                    FacePartBand(selectedEyes, partIndex = 1, label = "Mắt")
-                    FacePartBand(selectedMouth, partIndex = 2, label = "Miệng")
+                    FacePartBand(selectedEyebrow, partIndex = 0, label = "LÃ´ng mÃ y")
+                    FacePartBand(selectedEyes, partIndex = 1, label = "Máº¯t")
+                    FacePartBand(selectedMouth, partIndex = 2, label = "Miá»‡ng")
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text("Chọn cùng một cảm xúc cho cả 3 phần để tạo khuôn mặt đúng.", color = Color.Gray)
+            Text("Chá»n cÃ¹ng má»™t cáº£m xÃºc cho cáº£ 3 pháº§n Ä‘á»ƒ táº¡o khuÃ´n máº·t Ä‘Ãºng.", color = Color.Gray)
         }
     }
 }
@@ -367,19 +389,19 @@ private fun AssemblyControls(
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Yêu cầu", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
+            Text("YÃªu cáº§u", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
             Text(question.text, style = MaterialTheme.typography.bodyLarge)
             Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFF0F7FF)) {
                 Text(
-                    "${target.emoji} Ghép khuôn mặt: ${target.label}",
+                    "${target.emoji} GhÃ©p khuÃ´n máº·t: ${target.label}",
                     modifier = Modifier.padding(12.dp),
                     fontWeight = FontWeight.SemiBold
                 )
             }
 
-            ControlItem("Lông mày", selectedEyebrow, onCycleEyebrow, enabled = feedback == null)
-            ControlItem("Mắt", selectedEyes, onCycleEyes, enabled = feedback == null)
-            ControlItem("Miệng", selectedMouth, onCycleMouth, enabled = feedback == null)
+            ControlItem("LÃ´ng mÃ y", selectedEyebrow, onCycleEyebrow, enabled = feedback == null)
+            ControlItem("Máº¯t", selectedEyes, onCycleEyes, enabled = feedback == null)
+            ControlItem("Miá»‡ng", selectedMouth, onCycleMouth, enabled = feedback == null)
 
             if (feedback != null) {
                 GameFeedbackCard(feedback)
@@ -387,10 +409,10 @@ private fun AssemblyControls(
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = onReset, modifier = Modifier.weight(1f), enabled = feedback == null) {
-                    Text("Chọn lại")
+                    Text("Chá»n láº¡i")
                 }
                 Button(onClick = onCheck, modifier = Modifier.weight(1f), enabled = canCheck) {
-                    Text("Kiểm tra")
+                    Text("Kiá»ƒm tra")
                 }
             }
 
@@ -401,9 +423,9 @@ private fun AssemblyControls(
             ) {
                 Text(
                     when {
-                        isSubmitting -> "Đang lưu..."
-                        isLastQuestion -> "Hoàn thành"
-                        else -> "Câu tiếp theo"
+                        isSubmitting -> "Äang lÆ°u..."
+                        isLastQuestion -> "HoÃ n thÃ nh"
+                        else -> "CÃ¢u tiáº¿p theo"
                     }
                 )
             }
@@ -417,18 +439,18 @@ private fun ControlItem(title: String, selectedIndex: Int, onClick: () -> Unit, 
     OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth(), enabled = enabled) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(title)
-            Text(selected?.let { "${it.emoji} ${it.label}" } ?: "Chưa chọn", fontWeight = FontWeight.Bold)
+            Text(selected?.let { "${it.emoji} ${it.label}" } ?: "ChÆ°a chá»n", fontWeight = FontWeight.Bold)
         }
     }
 }
 
 private fun fallbackAssemblyQuestions(): List<AssemblyQuestionUi> {
     return listOf(
-        AssemblyQuestionUi("fallback-assembly-happy", "Hãy ghép khuôn mặt vui vẻ.", "happy"),
-        AssemblyQuestionUi("fallback-assembly-sad", "Hãy ghép khuôn mặt buồn bã.", "sad"),
-        AssemblyQuestionUi("fallback-assembly-angry", "Hãy ghép khuôn mặt tức giận.", "angry"),
-        AssemblyQuestionUi("fallback-assembly-fear", "Hãy ghép khuôn mặt sợ hãi.", "fear"),
-        AssemblyQuestionUi("fallback-assembly-surprise", "Hãy ghép khuôn mặt ngạc nhiên.", "surprise")
+        AssemblyQuestionUi("fallback-assembly-happy", "HÃ£y ghÃ©p khuÃ´n máº·t vui váº».", "happy"),
+        AssemblyQuestionUi("fallback-assembly-sad", "HÃ£y ghÃ©p khuÃ´n máº·t buá»“n bÃ£.", "sad"),
+        AssemblyQuestionUi("fallback-assembly-angry", "HÃ£y ghÃ©p khuÃ´n máº·t tá»©c giáº­n.", "angry"),
+        AssemblyQuestionUi("fallback-assembly-fear", "HÃ£y ghÃ©p khuÃ´n máº·t sá»£ hÃ£i.", "fear"),
+        AssemblyQuestionUi("fallback-assembly-surprise", "HÃ£y ghÃ©p khuÃ´n máº·t ngáº¡c nhiÃªn.", "surprise")
     )
 }
 
@@ -445,3 +467,4 @@ private fun resetSelections(
     selectedEyes.intValue = -1
     selectedMouth.intValue = -1
 }
+
