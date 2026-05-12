@@ -8,6 +8,7 @@ import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.remote.dto.EndLevelRequestDto
 import com.example.appmobile.data.remote.dto.EndLevelResponseDto
 import com.example.appmobile.data.remote.dto.GameProgressDto
+import com.example.appmobile.data.remote.dto.ResetReviewRequestDto
 import com.example.appmobile.data.remote.dto.StartGameRequestDto
 import com.example.appmobile.data.remote.dto.StartGameResponseDto
 import com.example.appmobile.domain.model.EmotionConcept
@@ -41,7 +42,7 @@ class GameRepository(
 
     suspend fun getContentForLevel(gameId: String, level: Int): List<GameContent> {
         val local = gameDao.getContentForLevel(gameId, level)
-        if (local.isNotEmpty()) return local.map { it.toDomain() }
+        if (local.size >= 5) return local.map { it.toDomain() }
 
         return try {
             val response = apiService.getQuestionsByGame(gameId, level)
@@ -73,14 +74,16 @@ class GameRepository(
     suspend fun endLevel(
         sessionId: String,
         results: List<AnswerResultDto>,
-        reviewEmotions: List<String> = emptyList()
+        reviewEmotions: List<String> = emptyList(),
+        resetReviewEmotions: List<String> = emptyList()
     ): EndLevelResponseDto? {
         return try {
             val response = apiService.endLevel(
                 EndLevelRequestDto(
                     sessionId = sessionId,
                     results = results,
-                    reviewEmotions = reviewEmotions
+                    reviewEmotions = reviewEmotions,
+                    resetReviewEmotions = resetReviewEmotions
                 )
             )
             if (response.isSuccessful) response.body() else null
@@ -95,6 +98,19 @@ class GameRepository(
             if (response.isSuccessful) response.body() else null
         } catch (e: Exception) {
             null
+        }
+    }
+
+    suspend fun resetReviewEmotions(gameId: String, userId: String, emotions: List<String>): Map<String, Int> {
+        if (emotions.isEmpty()) return emptyMap()
+        return try {
+            val response = apiService.resetReviewEmotions(
+                gameId,
+                ResetReviewRequestDto(userId = userId, emotions = emotions)
+            )
+            if (response.isSuccessful) response.body()?.reviewEmotions.orEmpty() else emptyMap()
+        } catch (e: Exception) {
+            emptyMap()
         }
     }
 

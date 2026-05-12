@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.appmobile.data.remote.dto.GameContentOptionDto
 import com.example.appmobile.ui.catalog.GameUiCatalog
 
 data class EmotionLearningInfo(
@@ -27,6 +28,11 @@ data class EmotionLearningInfo(
     val description: String,
     val situation: String,
     val cues: List<String>
+)
+
+data class AnswerVisualState(
+    val borderColor: Color,
+    val containerColor: Color
 )
 
 @Composable
@@ -178,6 +184,47 @@ fun emotionLearningInfo(rawEmotionId: String): EmotionLearningInfo {
             description = fallbackDescription,
             situation = "Hãy nối cảm xúc với tình huống đang xảy ra để chọn câu trả lời phù hợp.",
             cues = listOf("Nhìn mắt", "Nhìn miệng", "Đọc kỹ tình huống")
+        )
+    }
+}
+
+fun optionEmotionIdsFromBackend(options: List<GameContentOptionDto>?, correctEmotion: String): List<String> {
+    val correct = normalizeEmotionForLearning(correctEmotion)
+    val backendOptions = options.orEmpty()
+        .mapNotNull { option -> option.emotion ?: option.answerText }
+        .map { normalizeEmotionForLearning(it) }
+        .filter { GameUiCatalog.emotionById(it) != null }
+        .distinct()
+    return (listOf(correct) + backendOptions)
+        .filter { GameUiCatalog.emotionById(it) != null }
+        .distinct()
+        .ifEmpty { GameUiCatalog.emotions.map { it.id } }
+}
+
+fun answerVisualState(
+    optionId: String,
+    correctEmotion: String,
+    selectedEmotionId: String?,
+    hasFeedback: Boolean
+): AnswerVisualState {
+    val isSelected = selectedEmotionId == optionId
+    val isCorrect = normalizeEmotionForLearning(correctEmotion) == optionId
+    return when {
+        hasFeedback && isCorrect -> AnswerVisualState(
+            borderColor = Color(0xFF2E7D32),
+            containerColor = Color(0xFFE8F5E9)
+        )
+        hasFeedback && isSelected -> AnswerVisualState(
+            borderColor = Color(0xFFD32F2F),
+            containerColor = Color(0xFFFFEBEE)
+        )
+        isSelected -> AnswerVisualState(
+            borderColor = Color(0xFF3B82F6),
+            containerColor = Color(0xFFE7F1FF)
+        )
+        else -> AnswerVisualState(
+            borderColor = Color(0xFFF1F5F9),
+            containerColor = Color.White
         )
     }
 }
