@@ -32,6 +32,8 @@ data class StartGameResponseDto(
     @SerializedName("max_errors") val maxErrors: Int?,
     @SerializedName("level_threshold") val levelThreshold: Float?,
     @SerializedName("time_limit") val timeLimit: Int?,
+    @SerializedName("ratio") val ratio: List<Float>? = null,
+    @SerializedName("review_emotions") val reviewEmotions: Map<String, Int>? = null,
     @SerializedName("questions") val questions: List<GameContentDto>
 )
 
@@ -47,7 +49,8 @@ data class AnswerResultDto(
 data class EndLevelRequestDto(
     @SerializedName("session_id") val sessionId: String,
     @SerializedName("results") val results: List<AnswerResultDto>,
-    @SerializedName("review_emotions") val reviewEmotions: List<String> = emptyList()
+    @SerializedName("review_emotions") val reviewEmotions: List<String> = emptyList(),
+    @SerializedName("reset_review_emotions") val resetReviewEmotions: List<String> = emptyList()
 )
 
 data class EndLevelResponseDto(
@@ -55,7 +58,11 @@ data class EndLevelResponseDto(
     @SerializedName("score") val score: Int,
     @SerializedName("accuracy") val accuracy: Float,
     @SerializedName("emotion_errors") val emotionErrors: Map<String, Int>?,
-    @SerializedName("passed") val passed: Boolean
+    @SerializedName("passed") val passed: Boolean,
+    @SerializedName("progress_level") val progressLevel: Int? = null,
+    @SerializedName("ratio") val ratio: List<Float>? = null,
+    @SerializedName("review_emotions") val reviewEmotions: Map<String, Int>? = null,
+    @SerializedName("review_emotions_to_learn") val reviewEmotionsToLearn: List<String>? = null
 )
 
 data class GameProgressDto(
@@ -66,8 +73,17 @@ data class GameProgressDto(
     @SerializedName("accuracy") val accuracy: Float?,
     @SerializedName("score") val score: Int?,
     @SerializedName("last_played") val lastPlayed: String?,
-    @SerializedName("ratio") val ratio: String?,
-    @SerializedName("review_emotions") val reviewEmotions: String?
+    @SerializedName("ratio") val ratio: List<Float>?,
+    @SerializedName("review_emotions") val reviewEmotions: Map<String, Int>?
+)
+
+data class ResetReviewRequestDto(
+    @SerializedName("user_id") val userId: String,
+    @SerializedName("emotions") val emotions: List<String>
+)
+
+data class ResetReviewResponseDto(
+    @SerializedName("review_emotions") val reviewEmotions: Map<String, Int>?
 )
 
 data class GameDataDto(
