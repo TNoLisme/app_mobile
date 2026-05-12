@@ -59,7 +59,8 @@ private data class LevelProgressUi(
     val level: LevelUiItem,
     val unlocked: Boolean,
     val completed: Boolean,
-    val score: Int?
+    val score: Int?,
+    val available: Boolean = true
 )
 
 private data class CvEmotionChoiceUi(
@@ -104,12 +105,14 @@ fun LevelSelectPage(
     LaunchedEffect(gameId, userId) {
         isLoading = true
 
-        val maxLevel = runCatching {
+        val catalogMaxLevel = GameUiCatalog.gameById(gameId)?.maxLevel ?: 0
+        val backendMaxLevel = runCatching {
             repository.getGames()
                 .firstOrNull { it.id == gameId }
                 ?.level
                 ?: 0
         }.getOrDefault(0)
+        val maxLevel = maxOf(backendMaxLevel, catalogMaxLevel)
 
         val levels = if (gameId == GameUiCatalog.GAME_CV_STORY) {
             GameUiCatalog.levelsForGame(gameId)
@@ -118,24 +121,39 @@ fun LevelSelectPage(
                 .ifEmpty { GameUiCatalog.levelsForGame(gameId) }
         }
 
+        val isClickGame = GameUiCatalog.isClickGame(gameId)
+        val availabilityByLevel = if (isClickGame) {
+            levels.associate { level ->
+                level.id to (repository.getContentForLevel(gameId, level.id).size >= 5)
+            }
+        } else {
+            levels.associate { it.id to true }
+        }
+
         val progress = repository.getGameProgress(gameId, userId)
         val progressLevel = progress?.level ?: 0
         val progressScore = progress?.score ?: 0
-        val completedCurrent = progressLevel > 0 && progressScore >= passThreshold(gameId, progressLevel)
-        val unlockedLevel = when {
-            progressLevel <= 0 -> 1
-            completedCurrent -> progressLevel + 1
-            else -> progressLevel
-        }.coerceIn(1, levels.size.coerceAtLeast(1))
+        val completedCurrent = !isClickGame && progressLevel > 0 && progressScore >= passThreshold(gameId, progressLevel)
+        val unlockedLevel = if (isClickGame) {
+            (progress?.level ?: 1).coerceIn(1, levels.size.coerceAtLeast(1))
+        } else {
+            when {
+                progressLevel <= 0 -> 1
+                completedCurrent -> progressLevel + 1
+                else -> progressLevel
+            }.coerceIn(1, levels.size.coerceAtLeast(1))
+        }
 
         levelStates = levels.map { level ->
             val score = if (level.id == progressLevel) progressScore else null
-            val completed = level.id < unlockedLevel || (level.id == progressLevel && completedCurrent)
+            val available = availabilityByLevel[level.id] ?: true
+            val completed = if (isClickGame) level.id < unlockedLevel else level.id < unlockedLevel || (level.id == progressLevel && completedCurrent)
             LevelProgressUi(
                 level = level,
-                unlocked = level.id <= unlockedLevel,
+                unlocked = level.id <= unlockedLevel && available,
                 completed = completed,
-                score = score
+                score = score,
+                available = available
             )
         }
         progressText = "Level $unlockedLevel đang mở"
@@ -458,11 +476,13 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
     val containerColor = if (state.unlocked) EgDesign.card else Color(0xFFF1F7FC)
     val titleColor = if (state.unlocked) EgDesign.textPrimary else Color(0xFF94A3B8)
     val statusText = when {
+        !state.available -> "Dang cap nhat"
         state.completed -> "Đã hoàn thành"
         state.unlocked -> "Có thể chơi"
         else -> "Đã khóa"
     }
     val statusColor = when {
+        !state.available -> Color(0xFFB7791F)
         state.completed -> Color(0xFF2E7D32)
         state.unlocked -> EgDesign.blue
         else -> Color(0xFF94A3B8)
@@ -523,6 +543,7 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
             }
             Text(
                 text = when {
+                    !state.available -> "..."
                     state.completed -> "✓"
                     state.unlocked -> "▶"
                     else -> "🔒"
@@ -535,7 +556,7 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
 
 private fun passThreshold(gameId: String, level: Int): Int {
     val gameType = GameUiCatalog.gameById(gameId)?.type
-    if (gameType != "camera_game") return 70
+    if (gameType != "camera_game") return 30
 
     return when (level) {
         1 -> 40
