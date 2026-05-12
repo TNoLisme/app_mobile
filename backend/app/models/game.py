@@ -45,6 +45,23 @@ class EmotionConcept(Base):
     description = Column(UnicodeText)
 
 
+class GameData(Base):
+    __tablename__ = "game_data"
+
+    data_id = Column(String(64), primary_key=True)
+    game_id = Column(String(64), ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String(128), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    level = Column(Integer, default=1, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class GameDataQuestion(Base):
+    __tablename__ = "game_data_question"
+
+    data_id = Column(String(64), ForeignKey("game_data.data_id", ondelete="CASCADE"), primary_key=True)
+    question_id = Column(String(64), ForeignKey("game_content.content_id", ondelete="CASCADE"), primary_key=True)
+
+
 class PlaySession(Base):
     __tablename__ = "sessions"
 
