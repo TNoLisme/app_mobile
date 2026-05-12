@@ -24,6 +24,7 @@ class GameContentOut(BaseModel):
     correct_answer: str | None = None
     emotion: str | None = None
     explanation: str | None = None
+    options: list[dict] | None = None
 
 
 class EmotionConceptOut(BaseModel):
