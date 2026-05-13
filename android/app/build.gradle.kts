@@ -38,6 +38,9 @@ android {
         // Cấu hình compiler cho Jetpack Compose (vì đã hạ Kotlin xuống 1.9.22)
         kotlinCompilerExtensionVersion = "1.5.10"
     }
+    androidResources {
+        noCompress += "mp4"
+    }
 }
 
 dependencies {

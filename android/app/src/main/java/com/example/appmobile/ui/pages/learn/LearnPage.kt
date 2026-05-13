@@ -1,12 +1,12 @@
 package com.example.appmobile.ui.pages.learn
 
-import android.widget.VideoView
+import android.media.MediaPlayer
+import android.view.Surface
+import android.view.TextureView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,12 +36,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -50,7 +47,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.zIndex
 import com.example.appmobile.R
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.NetworkClient
@@ -67,9 +63,7 @@ import com.example.appmobile.ui.components.egEmotionIcon
 import com.example.appmobile.ui.components.egEmotionKey
 import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.example.appmobile.ui.components.egLearningEmotionGridItems
-import java.io.File
-import java.io.FileOutputStream
-import kotlinx.coroutines.delay
+import com.example.appmobile.ui.state.AppSettingsState
 
 @Composable
 fun LearnPage(
@@ -331,304 +325,155 @@ private fun MediaArrow(text: String, modifier: Modifier, onClick: () -> Unit) {
 @Composable
 private fun AssetVideoPlayer(emotionId: String) {
     val context = LocalContext.current
-    val key = egEmotionKey(emotionId)
-    val assetPath = "fe/assets/videos/$key.mp4"
-
-    var videoPath by remember(assetPath) { mutableStateOf<String?>(null) }
-    var errorMessage by remember(assetPath) { mutableStateOf<String?>(null) }
+    val assetName = "${egEmotionKey(emotionId)}.mp4"
+    val assetPath = remember(assetName) { "fe/assets/videos/$assetName" }
     var isPrepared by remember(assetPath) { mutableStateOf(false) }
     var isPlaying by remember(assetPath) { mutableStateOf(false) }
-    var durationMs by remember(assetPath) { mutableIntStateOf(0) }
-    var positionMs by remember(assetPath) { mutableIntStateOf(0) }
-    val videoViewRef = remember(assetPath) { mutableStateOf<VideoView?>(null) }
+    var playbackError by remember(assetPath) { mutableStateOf<String?>(null) }
+    val mediaPlayer = remember(assetPath) { MediaPlayer() }
+    val autoPlayEnabled by AppSettingsState.learnVideoAutoplayEnabled
+    val soundEnabled by AppSettingsState.learnVideoSoundEnabled
 
-    fun playVideo() {
-        val view = videoViewRef.value ?: return
-        if (durationMs > 0 && positionMs >= durationMs - 300) {
-            view.seekTo(0)
-            positionMs = 0
-        }
-        view.requestFocus()
-        view.start()
-        isPlaying = true
-    }
-
-    fun pauseVideo() {
-        videoViewRef.value?.pause()
-        isPlaying = false
-    }
-
-    LaunchedEffect(assetPath) {
-        videoPath = null
-        errorMessage = null
-        isPrepared = false
-        isPlaying = false
-        durationMs = 0
-        positionMs = 0
+    LaunchedEffect(mediaPlayer, soundEnabled) {
         runCatching {
-            val cachedFile = File(context.cacheDir, "learn_video_$key.mp4")
-            if (!cachedFile.exists() || cachedFile.length() == 0L) {
-                context.assets.open(assetPath).use { input ->
-                    FileOutputStream(cachedFile).use { output -> input.copyTo(output) }
+            val volume = if (soundEnabled) 1f else 0f
+            mediaPlayer.setVolume(volume, volume)
+        }
+    }
+
+    fun prepare(surface: Surface) {
+        isPrepared = false
+        playbackError = null
+        runCatching {
+            mediaPlayer.reset()
+            mediaPlayer.setSurface(surface)
+            mediaPlayer.isLooping = true
+            val volume = if (soundEnabled) 1f else 0f
+            mediaPlayer.setVolume(volume, volume)
+            mediaPlayer.setOnPreparedListener { player ->
+                isPrepared = true
+                if (autoPlayEnabled) {
+                    player.start()
+                    isPlaying = true
+                } else {
+                    player.seekTo(1)
+                    isPlaying = false
                 }
             }
-            cachedFile.absolutePath
-        }.onSuccess { resolvedPath ->
-            videoPath = resolvedPath
+            mediaPlayer.setOnErrorListener { _, _, _ ->
+                playbackError = "Khong mo duoc video mau"
+                isPlaying = false
+                true
+            }
+            context.assets.openFd(assetPath).use { descriptor ->
+                mediaPlayer.setDataSource(
+                    descriptor.fileDescriptor,
+                    descriptor.startOffset,
+                    descriptor.length
+                )
+            }
+            mediaPlayer.prepareAsync()
         }.onFailure {
-            errorMessage = "Không tìm thấy video mẫu."
-        }
-    }
-
-    DisposableEffect(assetPath) {
-        onDispose {
-            videoViewRef.value?.stopPlayback()
-            videoViewRef.value = null
+            playbackError = "Khong mo duoc video mau"
             isPlaying = false
         }
     }
 
-    LaunchedEffect(videoPath) {
-        while (videoPath != null) {
-            videoViewRef.value?.let { view ->
-                val duration = view.duration
-                if (duration > 0) durationMs = duration
-                if (isPrepared) {
-                    positionMs = view.currentPosition.coerceAtLeast(0)
-                    isPlaying = view.isPlaying
-                }
-            }
-            delay(250)
+    DisposableEffect(mediaPlayer) {
+        onDispose {
+            runCatching { mediaPlayer.stop() }
+            mediaPlayer.release()
         }
     }
 
-    if (videoPath == null) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black),
-            contentAlignment = Alignment.Center
-        ) {
-            if (errorMessage != null) {
-                Text(
-                    text = errorMessage.orEmpty(),
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center
-                )
-            } else {
-                CircularProgressIndicator(color = Color.White)
-            }
-        }
-        return
-    }
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        key(assetPath) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = {
+                    TextureView(it).apply {
+                        surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                            private var surface: Surface? = null
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clipToBounds()
-            .background(Color.Black),
-        contentAlignment = Alignment.Center
-    ) {
-        AndroidView(
-            modifier = Modifier
-                .fillMaxSize()
-                .zIndex(0f),
-            factory = { viewContext ->
-                VideoView(viewContext).apply {
-                    videoViewRef.value = this
-                    tag = videoPath
-                    setOnPreparedListener { player ->
-                        player.isLooping = true
-                        durationMs = player.duration.coerceAtLeast(0)
-                        isPrepared = true
-                        requestFocus()
-                        start()
-                        isPlaying = true
-                    }
-                    setOnCompletionListener {
-                        isPlaying = false
-                        positionMs = durationMs
-                    }
-                    setOnErrorListener { _, _, _ ->
-                        errorMessage = "Không phát được video mẫu."
-                        isPlaying = false
-                        true
-                    }
-                    setVideoPath(videoPath)
-                }
-            },
-            update = { view ->
-                val targetPath = videoPath
-                if (targetPath != null && view.tag != targetPath) {
-                    view.tag = targetPath
-                    isPrepared = false
-                    isPlaying = false
-                    positionMs = 0
-                    view.setVideoPath(targetPath)
-                }
-            }
-        )
+                            override fun onSurfaceTextureAvailable(
+                                surfaceTexture: android.graphics.SurfaceTexture,
+                                width: Int,
+                                height: Int
+                            ) {
+                                val newSurface = Surface(surfaceTexture)
+                                surface = newSurface
+                                prepare(newSurface)
+                            }
 
-        if (!isPrepared && errorMessage == null) {
-            CircularProgressIndicator(
-                modifier = Modifier.zIndex(2f),
-                color = Color.White
+                            override fun onSurfaceTextureSizeChanged(
+                                surfaceTexture: android.graphics.SurfaceTexture,
+                                width: Int,
+                                height: Int
+                            ) = Unit
+
+                            override fun onSurfaceTextureDestroyed(
+                                surfaceTexture: android.graphics.SurfaceTexture
+                            ): Boolean {
+                                runCatching { mediaPlayer.pause() }
+                                isPlaying = false
+                                surface?.release()
+                                surface = null
+                                return true
+                            }
+
+                            override fun onSurfaceTextureUpdated(
+                                surfaceTexture: android.graphics.SurfaceTexture
+                            ) = Unit
+                        }
+                    }
+                }
             )
         }
 
-        if (errorMessage != null) {
+        if (playbackError != null) {
             Text(
-                text = errorMessage.orEmpty(),
-                modifier = Modifier
-                    .zIndex(3f)
-                    .padding(horizontal = 16.dp),
+                text = playbackError.orEmpty(),
                 color = Color.White,
                 fontSize = 13.sp,
-                textAlign = TextAlign.Center
-            )
-        }
-
-        VideoControlsOverlay(
-            positionMs = positionMs,
-            durationMs = durationMs,
-            isPlaying = isPlaying,
-            onPlayPause = {
-                if (isPlaying) pauseVideo() else playVideo()
-            },
-            onSeek = { nextPosition ->
-                positionMs = nextPosition
-                videoViewRef.value?.seekTo(nextPosition)
-            },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .zIndex(2f)
-        )
-    }
-}
-@Composable
-private fun VideoControlsOverlay(
-    positionMs: Int,
-    durationMs: Int,
-    isPlaying: Boolean,
-    onPlayPause: () -> Unit,
-    onSeek: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(44.dp),
-        color = Color.Black.copy(alpha = 0.48f)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
                 modifier = Modifier
-                    .size(30.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.92f))
-                    .clickable(onClick = onPlayPause),
-                contentAlignment = Alignment.Center
+                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+        } else {
+            Surface(
+                modifier = Modifier
+                    .size(46.dp)
+                    .align(Alignment.Center)
+                    .clickable {
+                        if (!isPrepared) return@clickable
+                        if (isPlaying) {
+                            mediaPlayer.pause()
+                            isPlaying = false
+                        } else {
+                            mediaPlayer.start()
+                            isPlaying = true
+                        }
+                    },
+                shape = CircleShape,
+                color = Color.White.copy(alpha = if (isPlaying) 0.45f else 0.92f),
+                border = BorderStroke(1.dp, EgDesign.cardBorder),
+                shadowElevation = 2.dp
             ) {
-                Text(
-                    text = if (isPlaying) "II" else "\u25B6",
-                    color = EgDesign.blue,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = if (isPlaying) "II" else ">",
+                        color = EgDesign.blue,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
             }
-            Text(
-                text = "${formatVideoTime(positionMs)} / ${formatVideoTime(durationMs)}",
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.width(74.dp),
-                textAlign = TextAlign.Center
-            )
-            CompactSeekBar(
-                positionMs = positionMs,
-                durationMs = durationMs,
-                onSeek = onSeek,
-                modifier = Modifier.weight(1f)
-            )
         }
     }
 }
 
-@Composable
-private fun CompactSeekBar(
-    positionMs: Int,
-    durationMs: Int,
-    onSeek: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val safeDuration = durationMs.coerceAtLeast(1)
-    var widthPx by remember { mutableIntStateOf(0) }
-    val progress = positionMs.coerceIn(0, safeDuration).toFloat() / safeDuration.toFloat()
-
-    fun positionFromOffset(x: Float): Int {
-        val width = widthPx.coerceAtLeast(1).toFloat()
-        return ((x.coerceIn(0f, width) / width) * safeDuration).toInt()
-    }
-
-    Box(
-        modifier = modifier
-            .height(24.dp)
-            .onSizeChanged { widthPx = it.width }
-            .pointerInput(safeDuration, widthPx) {
-                detectTapGestures { offset -> onSeek(positionFromOffset(offset.x)) }
-            }
-            .pointerInput(safeDuration, widthPx) {
-                detectDragGestures(
-                    onDragStart = { offset -> onSeek(positionFromOffset(offset.x)) },
-                    onDrag = { change, _ -> onSeek(positionFromOffset(change.position.x)) }
-                )
-            },
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(4.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(Color.White.copy(alpha = 0.35f))
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(progress.coerceIn(0f, 1f))
-                .height(4.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(EgDesign.primary)
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(progress.coerceIn(0.02f, 1f))
-                .height(24.dp),
-            contentAlignment = Alignment.CenterEnd
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-            )
-        }
-    }
-}
-
-private fun formatVideoTime(milliseconds: Int): String {
-    val totalSeconds = milliseconds.coerceAtLeast(0) / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return "%d:%02d".format(minutes, seconds)
-}
 @Composable
 private fun SituationPanel(emotion: EmotionUiItem, onSelectDetail: () -> Unit) {
     Surface(

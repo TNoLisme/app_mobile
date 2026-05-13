@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.appmobile.data.local.AppSession
+import com.example.appmobile.ui.state.AppSettingsState
 import com.example.appmobile.ui.state.UserAvatarState
 import com.google.firebase.auth.FirebaseAuth
 import kotlin.math.roundToInt
@@ -70,18 +71,19 @@ enum class EgTab(val title: String) {
 }
 
 object EgDesign {
-    val background = Color(0xFFEAF7FF)
-    val primary = Color(0xFF62B5FF)
-    val primaryDark = Color(0xFF2F80ED)
-    val primaryGradient = SolidColor(primary)
-    val softBlueGradient = SolidColor(Color(0xFFF4FAFF))
-    val card = Color.White
-    val cardSoft = Color(0xFFF4FAFF)
-    val cardBorder = Color(0xFFD9E8F5)
-    val textPrimary = Color(0xFF0B3A6E)
-    val textSecondary = Color(0xFF6B7280)
-    val blue = Color(0xFF0B5DAE)
-    val accentSoft = Color(0xFFEAF2FF)
+    private val isDark: Boolean get() = AppSettingsState.activeDarkTheme.value
+    val background: Color get() = if (isDark) Color(0xFF101820) else Color(0xFFEAF7FF)
+    val primary: Color get() = if (isDark) Color(0xFF7CC8FF) else Color(0xFF62B5FF)
+    val primaryDark: Color get() = if (isDark) Color(0xFF58B7FF) else Color(0xFF2F80ED)
+    val primaryGradient: SolidColor get() = SolidColor(primary)
+    val softBlueGradient: SolidColor get() = SolidColor(if (isDark) Color(0xFF182638) else Color(0xFFF4FAFF))
+    val card: Color get() = if (isDark) Color(0xFF182638) else Color.White
+    val cardSoft: Color get() = if (isDark) Color(0xFF20324A) else Color(0xFFF4FAFF)
+    val cardBorder: Color get() = if (isDark) Color(0xFF36526D) else Color(0xFFD9E8F5)
+    val textPrimary: Color get() = if (isDark) Color(0xFFEAF7FF) else Color(0xFF0B3A6E)
+    val textSecondary: Color get() = if (isDark) Color(0xFFC2CBD7) else Color(0xFF6B7280)
+    val blue: Color get() = if (isDark) Color(0xFF9DD4FF) else Color(0xFF0B5DAE)
+    val accentSoft: Color get() = if (isDark) Color(0xFF1E344D) else Color(0xFFEAF2FF)
     val cardRadius = 18.dp
     val pillRadius = 999.dp
     val screenPadding = 16.dp
