@@ -1,8 +1,8 @@
 package com.example.appmobile.ui.pages.learn
 
-import android.net.Uri
-import android.widget.MediaController
-import android.widget.VideoView
+import android.media.MediaPlayer
+import android.view.Surface
+import android.view.TextureView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -25,8 +25,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +63,7 @@ import com.example.appmobile.ui.components.egEmotionIcon
 import com.example.appmobile.ui.components.egEmotionKey
 import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.example.appmobile.ui.components.egLearningEmotionGridItems
+import com.example.appmobile.ui.state.AppSettingsState
 
 @Composable
 fun LearnPage(
@@ -323,29 +326,152 @@ private fun MediaArrow(text: String, modifier: Modifier, onClick: () -> Unit) {
 private fun AssetVideoPlayer(emotionId: String) {
     val context = LocalContext.current
     val assetName = "${egEmotionKey(emotionId)}.mp4"
-    val uri = remember(assetName) {
-        Uri.parse("file:///android_asset/fe/assets/videos/$assetName")
+    val assetPath = remember(assetName) { "fe/assets/videos/$assetName" }
+    var isPrepared by remember(assetPath) { mutableStateOf(false) }
+    var isPlaying by remember(assetPath) { mutableStateOf(false) }
+    var playbackError by remember(assetPath) { mutableStateOf<String?>(null) }
+    val mediaPlayer = remember(assetPath) { MediaPlayer() }
+    val autoPlayEnabled by AppSettingsState.learnVideoAutoplayEnabled
+    val soundEnabled by AppSettingsState.learnVideoSoundEnabled
+
+    LaunchedEffect(mediaPlayer, soundEnabled) {
+        runCatching {
+            val volume = if (soundEnabled) 1f else 0f
+            mediaPlayer.setVolume(volume, volume)
+        }
     }
 
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = {
-            VideoView(it).apply {
-                val controller = MediaController(context)
-                controller.setAnchorView(this)
-                setMediaController(controller)
-                setVideoURI(uri)
-                setOnPreparedListener { player ->
-                    player.isLooping = true
-                    seekTo(1)
+    fun prepare(surface: Surface) {
+        isPrepared = false
+        playbackError = null
+        runCatching {
+            mediaPlayer.reset()
+            mediaPlayer.setSurface(surface)
+            mediaPlayer.isLooping = true
+            val volume = if (soundEnabled) 1f else 0f
+            mediaPlayer.setVolume(volume, volume)
+            mediaPlayer.setOnPreparedListener { player ->
+                isPrepared = true
+                if (autoPlayEnabled) {
+                    player.start()
+                    isPlaying = true
+                } else {
+                    player.seekTo(1)
+                    isPlaying = false
                 }
             }
-        },
-        update = { view ->
-            view.setVideoURI(uri)
-            view.seekTo(1)
+            mediaPlayer.setOnErrorListener { _, _, _ ->
+                playbackError = "Khong mo duoc video mau"
+                isPlaying = false
+                true
+            }
+            context.assets.openFd(assetPath).use { descriptor ->
+                mediaPlayer.setDataSource(
+                    descriptor.fileDescriptor,
+                    descriptor.startOffset,
+                    descriptor.length
+                )
+            }
+            mediaPlayer.prepareAsync()
+        }.onFailure {
+            playbackError = "Khong mo duoc video mau"
+            isPlaying = false
         }
-    )
+    }
+
+    DisposableEffect(mediaPlayer) {
+        onDispose {
+            runCatching { mediaPlayer.stop() }
+            mediaPlayer.release()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        key(assetPath) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = {
+                    TextureView(it).apply {
+                        surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                            private var surface: Surface? = null
+
+                            override fun onSurfaceTextureAvailable(
+                                surfaceTexture: android.graphics.SurfaceTexture,
+                                width: Int,
+                                height: Int
+                            ) {
+                                val newSurface = Surface(surfaceTexture)
+                                surface = newSurface
+                                prepare(newSurface)
+                            }
+
+                            override fun onSurfaceTextureSizeChanged(
+                                surfaceTexture: android.graphics.SurfaceTexture,
+                                width: Int,
+                                height: Int
+                            ) = Unit
+
+                            override fun onSurfaceTextureDestroyed(
+                                surfaceTexture: android.graphics.SurfaceTexture
+                            ): Boolean {
+                                runCatching { mediaPlayer.pause() }
+                                isPlaying = false
+                                surface?.release()
+                                surface = null
+                                return true
+                            }
+
+                            override fun onSurfaceTextureUpdated(
+                                surfaceTexture: android.graphics.SurfaceTexture
+                            ) = Unit
+                        }
+                    }
+                }
+            )
+        }
+
+        if (playbackError != null) {
+            Text(
+                text = playbackError.orEmpty(),
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+        } else {
+            Surface(
+                modifier = Modifier
+                    .size(46.dp)
+                    .align(Alignment.Center)
+                    .clickable {
+                        if (!isPrepared) return@clickable
+                        if (isPlaying) {
+                            mediaPlayer.pause()
+                            isPlaying = false
+                        } else {
+                            mediaPlayer.start()
+                            isPlaying = true
+                        }
+                    },
+                shape = CircleShape,
+                color = Color.White.copy(alpha = if (isPlaying) 0.45f else 0.92f),
+                border = BorderStroke(1.dp, EgDesign.cardBorder),
+                shadowElevation = 2.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = if (isPlaying) "II" else ">",
+                        color = EgDesign.blue,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
