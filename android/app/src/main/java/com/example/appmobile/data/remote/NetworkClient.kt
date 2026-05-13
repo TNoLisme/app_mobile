@@ -13,11 +13,14 @@ object NetworkClient {
     // 10.0.2.2 is for Android Emulator. 127.0.0.1 works on real devices after:
     // adb reverse tcp:8000 tcp:8000
     private const val BASE_URL = "http://10.0.2.2:8000/"
+    @Volatile private var preferredHost: String? = null
 
     private val fallbackHosts = listOf(
+        "192.168.1.37",
+        "10.0.2.2",
         "127.0.0.1",
         "localhost",
-        "10.0.2.2",
+        "192.168.1.27",
         "192.168.1.9",
         "10.203.104.216"
     )
@@ -27,7 +30,8 @@ object NetworkClient {
         val originalUrl = originalRequest.url
         var lastError: IOException? = null
 
-        fallbackHosts.distinct().forEach { host ->
+        val hosts = (listOfNotNull(preferredHost) + fallbackHosts).distinct()
+        hosts.forEach { host ->
             val retryUrl = originalUrl.newBuilder()
                 .scheme("http")
                 .host(host)
@@ -36,7 +40,9 @@ object NetworkClient {
             val retryRequest = originalRequest.newBuilder().url(retryUrl).build()
 
             try {
-                return@Interceptor chain.proceed(retryRequest)
+                val response = chain.proceed(retryRequest)
+                preferredHost = host
+                return@Interceptor response
             } catch (error: IOException) {
                 lastError = error
             }
@@ -52,7 +58,7 @@ object NetworkClient {
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(hostFallbackInterceptor)
         .addInterceptor(logging)
-        .connectTimeout(3, TimeUnit.SECONDS)
+        .connectTimeout(1500, TimeUnit.MILLISECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()

@@ -9,6 +9,7 @@ fun GameCV2Page(
     level: Int = 1,
     selectedEmotion: String? = null,
     onBack: () -> Unit,
+    onFinish: () -> Unit = onBack,
     onOpenAssistant: () -> Unit = {}
 ) {
     CvTrainingGamePage(
@@ -22,6 +23,7 @@ fun GameCV2Page(
         promptLabel = "Yêu cầu",
         targetLabel = "Cảm xúc",
         onBack = onBack,
+        onFinish = onFinish,
         onOpenAssistant = onOpenAssistant
     )
 }

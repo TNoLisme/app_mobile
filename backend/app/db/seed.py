@@ -70,7 +70,7 @@ GAMES = [
         "difficulty_level": "normal",
         "max_errors": 2,
         "level_threshold": 40,
-        "time_limit": 30,
+        "time_limit": 20,
     },
 ]
 
