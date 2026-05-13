@@ -1,43 +1,22 @@
 package com.example.appmobile.ui.pages.auth
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -47,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.R
@@ -55,7 +36,6 @@ import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.UserRepository
-import com.example.appmobile.ui.theme.SoftWhite
 import kotlinx.coroutines.launch
 
 @Composable
@@ -72,97 +52,122 @@ fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
     var showForgotDialog by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFEAF7FF))
-            .verticalScroll(rememberScrollState())
-            .padding(18.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            AuthTopBrand(onNavigateToRegister = onNavigateToRegister)
+        // Background Image
+        Image(
+            painter = painterResource(id = R.drawable.background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
 
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+                shape = RoundedCornerShape(32.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
+                    modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Logo and Brand
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Logo",
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "EmoGarden",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF7CB9E8)
+                        )
+                    }
+
+                    Text(
+                        "Đăng nhập",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4A4A4A)
+                    )
+                    Text(
+                        "Tiếp tục hành trình học cảm xúc của bé",
+                        fontSize = 14.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+
+                    // Illustration
                     Image(
-                        painter = painterResource(id = R.drawable.index_image),
-                        contentDescription = "Đăng nhập EmoGarden",
+                        painter = painterResource(id = R.drawable.duatre),
+                        contentDescription = "Illustration",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 140.dp, max = 190.dp)
-                            .clip(MaterialTheme.shapes.extraLarge),
-                        contentScale = ContentScale.Crop
+                            .height(160.dp),
+                        contentScale = ContentScale.Fit
                     )
 
-                    Text("Đăng nhập", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0B3C7D))
-                    Text("Tiếp tục hành trình học cảm xúc của bé.", color = Color.Gray)
-
-                    OutlinedTextField(
+                    // Input Fields
+                    AuthTextField(
                         value = email,
-                        onValueChange = {
-                            email = it
-                            errorMessage = null
-                        },
-                        label = { Text("Email phụ huynh") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next)
+                        onValueChange = { email = it; errorMessage = null },
+                        placeholder = "Email phụ huynh",
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next
                     )
 
-                    OutlinedTextField(
+                    AuthTextField(
                         value = password,
-                        onValueChange = {
-                            password = it
-                            errorMessage = null
-                        },
-                        label = { Text("Mật khẩu") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
+                        onValueChange = { password = it; errorMessage = null },
+                        placeholder = "Mật khẩu",
+                        isPassword = true,
+                        imeAction = ImeAction.Done
                     )
 
                     errorMessage?.let {
-                        Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFFFEBEE), modifier = Modifier.fillMaxWidth()) {
-                            Text(it, modifier = Modifier.padding(12.dp), color = Color(0xFFC62828))
-                        }
+                        Text(it, color = Color.Red, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
                     }
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { showForgotDialog = true }) {
-                            Text("Quên mật khẩu?", color = Color.Gray)
-                        }
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                        Text(
+                            "Quên mật khẩu?",
+                            color = Color(0xFF8D6E63),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.clickable { showForgotDialog = true }
+                        )
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     if (isLoading) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(color = Color(0xFFFFA726))
                     } else {
                         Button(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(54.dp),
-                            shape = RoundedCornerShape(16.dp),
                             onClick = {
                                 val validation = validateLogin(email, password)
                                 if (validation != null) {
                                     errorMessage = validation
                                     return@Button
                                 }
-
                                 isLoading = true
                                 authHelper.login(email.trim(), password) { success, error ->
                                     if (success) {
@@ -174,27 +179,40 @@ fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
                                         scope.launch {
                                             val backendResult = userRepository.loginWithBackend(email.trim(), password)
                                             isLoading = false
-                                            backendResult
-                                                .onSuccess { profile ->
-                                                    profile.userId?.let { AppSession.saveBackendUserId(context, it) }
-                                                    Toast.makeText(context, "Đăng nhập thành công", Toast.LENGTH_SHORT).show()
-                                                    onLoginSuccess()
-                                                }
-                                                .onFailure {
-                                                    errorMessage = error ?: it.message ?: "Sai tài khoản hoặc mật khẩu."
-                                                }
+                                            backendResult.onSuccess { profile ->
+                                                profile.userId?.let { AppSession.saveBackendUserId(context, it) }
+                                                Toast.makeText(context, "Đăng nhập thành công", Toast.LENGTH_SHORT).show()
+                                                onLoginSuccess()
+                                            }.onFailure {
+                                                errorMessage = error ?: it.message ?: "Sai tài khoản hoặc mật khẩu."
+                                            }
                                         }
-                                        errorMessage = error ?: "Sai tài khoản hoặc mật khẩu."
                                     }
                                 }
-                            }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .shadow(4.dp, RoundedCornerShape(28.dp)),
+                            shape = RoundedCornerShape(28.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA726))
                         ) {
-                            Text("Đăng nhập", fontWeight = FontWeight.ExtraBold)
+                            Text("Đăng nhập", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
 
-                    TextButton(onClick = onNavigateToRegister) {
-                        Text("Chưa có tài khoản? Đăng ký ngay", color = Color(0xFF1976D2))
+                    Row(
+                        modifier = Modifier.padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Chưa có tài khoản? ", color = Color.DarkGray, fontSize = 14.sp)
+                        Text(
+                            "Đăng ký ngay",
+                            color = Color(0xFF8D6E63),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { onNavigateToRegister() }
+                        )
                     }
                 }
             }
@@ -211,21 +229,41 @@ fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
 }
 
 @Composable
-private fun AuthTopBrand(onNavigateToRegister: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Image(
-            painter = painterResource(id = R.drawable.logo),
-            contentDescription = "EmoGarden",
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
+private fun AuthTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    isPassword: Boolean = false,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Default
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = { Text(placeholder, color = Color.Gray) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        shape = RoundedCornerShape(28.dp),
+        singleLine = true,
+        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Color(0xFFAED9FF),
+            unfocusedBorderColor = Color(0xFFAED9FF),
+            focusedContainerColor = Color(0xFFF0F8FF),
+            unfocusedContainerColor = Color(0xFFF0F8FF)
         )
-        Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
-            Text("EmoGarden", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0B3C7D))
-            Text("Học cảm xúc qua trò chơi", fontSize = 13.sp, color = Color.Gray)
-        }
-        TextButton(onClick = onNavigateToRegister) { Text("Đăng ký") }
-    }
+    )
+}
+
+@Composable
+private fun CloudIcon(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = Color.White.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(50)
+    ) {}
 }
 
 @Composable
@@ -253,9 +291,10 @@ private fun ForgotPasswordDialog(
                     },
                     label = { Text("Email của bạn") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    shape = RoundedCornerShape(12.dp)
                 )
-                message?.let { Text(it, color = Color(0xFFC62828)) }
+                message?.let { Text(it, color = Color.Red) }
             }
         },
         confirmButton = {
@@ -276,9 +315,10 @@ private fun ForgotPasswordDialog(
                             message = error ?: "Không gửi được email đặt lại mật khẩu."
                         }
                     }
-                }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA726))
             ) {
-                Text(if (isSending) "Đang gửi..." else "Gửi email")
+                Text(if (isSending) "Đang gửi..." else "Gửi email", color = Color.White)
             }
         },
         dismissButton = {

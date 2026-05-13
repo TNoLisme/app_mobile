@@ -2,40 +2,17 @@ package com.example.appmobile.ui.pages.auth
 
 import android.widget.Toast
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -45,6 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.R
@@ -52,7 +31,6 @@ import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.UserRepository
-import com.example.appmobile.ui.theme.SoftWhite
 import com.example.appmobile.ui.viewmodel.AuthViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -77,176 +55,192 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFEAF7FF))
-            .verticalScroll(rememberScrollState())
-            .padding(18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    Box(
+        modifier = Modifier.fillMaxSize()
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onNavigateBack) { Text("← Đăng nhập") }
-        }
+        // Background Image (Consistent with LoginPage)
+        Image(
+            painter = painterResource(id = R.drawable.background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top
         ) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                shape = RoundedCornerShape(32.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.index_image),
-                    contentDescription = "Tạo tài khoản",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 130.dp, max = 180.dp)
-                        .clip(MaterialTheme.shapes.extraLarge),
-                    contentScale = ContentScale.Crop
-                )
-
-                Text("Tạo tài khoản", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0B3C7D))
-                Text("Điền thông tin của bé để đồng bộ hồ sơ học tập.", color = Color.Gray)
-
-                AuthTextField(
-                    value = name,
-                    onValueChange = {
-                        name = it
-                        errorMessage = null
-                    },
-                    label = "Họ và tên của bé",
-                    imeAction = ImeAction.Next,
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                )
-
-                AuthTextField(
-                    value = username,
-                    onValueChange = {
-                        username = it
-                        errorMessage = null
-                    },
-                    label = "Tên đăng nhập",
-                    imeAction = ImeAction.Next,
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                )
-
-                GenderSelector(value = gender, onChange = { gender = it })
-
-                AuthTextField(
-                    value = dateOfBirth,
-                    onValueChange = {
-                        dateOfBirth = it.take(10)
-                        errorMessage = null
-                    },
-                    label = "Ngày sinh (yyyy-mm-dd)",
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Next,
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                )
-
-                AuthTextField(
-                    value = phone,
-                    onValueChange = {
-                        if (it.all(Char::isDigit)) phone = it.take(10)
-                        errorMessage = null
-                    },
-                    label = "Số điện thoại phụ huynh",
-                    keyboardType = KeyboardType.Phone,
-                    imeAction = ImeAction.Next,
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                )
-
-                AuthTextField(
-                    value = email,
-                    onValueChange = {
-                        email = it
-                        errorMessage = null
-                    },
-                    label = "Email phụ huynh",
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Next,
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                )
-
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = {
-                        password = it
-                        errorMessage = null
-                    },
-                    label = { Text("Mật khẩu") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
-                )
-
-                errorMessage?.let {
-                    Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFFFEBEE), modifier = Modifier.fillMaxWidth()) {
-                        Text(it, modifier = Modifier.padding(12.dp), color = Color(0xFFC62828))
-                    }
-                }
-
-                if (isLoading) {
-                    CircularProgressIndicator()
-                } else {
-                    Button(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        onClick = {
-                            focusManager.clearFocus()
-                            val age = calculateAge(dateOfBirth)
-                            val validation = validateRegister(
-                                name = name,
-                                username = username,
-                                dateOfBirth = dateOfBirth,
-                                age = age,
-                                phone = phone,
-                                email = email,
-                                password = password
-                            )
-                            if (validation != null || age == null) {
-                                errorMessage = validation ?: "Ngày sinh không hợp lệ."
-                                return@Button
-                            }
-
-                            isLoading = true
-                            viewModel.register(
-                                email = email.trim(),
-                                pass = password,
-                                name = name.trim(),
-                                age = age,
-                                gender = gender,
-                                username = username.trim(),
-                                dateOfBirth = dateOfBirth.trim(),
-                                phoneNumber = phone.trim()
-                            ) { success, error ->
-                                isLoading = false
-                                if (success) {
-                                    Toast.makeText(context, "Đăng ký thành công. Vui lòng đăng nhập.", Toast.LENGTH_LONG).show()
-                                    onNavigateBack()
-                                } else {
-                                    errorMessage = error ?: "Đăng ký thất bại. Vui lòng thử lại."
-                                }
-                            }
-                        }
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // Logo and Brand
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Text("Đăng ký", fontWeight = FontWeight.ExtraBold)
+                        Image(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Logo",
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "EmoGarden",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF7CB9E8)
+                        )
                     }
-                }
 
-                TextButton(onClick = onNavigateBack) {
-                    Text("Đã có tài khoản? Đăng nhập", color = Color(0xFF1976D2))
+                    Text(
+                        "Tạo tài khoản",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4A4A4A)
+                    )
+                    Text(
+                        "Điền thông tin của bé để đồng bộ hồ sơ học tập",
+                        fontSize = 14.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+
+                    // Input Fields
+                    AuthTextField(
+                        value = name,
+                        onValueChange = { name = it; errorMessage = null },
+                        placeholder = "Họ và tên của bé",
+                        imeAction = ImeAction.Next
+                    )
+
+                    AuthTextField(
+                        value = username,
+                        onValueChange = { username = it; errorMessage = null },
+                        placeholder = "Tên đăng nhập",
+                        imeAction = ImeAction.Next
+                    )
+
+                    GenderSelector(value = gender, onChange = { gender = it })
+
+                    AuthTextField(
+                        value = dateOfBirth,
+                        onValueChange = { dateOfBirth = it.take(10); errorMessage = null },
+                        placeholder = "Ngày sinh (yyyy-mm-dd)",
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Next
+                    )
+
+                    AuthTextField(
+                        value = phone,
+                        onValueChange = { if (it.all(Char::isDigit)) phone = it.take(10); errorMessage = null },
+                        placeholder = "Số điện thoại phụ huynh",
+                        keyboardType = KeyboardType.Phone,
+                        imeAction = ImeAction.Next
+                    )
+
+                    AuthTextField(
+                        value = email,
+                        onValueChange = { email = it; errorMessage = null },
+                        placeholder = "Email phụ huynh",
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next
+                    )
+
+                    AuthTextField(
+                        value = password,
+                        onValueChange = { password = it; errorMessage = null },
+                        placeholder = "Mật khẩu",
+                        isPassword = true,
+                        imeAction = ImeAction.Done
+                    )
+
+                    errorMessage?.let {
+                        Text(it, color = Color.Red, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (isLoading) {
+                        CircularProgressIndicator(color = Color(0xFFFFA726))
+                    } else {
+                        Button(
+                            onClick = {
+                                focusManager.clearFocus()
+                                val age = calculateAge(dateOfBirth)
+                                val validation = validateRegister(
+                                    name = name,
+                                    username = username,
+                                    dateOfBirth = dateOfBirth,
+                                    age = age,
+                                    phone = phone,
+                                    email = email,
+                                    password = password
+                                )
+                                if (validation != null || age == null) {
+                                    errorMessage = validation ?: "Ngày sinh không hợp lệ."
+                                    return@Button
+                                }
+
+                                isLoading = true
+                                viewModel.register(
+                                    email = email.trim(),
+                                    pass = password,
+                                    name = name.trim(),
+                                    age = age,
+                                    gender = gender,
+                                    username = username.trim(),
+                                    dateOfBirth = dateOfBirth.trim(),
+                                    phoneNumber = phone.trim()
+                                ) { success, error ->
+                                    isLoading = false
+                                    if (success) {
+                                        Toast.makeText(context, "Đăng ký thành công. Vui lòng đăng nhập.", Toast.LENGTH_LONG).show()
+                                        onNavigateBack()
+                                    } else {
+                                        errorMessage = error ?: "Đăng ký thất bại. Vui lòng thử lại."
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .shadow(4.dp, RoundedCornerShape(28.dp)),
+                            shape = RoundedCornerShape(28.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA726))
+                        ) {
+                            Text("Đăng ký", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Đã có tài khoản? ", color = Color.DarkGray, fontSize = 14.sp)
+                        Text(
+                            "Đăng nhập",
+                            color = Color(0xFF8D6E63),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { onNavigateBack() }
+                        )
+                    }
                 }
             }
         }
@@ -257,36 +251,59 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
 private fun AuthTextField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String,
+    placeholder: String,
+    isPassword: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
-    imeAction: ImeAction,
-    onNext: () -> Unit
+    imeAction: ImeAction = ImeAction.Default
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        placeholder = { Text(placeholder, color = Color.Gray) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        shape = RoundedCornerShape(28.dp),
         singleLine = true,
+        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
-        keyboardActions = KeyboardActions(onNext = { onNext() })
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Color(0xFFAED9FF),
+            unfocusedBorderColor = Color(0xFFAED9FF),
+            focusedContainerColor = Color(0xFFF0F8FF),
+            unfocusedContainerColor = Color(0xFFF0F8FF)
+        )
     )
 }
 
 @Composable
 private fun GenderSelector(value: String, onChange: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Giới tính", fontWeight = FontWeight.Bold, color = Color(0xFF0B3C7D))
+        Text("Giới tính", fontWeight = FontWeight.Bold, color = Color(0xFF4A4A4A), fontSize = 14.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(selected = value == "male", onClick = { onChange("male") })
-            Text("Nam")
-            RadioButton(selected = value == "female", onClick = { onChange("female") })
-            Text("Nữ")
-            RadioButton(selected = value == "other", onClick = { onChange("other") })
-            Text("Khác")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = value == "male", onClick = { onChange("male") }, colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFFFA726)))
+                Text("Nam", fontSize = 14.sp)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = value == "female", onClick = { onChange("female") }, colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFFFA726)))
+                Text("Nữ", fontSize = 14.sp)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = value == "other", onClick = { onChange("other") }, colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFFFA726)))
+                Text("Khác", fontSize = 14.sp)
+            }
         }
     }
+}
+
+@Composable
+private fun CloudIcon(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = Color.White.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(50)
+    ) {}
 }
 
 private fun validateRegister(
@@ -305,7 +322,7 @@ private fun validateRegister(
     if (age <= 2) return "Tuổi của trẻ phải lớn hơn 2."
     if (!phone.matches(Regex("^\\d{10}$"))) return "Số điện thoại phải là 10 chữ số."
     if (!email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) return "Email không hợp lệ."
-    if (password.length <= 8 || !password.matches(Regex(".*[!@#\$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?~`].*"))) {
+    if (password.length < 8 || !password.matches(Regex(".*[!@#\$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?~`].*"))) {
         return "Mật khẩu phải lớn hơn 8 ký tự và có ít nhất 1 ký tự đặc biệt."
     }
     return null
