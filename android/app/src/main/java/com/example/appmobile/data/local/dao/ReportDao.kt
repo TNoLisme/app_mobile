@@ -19,6 +19,9 @@ interface ReportDao {
     @Query("SELECT * FROM child_progress WHERE child_id = :childId")
     fun getAllProgressForChild(childId: String): Flow<List<ProgressEntity>>
 
+    @Query("DELETE FROM child_progress WHERE child_id = :childId")
+    suspend fun clearProgressForChild(childId: String)
+
     // --- Xử lý Báo cáo (Reports) ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReports(reports: List<ReportEntity>)

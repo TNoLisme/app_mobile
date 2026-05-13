@@ -50,7 +50,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -64,42 +66,84 @@ import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
-import com.example.appmobile.ui.components.EgGradientPill
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.state.AppSettingsState
 import com.example.appmobile.ui.state.AppThemeMode
+import com.example.appmobile.ui.state.CvEmotionScoreState
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsPage(
     onBack: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onLogin: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
+    val database = remember { AppDatabase.getDatabase(context) }
     val repository = remember {
-        UserRepository(NetworkClient.apiService, FirebaseAuthHelper(), AppDatabase.getDatabase(context).userDao())
+        UserRepository(NetworkClient.apiService, FirebaseAuthHelper(), database.userDao())
     }
+    val systemSettingsIntent = remember(context) {
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+    }
+    val userId = remember {
+        FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.getBackendUserId(context)
+    }
+    val isLoggedIn = userId != null
 
     var profile by remember { mutableStateOf<UserProfileDto?>(null) }
-    var loading by remember { mutableStateOf(true) }
+    var accountLoading by remember { mutableStateOf(false) }
+    var accountError by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var showEditAccount by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
-    var showResetLocalSettings by remember { mutableStateOf(false) }
+    var showCameraPrivacy by remember { mutableStateOf(false) }
+    var confirmAction by remember { mutableStateOf<ConfirmAction?>(null) }
+    var parentAction by remember { mutableStateOf<ParentAction?>(null) }
+
     val assistantBubbleEnabled by AppSettingsState.assistantBubbleEnabled
     val learnVideoAutoplayEnabled by AppSettingsState.learnVideoAutoplayEnabled
     val learnVideoSoundEnabled by AppSettingsState.learnVideoSoundEnabled
+    val soundEffectsEnabled by AppSettingsState.soundEffectsEnabled
+    val learningReminderEnabled by AppSettingsState.learningReminderEnabled
     val dynamicColorEnabled by AppSettingsState.dynamicColorEnabled
     val themeMode by AppSettingsState.themeMode
 
-    suspend fun loadProfile() {
-        loading = true
-        profile = repository.getProfile(userId)
-        loading = false
+    fun openSystemSettings() {
+        context.startActivity(systemSettingsIntent)
+    }
+
+    fun runParentAction(action: ParentAction) {
+        when (action) {
+            ParentAction.Account -> {
+                if (isLoggedIn) showEditAccount = true else message = "Vui lòng đăng nhập để cập nhật tài khoản."
+            }
+            ParentAction.Password -> {
+                if (isLoggedIn) showChangePassword = true else message = "Vui lòng đăng nhập để đổi mật khẩu."
+            }
+            ParentAction.CameraPrivacy -> showCameraPrivacy = true
+            ParentAction.AppPermissions -> openSystemSettings()
+        }
+    }
+
+    fun loadProfile() {
+        if (!isLoggedIn || userId == null) {
+            accountLoading = false
+            accountError = false
+            profile = null
+            return
+        }
+        scope.launch {
+            accountLoading = true
+            accountError = false
+            val loaded = repository.getProfile(userId)
+            profile = loaded
+            accountError = loaded == null
+            accountLoading = false
+        }
     }
 
     LaunchedEffect(userId) {
@@ -113,7 +157,7 @@ fun SettingsPage(
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AppBackButton(onClick = onBack)
@@ -123,7 +167,7 @@ fun SettingsPage(
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Cài đặt", color = EgDesign.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
             Text(
-                "Tuỳ chỉnh trải nghiệm học và chơi cho bé.",
+                "Tùy chỉnh trải nghiệm học và chơi cho bé.",
                 color = EgDesign.textSecondary,
                 fontSize = 14.sp,
                 lineHeight = 20.sp
@@ -132,54 +176,63 @@ fun SettingsPage(
 
         message?.let { SettingsStatusBanner(it) }
 
-        AppearanceCard(
+        AppearanceSection(
             themeMode = themeMode,
             dynamicColorEnabled = dynamicColorEnabled,
             onThemeModeChanged = { mode -> AppSettingsState.setThemeMode(context, mode) },
             onDynamicColorChanged = { enabled -> AppSettingsState.setDynamicColorEnabled(context, enabled) }
         )
 
-        AssistantBubbleCard(
+        AssistantSection(
             assistantBubbleEnabled = assistantBubbleEnabled,
             onAssistantBubbleChanged = { enabled -> AppSettingsState.setAssistantBubbleEnabled(context, enabled) }
         )
 
-        LearningMediaCard(
+        LearningMediaSection(
             learnVideoAutoplayEnabled = learnVideoAutoplayEnabled,
             learnVideoSoundEnabled = learnVideoSoundEnabled,
+            soundEffectsEnabled = soundEffectsEnabled,
+            learningReminderEnabled = learningReminderEnabled,
             onLearnVideoAutoplayChanged = { enabled -> AppSettingsState.setLearnVideoAutoplayEnabled(context, enabled) },
-            onLearnVideoSoundChanged = { enabled -> AppSettingsState.setLearnVideoSoundEnabled(context, enabled) }
+            onLearnVideoSoundChanged = { enabled -> AppSettingsState.setLearnVideoSoundEnabled(context, enabled) },
+            onSoundEffectsChanged = { enabled -> AppSettingsState.setSoundEffectsEnabled(context, enabled) }
         )
 
-        if (loading) {
-            Box(modifier = Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = EgDesign.primary)
-            }
-        } else {
-            AccountSecuritySection(
-                profile = profile,
-                onEditAccount = { showEditAccount = true },
-                onChangePassword = { showChangePassword = true }
-            )
-        }
-
-        PrivacySystemSection(
-            onOpenSystemSettings = {
-                val intent = Intent(
-                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.parse("package:${context.packageName}")
-                )
-                context.startActivity(intent)
-            },
-            onResetLocalSettings = { showResetLocalSettings = true }
+        ParentAreaCard(
+            onOpenAccount = { parentAction = ParentAction.Account },
+            onOpenPassword = { parentAction = ParentAction.Password },
+            onOpenCameraPrivacy = { parentAction = ParentAction.CameraPrivacy },
+            onOpenPermissions = { parentAction = ParentAction.AppPermissions }
         )
 
-        EgSoftCard {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Phiên đăng nhập", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                LogoutButton(onLogout = onLogout)
-            }
-        }
+        AccountSection(
+            isLoggedIn = isLoggedIn,
+            loading = accountLoading,
+            error = accountError,
+            profile = profile,
+            onLogin = onLogin,
+            onRetry = { loadProfile() },
+            onEdit = { parentAction = ParentAction.Account }
+        )
+
+        SecuritySection(onChangePassword = { parentAction = ParentAction.Password })
+
+        CameraPrivacySection(onViewDetail = { parentAction = ParentAction.CameraPrivacy })
+
+        AppPermissionsSection(onOpenSystemSettings = { parentAction = ParentAction.AppPermissions })
+
+        DataSection(
+            onResetPreferences = { confirmAction = ConfirmAction.ResetPreferences },
+            onClearProgress = { confirmAction = ConfirmAction.ClearProgress }
+        )
+
+        SessionSection(
+            isLoggedIn = isLoggedIn,
+            onLogout = { confirmAction = ConfirmAction.Logout },
+            onLogin = onLogin
+        )
+
+        AboutSection()
 
         Spacer(modifier = Modifier.height(24.dp))
     }
@@ -190,16 +243,18 @@ fun SettingsPage(
             saving = saving,
             onDismiss = { if (!saving) showEditAccount = false },
             onSave = { update ->
+                val targetUserId = userId ?: return@EditAccountDialog
                 scope.launch {
                     saving = true
-                    val updated = repository.updateProfile(userId, update)
+                    val updated = repository.updateProfile(targetUserId, update)
                     saving = false
                     if (updated != null) {
                         profile = updated
-                        message = "Cập nhật tài khoản thành công."
+                        accountError = false
+                        message = "Đã cập nhật thông tin tài khoản."
                         showEditAccount = false
                     } else {
-                        message = "Cập nhật tài khoản chưa thành công."
+                        message = "Không lưu được thông tin. Vui lòng thử lại."
                     }
                 }
             }
@@ -211,172 +266,459 @@ fun SettingsPage(
             saving = saving,
             onDismiss = { if (!saving) showChangePassword = false },
             onSave = { newPassword ->
+                val targetUserId = userId ?: return@ChangePasswordDialog
                 scope.launch {
                     saving = true
-                    val updated = repository.updateProfile(userId, UserProfileUpdateDto(password = newPassword))
+                    val updated = repository.updateProfile(targetUserId, UserProfileUpdateDto(password = newPassword))
                     saving = false
                     if (updated != null) {
-                        message = "Đổi mật khẩu thành công."
+                        message = "Đã đổi mật khẩu."
                         showChangePassword = false
                     } else {
-                        message = "Đổi mật khẩu chưa thành công."
+                        message = "Không đổi được mật khẩu. Vui lòng thử lại."
                     }
                 }
             }
         )
     }
 
-    if (showResetLocalSettings) {
-        ResetLocalSettingsDialog(
-            onDismiss = { showResetLocalSettings = false },
+    if (showCameraPrivacy) {
+        CameraPrivacyDialog(onDismiss = { showCameraPrivacy = false }, onOpenSystemSettings = ::openSystemSettings)
+    }
+
+    parentAction?.let { action ->
+        ParentGateDialog(
+            onDismiss = { parentAction = null },
+            onContinue = {
+                parentAction = null
+                runParentAction(action)
+            }
+        )
+    }
+
+    confirmAction?.let { action ->
+        SettingsConfirmDialog(
+            action = action,
+            onDismiss = { confirmAction = null },
             onConfirm = {
-                AppSettingsState.resetLocalPreferences(context)
-                message = "ÄÃ£ Ä‘áº·t láº¡i tuá»³ chá»n á»©ng dá»¥ng."
-                showResetLocalSettings = false
+                confirmAction = null
+                when (action) {
+                    ConfirmAction.ResetPreferences -> {
+                        AppSettingsState.resetLocalPreferences(context)
+                        message = "Đã đặt lại tùy chọn trên máy."
+                    }
+                    ConfirmAction.ClearProgress -> {
+                        scope.launch {
+                            val targetUserId = userId ?: "local-player"
+                            runCatching {
+                                database.sessionDao().clearLearningHistoryForUser(targetUserId)
+                                database.reportDao().clearProgressForChild(targetUserId)
+                                database.reportDao().clearOldReports(targetUserId)
+                                CvEmotionScoreState.clearScores(context, targetUserId)
+                            }.onSuccess {
+                                message = "Đã xóa tiến độ học lưu trên máy."
+                            }.onFailure {
+                                message = "Không xóa được tiến độ học. Vui lòng thử lại."
+                            }
+                        }
+                    }
+                    ConfirmAction.Logout -> onLogout()
+                }
             }
         )
     }
 }
 
 @Composable
-private fun AppearanceCard(
+private fun AppearanceSection(
     themeMode: AppThemeMode,
     dynamicColorEnabled: Boolean,
     onThemeModeChanged: (AppThemeMode) -> Unit,
     onDynamicColorChanged: (Boolean) -> Unit
 ) {
-    EgSoftCard {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Giao diện", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SettingsChoiceButton(
-                    text = "Hệ thống",
-                    selected = themeMode == AppThemeMode.System,
-                    onClick = { onThemeModeChanged(AppThemeMode.System) },
-                    modifier = Modifier.weight(1f)
-                )
-                SettingsChoiceButton(
-                    text = "Sáng",
-                    selected = themeMode == AppThemeMode.Light,
-                    onClick = { onThemeModeChanged(AppThemeMode.Light) },
-                    modifier = Modifier.weight(1f)
-                )
-                SettingsChoiceButton(
-                    text = "Tối",
-                    selected = themeMode == AppThemeMode.Dark,
-                    onClick = { onThemeModeChanged(AppThemeMode.Dark) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            SettingsSwitchRow(
-                icon = "🎨",
-                title = "Màu hệ thống",
-                description = "Dùng bảng màu Material của thiết bị khi có hỗ trợ.",
-                checked = dynamicColorEnabled,
-                onCheckedChange = onDynamicColorChanged
-            )
+    SettingsSection(title = "Giao diện", icon = "🎨") {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SettingsChoiceButton("Hệ thống", themeMode == AppThemeMode.System, { onThemeModeChanged(AppThemeMode.System) }, Modifier.weight(1f))
+            SettingsChoiceButton("Sáng", themeMode == AppThemeMode.Light, { onThemeModeChanged(AppThemeMode.Light) }, Modifier.weight(1f))
+            SettingsChoiceButton("Tối", themeMode == AppThemeMode.Dark, { onThemeModeChanged(AppThemeMode.Dark) }, Modifier.weight(1f))
         }
-    }
-}
-
-@Composable
-private fun LearningMediaCard(
-    learnVideoAutoplayEnabled: Boolean,
-    learnVideoSoundEnabled: Boolean,
-    onLearnVideoAutoplayChanged: (Boolean) -> Unit,
-    onLearnVideoSoundChanged: (Boolean) -> Unit
-) {
-    EgSoftCard {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Học tập & video", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-            SettingsSwitchRow(
-                icon = "▶",
-                title = "Tự phát video mẫu",
-                description = "Video ở trang Học sẽ tự chạy khi mở cảm xúc.",
-                checked = learnVideoAutoplayEnabled,
-                onCheckedChange = onLearnVideoAutoplayChanged
-            )
-            SettingsSwitchRow(
-                icon = "🔊",
-                title = "Âm thanh video",
-                description = "Bật hoặc tắt tiếng cho video mẫu trong trang Học.",
-                checked = learnVideoSoundEnabled,
-                onCheckedChange = onLearnVideoSoundChanged
-            )
-        }
-    }
-}
-
-@Composable
-private fun PrivacySystemSection(
-    onOpenSystemSettings: () -> Unit,
-    onResetLocalSettings: () -> Unit
-) {
-    EgSoftCard {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Quyền & dữ liệu", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-            SettingsActionRow(
-                icon = "📷",
-                title = "Quyền ứng dụng",
-                description = "Mở cài đặt hệ thống để cấp camera, bộ nhớ hoặc thông báo khi cần.",
-                actionText = "Mở",
-                onClick = onOpenSystemSettings
-            )
-            SettingsActionRow(
-                icon = "↺",
-                title = "Đặt lại tùy chọn",
-                description = "Khôi phục các cài đặt local như trợ lý, video và giao diện.",
-                actionText = "Đặt lại",
-                onClick = onResetLocalSettings
-            )
-        }
-    }
-}
-
-@Composable
-private fun SettingsSwitchRow(
-    icon: String,
-    title: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Text(icon, fontSize = 18.sp)
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text(description, color = EgDesign.textSecondary, fontSize = 12.sp, lineHeight = 17.sp)
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = EgDesign.primary,
-                checkedBorderColor = EgDesign.primary,
-                uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = EgDesign.cardSoft,
-                uncheckedBorderColor = EgDesign.cardBorder
-            )
+        SettingsSwitchTile(
+            icon = "🎨",
+            title = "Màu theo thiết bị",
+            description = "Giao diện sẽ tự đồng bộ màu theo cài đặt của điện thoại nếu được hỗ trợ.",
+            checked = dynamicColorEnabled,
+            onCheckedChange = onDynamicColorChanged
         )
     }
 }
 
 @Composable
-private fun SettingsActionRow(
+private fun AssistantSection(
+    assistantBubbleEnabled: Boolean,
+    onAssistantBubbleChanged: (Boolean) -> Unit
+) {
+    SettingsSection(title = "Trợ lý", icon = "💬") {
+        SettingsSwitchTile(
+            icon = "💬",
+            title = "Bong bóng trợ lý",
+            description = "Hiện nút trợ lý nhỏ ở góc màn hình để hỗ trợ bé khi cần.",
+            checked = assistantBubbleEnabled,
+            onCheckedChange = onAssistantBubbleChanged
+        )
+    }
+}
+
+@Composable
+private fun LearningMediaSection(
+    learnVideoAutoplayEnabled: Boolean,
+    learnVideoSoundEnabled: Boolean,
+    soundEffectsEnabled: Boolean,
+    learningReminderEnabled: Boolean,
+    onLearnVideoAutoplayChanged: (Boolean) -> Unit,
+    onLearnVideoSoundChanged: (Boolean) -> Unit,
+    onSoundEffectsChanged: (Boolean) -> Unit
+) {
+    SettingsSection(title = "Học tập & video", icon = "🎬") {
+        SettingsSwitchTile(
+            icon = "▶",
+            title = "Tự phát video mẫu",
+            description = "Video ở trang Học sẽ tự chạy khi mở cảm xúc.",
+            checked = learnVideoAutoplayEnabled,
+            onCheckedChange = onLearnVideoAutoplayChanged
+        )
+        SettingsSwitchTile(
+            icon = "🔊",
+            title = "Âm thanh video",
+            description = "Bật hoặc tắt tiếng cho video mẫu.",
+            checked = learnVideoSoundEnabled,
+            onCheckedChange = onLearnVideoSoundChanged
+        )
+        SettingsSwitchTile(
+            icon = "♪",
+            title = "Âm thanh hiệu ứng",
+            description = "Bật âm thanh khi bấm nút, trả lời đúng hoặc nhận phần thưởng.",
+            checked = soundEffectsEnabled,
+            onCheckedChange = onSoundEffectsChanged
+        )
+        SettingsSwitchTile(
+            icon = "🔔",
+            title = "Nhắc nhở học tập",
+            description = "Gửi thông báo nhắc bé luyện tập mỗi ngày.",
+            checked = learningReminderEnabled,
+            onCheckedChange = {},
+            enabled = false,
+            status = "Sắp ra mắt"
+        )
+    }
+}
+
+@Composable
+private fun ParentAreaCard(
+    onOpenAccount: () -> Unit,
+    onOpenPassword: () -> Unit,
+    onOpenCameraPrivacy: () -> Unit,
+    onOpenPermissions: () -> Unit
+) {
+    SettingsSection(
+        title = "Khu vực phụ huynh",
+        description = "Quản lý tài khoản, quyền riêng tư và dữ liệu của bé.",
+        icon = "👤"
+    ) {
+        ParentAreaRow("👤", "Thông tin tài khoản", onOpenAccount)
+        ParentAreaRow("🔒", "Đổi mật khẩu", onOpenPassword)
+        ParentAreaRow("📷", "Quyền riêng tư camera", onOpenCameraPrivacy)
+        ParentAreaRow("⚙", "Quyền ứng dụng", onOpenPermissions)
+    }
+}
+
+@Composable
+private fun AccountSection(
+    isLoggedIn: Boolean,
+    loading: Boolean,
+    error: Boolean,
+    profile: UserProfileDto?,
+    onLogin: () -> Unit,
+    onRetry: () -> Unit,
+    onEdit: () -> Unit
+) {
+    SettingsSection(title = "Tài khoản", icon = "👤") {
+        when {
+            !isLoggedIn -> {
+                SettingsTile(icon = "👤", title = "Bạn chưa đăng nhập", description = "Đăng nhập để đồng bộ tiến độ học của bé.")
+                SettingsButton("Đăng nhập", onClick = onLogin, modifier = Modifier.fillMaxWidth())
+            }
+            loading -> AccountLoadingCard()
+            error -> {
+                SettingsTile(
+                    icon = "!",
+                    title = "Không tải được thông tin tài khoản.",
+                    description = "Vui lòng thử lại."
+                )
+                SettingsButton("Thử lại", onClick = onRetry, modifier = Modifier.fillMaxWidth())
+            }
+            else -> {
+                SettingsInfoRow("👤", "Tên đăng nhập", missing(profile?.username))
+                SettingsInfoRow("✉", "Email", missing(profile?.email))
+                SettingsInfoRow("☎", "Số điện thoại", missing(profile?.child?.phone))
+                SettingsButton("Cập nhật thông tin", onClick = onEdit, modifier = Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun SecuritySection(onChangePassword: () -> Unit) {
+    SettingsSection(title = "Bảo mật", icon = "🔒") {
+        SettingsActionTile(
+            icon = "🔒",
+            title = "Bảo mật",
+            description = "Bạn có thể đổi mật khẩu đăng nhập tại đây.",
+            actionText = "Đổi mật khẩu",
+            onClick = onChangePassword
+        )
+    }
+}
+
+@Composable
+private fun CameraPrivacySection(onViewDetail: () -> Unit) {
+    SettingsSection(title = "Quyền riêng tư camera", icon = "📷") {
+        SettingsActionTile(
+            icon = "📷",
+            title = "Quyền riêng tư camera",
+            description = "Camera chỉ dùng để nhận diện biểu cảm khi chơi. App không lưu ảnh hoặc video của bé.",
+            actionText = "Xem chi tiết",
+            onClick = onViewDetail
+        )
+    }
+}
+
+@Composable
+private fun AppPermissionsSection(onOpenSystemSettings: () -> Unit) {
+    SettingsSection(title = "Quyền ứng dụng", icon = "⚙") {
+        SettingsActionTile(
+            icon = "⚙",
+            title = "Quyền ứng dụng",
+            description = "Cấp quyền camera để chơi thử thách biểu cảm và quyền thông báo để nhận nhắc nhở học tập.",
+            actionText = "Mở cài đặt",
+            onClick = onOpenSystemSettings
+        )
+    }
+}
+
+@Composable
+private fun DataSection(
+    onResetPreferences: () -> Unit,
+    onClearProgress: () -> Unit
+) {
+    SettingsSection(title = "Dữ liệu", icon = "💾") {
+        SettingsActionTile(
+            icon = "↺",
+            title = "Đặt lại tùy chọn",
+            description = "Khôi phục giao diện, trợ lý, video và âm thanh về mặc định.",
+            actionText = "Đặt lại",
+            onClick = onResetPreferences
+        )
+        SettingsActionTile(
+            icon = "💾",
+            title = "Đặt lại tiến độ học",
+            description = "Xóa điểm, lịch sử chơi và tiến độ học của bé.",
+            actionText = "Xóa tiến độ",
+            onClick = onClearProgress,
+            danger = true
+        )
+    }
+}
+
+@Composable
+private fun SessionSection(
+    isLoggedIn: Boolean,
+    onLogout: () -> Unit,
+    onLogin: () -> Unit
+) {
+    SettingsSection(title = "Phiên đăng nhập", icon = "🚪") {
+        if (isLoggedIn) {
+            SettingsButton(
+                text = "Đăng xuất",
+                onClick = onLogout,
+                modifier = Modifier.fillMaxWidth(),
+                danger = true,
+                tonal = true
+            )
+        } else {
+            SettingsActionTile(
+                icon = "👤",
+                title = "Bạn chưa đăng nhập",
+                description = "Đăng nhập để đồng bộ dữ liệu học tập.",
+                actionText = "Đăng nhập",
+                onClick = onLogin
+            )
+        }
+    }
+}
+
+@Composable
+private fun AboutSection() {
+    SettingsSection(title = "Về ứng dụng", icon = "ℹ") {
+        SettingsInfoRow("ℹ", "Phiên bản ứng dụng", "1.0")
+        SettingsInfoRow("🔐", "Chính sách quyền riêng tư", "Sắp cập nhật")
+        SettingsInfoRow("📄", "Điều khoản sử dụng", "Sắp cập nhật")
+        SettingsInfoRow("☎", "Liên hệ hỗ trợ", "Sắp cập nhật")
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    title: String,
+    icon: String,
+    description: String? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    EgSoftCard {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SettingsIcon(icon)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(title, color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                    description?.let {
+                        Text(it, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+                    }
+                }
+            }
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SettingsTile(
+    icon: String,
+    title: String,
+    description: String,
+    trailing: (@Composable () -> Unit)? = null,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        SettingsIcon(icon, size = 38.dp)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, color = if (enabled) EgDesign.textPrimary else EgDesign.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            Text(description, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+        }
+        trailing?.invoke()
+    }
+}
+
+@Composable
+private fun SettingsSwitchTile(
+    icon: String,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+    status: String? = null
+) {
+    SettingsTile(
+        icon = icon,
+        title = title,
+        description = description,
+        enabled = enabled,
+        trailing = {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Switch(
+                    checked = checked,
+                    onCheckedChange = onCheckedChange,
+                    enabled = enabled,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = EgDesign.primary,
+                        checkedBorderColor = EgDesign.primary,
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = EgDesign.cardSoft,
+                        uncheckedBorderColor = EgDesign.cardBorder,
+                        disabledCheckedThumbColor = Color.White.copy(alpha = 0.65f),
+                        disabledCheckedTrackColor = EgDesign.cardBorder,
+                        disabledUncheckedThumbColor = Color.White.copy(alpha = 0.65f),
+                        disabledUncheckedTrackColor = EgDesign.cardBorder
+                    )
+                )
+                status?.let {
+                    Text(it, color = EgDesign.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun SettingsActionTile(
     icon: String,
     title: String,
     description: String,
     actionText: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    danger: Boolean = false,
+    enabled: Boolean = true
 ) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SettingsIcon(icon, size = 38.dp)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                Text(description, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+            }
+        }
+        SettingsButton(
+            text = actionText,
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            danger = danger,
+            tonal = danger,
+            enabled = enabled
+        )
+    }
+}
+
+@Composable
+private fun ParentAreaRow(icon: String, title: String, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = EgDesign.cardSoft,
+        border = BorderStroke(1.dp, EgDesign.cardBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            SettingsIcon(icon, size = 34.dp)
+            Text(title, modifier = Modifier.weight(1f), color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            Text(">", color = EgDesign.textSecondary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun SettingsInfoRow(icon: String, label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -385,12 +727,26 @@ private fun SettingsActionRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text(icon, fontSize = 18.sp)
+        SettingsIcon(icon, size = 36.dp)
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text(description, color = EgDesign.textSecondary, fontSize = 12.sp, lineHeight = 17.sp)
+            Text(label, color = EgDesign.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(value, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        SmallOutlineButton(actionText, onClick = onClick)
+    }
+}
+
+@Composable
+private fun AccountLoadingCard() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = EgDesign.primary)
+        Text("Đang tải thông tin tài khoản...", color = EgDesign.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -403,7 +759,7 @@ private fun SettingsChoiceButton(
 ) {
     Surface(
         modifier = modifier
-            .height(42.dp)
+            .height(44.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(EgDesign.pillRadius),
         color = if (selected) EgDesign.primary else EgDesign.card,
@@ -424,113 +780,86 @@ private fun SettingsChoiceButton(
 }
 
 @Composable
-private fun ResetLocalSettingsDialog(
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
+private fun SettingsButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    danger: Boolean = false,
+    tonal: Boolean = false,
+    enabled: Boolean = true,
+    minWidth: Dp = 132.dp
 ) {
-    SettingsDialog(onDismiss = onDismiss) {
-        DialogHeader("↺", "Đặt lại tùy chọn", "Các tùy chọn local sẽ quay về mặc định. Tài khoản và tiến trình học không bị xoá.")
-        DialogActions(
-            saving = false,
-            primaryText = "Đặt lại",
-            onCancel = onDismiss,
-            onSave = onConfirm
-        )
+    val background = when {
+        danger && tonal -> Color(0xFFFFF1F2)
+        danger -> Color(0xFFEF4444)
+        tonal -> EgDesign.cardSoft
+        else -> EgDesign.primary
     }
-}
-
-@Composable
-private fun AssistantBubbleCard(
-    assistantBubbleEnabled: Boolean,
-    onAssistantBubbleChanged: (Boolean) -> Unit
-) {
-    EgSoftCard {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            RoundIcon("💬")
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Bong bóng trợ lý", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
-                Text(
-                    "Bật để hiện nút chat nổi ở góc màn hình.",
-                    color = EgDesign.textSecondary,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp
-                )
-            }
-            Switch(
-                checked = assistantBubbleEnabled,
-                onCheckedChange = onAssistantBubbleChanged,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = EgDesign.primary,
-                    checkedBorderColor = EgDesign.primary,
-                    uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = EgDesign.cardSoft,
-                    uncheckedBorderColor = EgDesign.cardBorder
-                )
+    val textColor = when {
+        danger && tonal -> Color(0xFFB91C1C)
+        danger -> Color.White
+        tonal -> EgDesign.primaryDark
+        else -> Color.White
+    }
+    Surface(
+        modifier = modifier
+            .height(44.dp)
+            .widthIn(min = minWidth)
+            .clickable(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.pillRadius),
+        color = if (enabled) background else EgDesign.cardBorder,
+        border = BorderStroke(1.dp, if (danger && tonal) Color(0xFFFECACA) else EgDesign.cardBorder),
+        shadowElevation = if (enabled) 1.dp else 0.dp
+    ) {
+        Box(modifier = Modifier.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                color = if (enabled) textColor else EgDesign.textSecondary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
             )
         }
     }
 }
 
 @Composable
-private fun AccountSecuritySection(
-    profile: UserProfileDto?,
-    onEditAccount: () -> Unit,
-    onChangePassword: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        EgSoftCard {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Tài khoản & bảo mật", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                SettingsInfoRow("👤", "Tên đăng nhập", fallback(profile?.username))
-                SettingsInfoRow("✉️", "Email", fallback(profile?.email))
-                SettingsInfoRow("📞", "Số điện thoại", fallback(profile?.child?.phone))
-                EgGradientPill(
-                    text = "Chỉnh sửa tài khoản",
-                    onClick = onEditAccount,
-                    modifier = Modifier.fillMaxWidth(),
-                    height = 44.dp,
-                    fontSize = 14
-                )
-            }
-        }
-
-        EgSoftCard {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                RoundIcon("🔒")
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Bảo mật", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
-                    Text("Đổi mật khẩu đăng nhập. Không hiển thị mật khẩu hiện tại.", color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
-                }
-                SmallOutlineButton("Đổi mật khẩu", onClick = onChangePassword)
-            }
+private fun SettingsIcon(icon: String, size: Dp = 42.dp) {
+    Surface(
+        modifier = Modifier.size(size),
+        shape = CircleShape,
+        color = EgDesign.accentSoft,
+        border = BorderStroke(1.dp, EgDesign.cardBorder)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(icon, fontSize = if (size < 38.dp) 16.sp else 20.sp, textAlign = TextAlign.Center)
         }
     }
 }
 
 @Composable
-private fun SettingsInfoRow(icon: String, label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+private fun SettingsStatusBanner(message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFEFFAF3),
+        border = BorderStroke(1.dp, Color(0xFFC7E9D0))
     ) {
-        Text(icon, fontSize = 18.sp)
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = EgDesign.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            Text(value, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+        Text(message, modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), color = Color(0xFF166534), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun ErrorBanner(message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFFFF1F2),
+        border = BorderStroke(1.dp, Color(0xFFFDA4AF))
+    ) {
+        Text(message, modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), color = Color(0xFF9F1239), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -548,16 +877,17 @@ private fun EditAccountDialog(
 
     fun validate(): Boolean {
         error = when {
-            username.trim().isBlank() -> "Tên đăng nhập không được rỗng."
-            !email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) -> "Email không hợp lệ."
-            phone.trim().isNotEmpty() && !phone.trim().matches(Regex("^\\d{9,11}$")) -> "Số điện thoại phải gồm 9-11 chữ số."
+            username.trim().isBlank() -> "Tên đăng nhập không được để trống."
+            email.trim().isBlank() -> "Email không được để trống."
+            !email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) -> "Email chưa đúng định dạng."
+            phone.trim().isNotEmpty() && !phone.trim().matches(Regex("^\\d{9,11}$")) -> "Số điện thoại nên gồm 9-11 chữ số."
             else -> null
         }
         return error == null
     }
 
     SettingsDialog(onDismiss = onDismiss) {
-        DialogHeader("👤", "Chỉnh sửa tài khoản", "Cập nhật tên đăng nhập, email và số điện thoại.")
+        DialogHeader("👤", "Thông tin tài khoản", "Cập nhật tên đăng nhập, email và số điện thoại.")
         error?.let { ErrorBanner(it) }
         SettingsTextField(username, { username = it }, "Tên đăng nhập", "Nhập tên đăng nhập")
         SettingsTextField(email, { email = it }, "Email", "email@example.com", keyboardType = KeyboardType.Email)
@@ -569,8 +899,9 @@ private fun EditAccountDialog(
             keyboardType = KeyboardType.Phone
         )
         DialogActions(
+            primaryText = if (saving) "Đang lưu..." else "Lưu thay đổi",
+            primaryDanger = false,
             saving = saving,
-            primaryText = if (saving) "Đang lưu..." else "💾 Lưu thay đổi",
             onCancel = onDismiss,
             onSave = {
                 if (!saving && validate()) {
@@ -600,30 +931,87 @@ private fun ChangePasswordDialog(
 
     fun validate(): Boolean {
         error = when {
-            newPassword.isBlank() -> "Mật khẩu mới không được rỗng."
-            newPassword.length < 8 -> "Mật khẩu mới phải có ít nhất 8 ký tự."
-            newPassword != confirmPassword -> "Nhập lại mật khẩu mới không trùng."
+            newPassword.isBlank() -> "Mật khẩu mới không được để trống."
+            newPassword.length < 8 -> "Mật khẩu mới cần có ít nhất 8 ký tự."
+            newPassword != confirmPassword -> "Mật khẩu nhập lại chưa trùng khớp."
             else -> null
         }
         return error == null
     }
 
     SettingsDialog(onDismiss = onDismiss) {
-        DialogHeader("🔒", "Đổi mật khẩu", "Mật khẩu hiện tại không bao giờ được hiển thị từ database.")
+        DialogHeader("🔒", "Đổi mật khẩu", "Để bảo mật, app sẽ không hiển thị mật khẩu hiện tại.")
         error?.let { ErrorBanner(it) }
-        SettingsTextField(currentPassword, { currentPassword = it }, "Mật khẩu hiện tại", "Nhập nếu backend yêu cầu", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
+        SettingsTextField(currentPassword, { currentPassword = it }, "Mật khẩu hiện tại", "Nhập mật khẩu hiện tại", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
         SettingsTextField(newPassword, { newPassword = it }, "Mật khẩu mới", "Nhập mật khẩu mới", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
         SettingsTextField(confirmPassword, { confirmPassword = it }, "Nhập lại mật khẩu mới", "Nhập lại mật khẩu mới", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
         DialogActions(
+            primaryText = if (saving) "Đang lưu..." else "Lưu thay đổi",
+            primaryDanger = false,
             saving = saving,
-            primaryText = if (saving) "Đang lưu..." else "💾 Lưu thay đổi",
             onCancel = onDismiss,
             onSave = {
-                if (!saving && validate()) {
-                    // Backend hiện chỉ nhận password mới trong update; currentPassword được giữ cho UI nếu sau này backend yêu cầu.
-                    onSave(newPassword)
-                }
+                if (!saving && validate()) onSave(newPassword)
             }
+        )
+    }
+}
+
+@Composable
+private fun CameraPrivacyDialog(onDismiss: () -> Unit, onOpenSystemSettings: () -> Unit) {
+    SettingsDialog(onDismiss = onDismiss) {
+        DialogHeader("📷", "Quyền riêng tư camera", "Camera chỉ dùng trong các trò chơi biểu cảm.")
+        CameraPrivacyItem("Khi nào camera được bật?", "Camera chỉ bật khi bé vào trò chơi cần nhận diện khuôn mặt.")
+        CameraPrivacyItem("Dữ liệu có được lưu không?", "App không lưu ảnh hoặc video của bé trên thiết bị.")
+        CameraPrivacyItem("Dữ liệu có gửi lên máy chủ không?", "App chỉ lưu kết quả luyện tập như điểm số và cảm xúc đã hoàn thành.")
+        CameraPrivacyItem("Cách tắt quyền camera", "Bạn có thể vào quyền ứng dụng của điện thoại và tắt Camera bất cứ lúc nào.")
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SettingsButton("Đóng", onClick = onDismiss, modifier = Modifier.weight(1f), tonal = true)
+            SettingsButton("Mở cài đặt", onClick = onOpenSystemSettings, modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun CameraPrivacyItem(title: String, description: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(title, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+        Text(description, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+    }
+}
+
+@Composable
+private fun ParentGateDialog(onDismiss: () -> Unit, onContinue: () -> Unit) {
+    SettingsDialog(onDismiss = onDismiss) {
+        DialogHeader("👤", "Khu vực phụ huynh", "Đây là khu vực dành cho phụ huynh. Bạn có muốn tiếp tục không?")
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SettingsButton("Hủy", onClick = onDismiss, modifier = Modifier.weight(1f), tonal = true)
+            SettingsButton("Tiếp tục", onClick = onContinue, modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun SettingsConfirmDialog(
+    action: ConfirmAction,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val content = confirmContent(action)
+    SettingsDialog(onDismiss = onDismiss) {
+        DialogHeader(content.icon, content.title, content.message)
+        DialogActions(
+            primaryText = content.confirmText,
+            primaryDanger = content.danger,
+            saving = false,
+            onCancel = onDismiss,
+            onSave = onConfirm
         )
     }
 }
@@ -663,11 +1051,25 @@ private fun SettingsDialog(onDismiss: () -> Unit, content: @Composable ColumnSco
 @Composable
 private fun DialogHeader(icon: String, title: String, subtitle: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-        RoundIcon(icon)
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        SettingsIcon(icon)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, color = EgDesign.textPrimary, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
             Text(subtitle, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
         }
+    }
+}
+
+@Composable
+private fun DialogActions(
+    primaryText: String,
+    primaryDanger: Boolean,
+    saving: Boolean,
+    onCancel: () -> Unit,
+    onSave: () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        SettingsButton("Hủy", enabled = !saving, onClick = onCancel, modifier = Modifier.weight(1f), tonal = true)
+        SettingsButton(primaryText, enabled = !saving, onClick = onSave, modifier = Modifier.weight(1f), danger = primaryDanger)
     }
 }
 
@@ -702,93 +1104,51 @@ private fun SettingsTextField(
     )
 }
 
-@Composable
-private fun DialogActions(
-    saving: Boolean,
-    primaryText: String,
-    onCancel: () -> Unit,
-    onSave: () -> Unit
-) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        SmallOutlineButton("❌ Hủy", enabled = !saving, onClick = onCancel, modifier = Modifier.weight(1f))
-        EgGradientPill(text = primaryText, onClick = onSave, modifier = Modifier.weight(1f), height = 48.dp, fontSize = 13)
+private enum class ParentAction {
+    Account,
+    Password,
+    CameraPrivacy,
+    AppPermissions
+}
+
+private enum class ConfirmAction {
+    ResetPreferences,
+    ClearProgress,
+    Logout
+}
+
+private data class ConfirmContent(
+    val icon: String,
+    val title: String,
+    val message: String,
+    val confirmText: String,
+    val danger: Boolean
+)
+
+private fun confirmContent(action: ConfirmAction): ConfirmContent {
+    return when (action) {
+        ConfirmAction.ResetPreferences -> ConfirmContent(
+            icon = "↺",
+            title = "Đặt lại tùy chọn?",
+            message = "Các cài đặt giao diện, trợ lý, video và âm thanh sẽ được đưa về mặc định.",
+            confirmText = "Đặt lại",
+            danger = false
+        )
+        ConfirmAction.ClearProgress -> ConfirmContent(
+            icon = "💾",
+            title = "Xóa tiến độ học?",
+            message = "Điểm số, lịch sử chơi và tiến độ học của bé sẽ bị xóa. Hành động này không thể hoàn tác.",
+            confirmText = "Xóa",
+            danger = true
+        )
+        ConfirmAction.Logout -> ConfirmContent(
+            icon = "🚪",
+            title = "Đăng xuất?",
+            message = "Bạn sẽ cần đăng nhập lại để đồng bộ dữ liệu học tập.",
+            confirmText = "Đăng xuất",
+            danger = true
+        )
     }
 }
 
-@Composable
-private fun ErrorBanner(message: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFFFF1F2),
-        border = BorderStroke(1.dp, Color(0xFFFDA4AF))
-    ) {
-        Text("⚠️ $message", modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), color = Color(0xFF9F1239), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun SettingsStatusBanner(message: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFEFFAF3),
-        border = BorderStroke(1.dp, Color(0xFFC7E9D0))
-    ) {
-        Text(message, modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), color = Color(0xFF166534), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun RoundIcon(icon: String) {
-    Surface(
-        modifier = Modifier.size(48.dp),
-        shape = CircleShape,
-        color = Color(0xFFE8F7FF),
-        border = BorderStroke(1.dp, EgDesign.cardBorder)
-    ) {
-        Box(contentAlignment = Alignment.Center) { Text(icon, fontSize = 24.sp) }
-    }
-}
-
-@Composable
-private fun SmallOutlineButton(
-    text: String,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .height(44.dp)
-            .clickable(enabled = enabled, onClick = onClick),
-        shape = RoundedCornerShape(EgDesign.pillRadius),
-        color = EgDesign.card,
-        border = BorderStroke(1.dp, EgDesign.cardBorder),
-        shadowElevation = 1.dp
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(text, color = EgDesign.primaryDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun LogoutButton(onLogout: () -> Unit) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .clickable(onClick = onLogout),
-        shape = RoundedCornerShape(EgDesign.pillRadius),
-        color = Color(0xFFFFF1F2),
-        border = BorderStroke(1.dp, Color(0xFFFECACA)),
-        shadowElevation = 1.dp
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text("Đăng xuất", color = Color(0xFFB91C1C), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-        }
-    }
-}
-
-private fun fallback(value: String?): String = value?.takeIf { it.isNotBlank() } ?: "Chưa có"
+private fun missing(value: String?): String = value?.takeIf { it.isNotBlank() } ?: "Chưa cập nhật"

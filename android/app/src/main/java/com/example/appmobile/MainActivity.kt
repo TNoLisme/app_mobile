@@ -28,6 +28,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.ui.components.AssistantChatBubble
 import com.example.appmobile.ui.pages.assistant.AssistantPage
 import com.example.appmobile.ui.pages.auth.LoginPage
@@ -98,6 +99,7 @@ private fun AppRoot() {
 fun AppNavigation(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val auth = FirebaseAuth.getInstance()
+    val context = LocalContext.current
     val assistantBubbleEnabled by AppSettingsState.assistantBubbleEnabled
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
@@ -130,8 +132,16 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         navController.navigate("settings") { launchSingleTop = true }
     }
 
+    fun goLogin() {
+        navController.navigate("login") {
+            launchSingleTop = true
+            popUpTo("home") { inclusive = true }
+        }
+    }
+
     fun logout() {
         auth.signOut()
+        AppSession.clear(context)
         navController.navigate("login") { popUpTo("home") { inclusive = true } }
     }
 
@@ -260,7 +270,8 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         composable("settings") {
             SettingsPage(
                 onBack = { navController.popBackStack() },
-                onLogout = ::logout
+                onLogout = ::logout,
+                onLogin = ::goLogin
             )
         }
     }
