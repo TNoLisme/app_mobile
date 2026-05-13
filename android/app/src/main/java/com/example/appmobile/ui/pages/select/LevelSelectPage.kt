@@ -1,5 +1,7 @@
 package com.example.appmobile.ui.pages.select
 
+import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -7,36 +9,58 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.catalog.LevelUiItem
+import com.example.appmobile.ui.components.AppBackButton
+import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.GameScreenShell
+import com.example.appmobile.ui.components.egEmotionDisplayName
+import com.example.appmobile.ui.components.egEmotionIcon
+import com.example.appmobile.ui.components.egEmotionKey
+import com.example.appmobile.ui.components.egEmotionPastelColor
+import com.example.appmobile.ui.components.egEmotionRouteValue
+import com.example.appmobile.ui.state.CvEmotionScoreState
 import com.google.firebase.auth.FirebaseAuth
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.launch
 
 private data class LevelProgressUi(
     val level: LevelUiItem,
@@ -45,13 +69,37 @@ private data class LevelProgressUi(
     val score: Int?
 )
 
+private data class CvEmotionChoiceUi(
+    val id: String,
+    val displayName: String,
+    val routeValue: String,
+    val emoji: String,
+    val progress: Float
+)
+
 @Composable
-fun LevelSelectPage(gameId: String, onBack: () -> Unit, onStartGame: (String) -> Unit) {
+fun LevelSelectPage(
+    gameId: String,
+    onBack: () -> Unit,
+    onStartGame: (String) -> Unit,
+    onOpenAssistant: () -> Unit = {}
+) {
     val context = LocalContext.current
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "local-player" }
+    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
+
+    if (gameId == GameUiCatalog.GAME_CV_REQUEST) {
+        CvEmotionSelectPage(
+            userId = userId,
+            repository = repository,
+            onBack = onBack,
+            onStartGame = onStartGame
+        )
+        return
+    }
+
     var levelStates by remember(gameId) {
         mutableStateOf(GameUiCatalog.levelsForGame(gameId).mapIndexed { index, level ->
             LevelProgressUi(level = level, unlocked = index == 0, completed = false, score = null)
@@ -70,8 +118,12 @@ fun LevelSelectPage(gameId: String, onBack: () -> Unit, onStartGame: (String) ->
                 ?: 0
         }.getOrDefault(0)
 
-        val levels = GameUiCatalog.levelsForMaxLevel(maxLevel)
-            .ifEmpty { GameUiCatalog.levelsForGame(gameId) }
+        val levels = if (gameId == GameUiCatalog.GAME_CV_STORY) {
+            GameUiCatalog.levelsForGame(gameId)
+        } else {
+            GameUiCatalog.levelsForMaxLevel(maxLevel)
+                .ifEmpty { GameUiCatalog.levelsForGame(gameId) }
+        }
 
         val progress = repository.getGameProgress(gameId, userId)
         val progressLevel = progress?.level ?: 0
@@ -94,13 +146,21 @@ fun LevelSelectPage(gameId: String, onBack: () -> Unit, onStartGame: (String) ->
             )
         }
         progressText = "Level $unlockedLevel đang mở"
+        if (gameId == GameUiCatalog.GAME_CV_STORY) {
+            progressText = "Mỗi cấp độ gồm 5 câu hỏi ngẫu nhiên."
+        }
         isLoading = false
     }
 
-    GameScreenShell(contentMaxWidth = 520) {
+    GameScreenShell(
+        contentMaxWidth = 520,
+        onOpenAssistant = if (gameId == GameUiCatalog.GAME_CV_STORY) null else onOpenAssistant,
+        scrollEnabled = gameId != GameUiCatalog.GAME_CV_STORY,
+        bottomSpacerHeight = if (gameId == GameUiCatalog.GAME_CV_STORY) 0.dp else 96.dp
+    ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
+                AppBackButton(onClick = onBack); if (false) {
                     Text("←", style = MaterialTheme.typography.headlineMedium)
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -109,16 +169,16 @@ fun LevelSelectPage(gameId: String, onBack: () -> Unit, onStartGame: (String) ->
                         text = "Chọn cấp độ",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E4E8C)
+                        color = EgDesign.textPrimary
                     )
-                    Text(progressText, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text(progressText, style = MaterialTheme.typography.bodySmall, color = EgDesign.textSecondary)
                 }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
             if (isLoading) {
-                Text("Đang tải tiến trình...", color = Color.Gray)
+                Text("Đang tải tiến trình...", color = EgDesign.textSecondary)
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
@@ -132,10 +192,302 @@ fun LevelSelectPage(gameId: String, onBack: () -> Unit, onStartGame: (String) ->
 }
 
 @Composable
+private fun CvEmotionSelectPage(
+    userId: String,
+    repository: GameRepository,
+    onBack: () -> Unit,
+    onStartGame: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var scores by remember(userId) { mutableStateOf<Map<String, Float>>(emptyMap()) }
+    var selectedEmotionId by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+    val scoreVersion = CvEmotionScoreState.version.intValue
+
+    fun refreshScores(showLoading: Boolean) {
+        scope.launch {
+            if (showLoading) isLoading = true
+            val localScores = CvEmotionScoreState.loadScores(context, userId)
+            scores = CvEmotionScoreState.mergeScores(scores, localScores)
+            isLoading = false
+            val backendScores = repository.getCvEmotionScores(userId)
+            val latestLocalScores = CvEmotionScoreState.loadScores(context, userId)
+            scores = CvEmotionScoreState.mergeScores(backendScores, latestLocalScores)
+        }
+    }
+
+    LaunchedEffect(userId, scoreVersion) {
+        refreshScores(showLoading = true)
+    }
+
+    DisposableEffect(lifecycleOwner, userId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshScores(showLoading = false)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val choices = remember(scores) {
+        listOf("happy", "sad", "surprise", "angry", "fear", "disgust").map { id ->
+            CvEmotionChoiceUi(
+                id = id,
+                displayName = egEmotionDisplayName(id),
+                routeValue = egEmotionRouteValue(id),
+                emoji = egEmotionIcon(id),
+                progress = cvEmotionProgress(scores, id)
+            )
+        }
+    }
+    val selectedChoice = choices.firstOrNull { it.id == selectedEmotionId }
+    val startButtonText = if (selectedChoice != null) "🚀 Bắt đầu" else "Chọn cảm xúc để bắt đầu"
+    val selectedStatusText = selectedChoice?.let { "✨ Bạn đã chọn cảm xúc ${it.displayName} ✨" }
+        ?: "Hãy chọn một cảm xúc để bắt đầu"
+
+    GameScreenShell(contentMaxWidth = 560, onOpenAssistant = null) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CvEmotionSelectHeader(onBack = onBack)
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = EgDesign.card,
+                border = BorderStroke(1.dp, EgDesign.cardBorder),
+                shadowElevation = 2.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (false && isLoading) Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isLoading) {
+                            Surface(
+                                shape = RoundedCornerShape(999.dp),
+                                color = Color(0xFFEAF7FF),
+                                border = BorderStroke(1.dp, EgDesign.cardBorder)
+                            ) {
+                                Text(
+                                    "Đang tải...",
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    color = EgDesign.textSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+
+                    choices.chunked(3).forEach { rowChoices ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowChoices.forEach { choice ->
+                                CvEmotionChoiceCard(
+                                    choice = choice,
+                                    selected = choice.id == selectedEmotionId,
+                                    onClick = { selectedEmotionId = choice.id },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            selectedChoice?.let { choice ->
+                                onStartGame("1?emotion=${Uri.encode(choice.routeValue)}")
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        enabled = selectedChoice != null,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            disabledContainerColor = Color(0xFFE2E8F0)
+                        ),
+                        shape = RoundedCornerShape(999.dp),
+                        contentPadding = ButtonDefaults.ContentPadding
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    if (selectedChoice != null) EgDesign.primary else Color(0xFFE2E8F0),
+                                    RoundedCornerShape(999.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = startButtonText,
+                                color = if (selectedChoice != null) Color.White else Color(0xFF94A3B8),
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = selectedStatusText,
+                        color = if (selectedChoice != null) EgDesign.blue else EgDesign.textSecondary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CvEmotionSelectHeader(onBack: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            AppBackButton(onClick = onBack)
+        }
+        Text(
+            text = "🎮 Thử thách cảm xúc 🎮",
+            modifier = Modifier.fillMaxWidth(),
+            color = EgDesign.textPrimary,
+            fontSize = 23.sp,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = "Chọn một cảm xúc để chơi",
+            modifier = Modifier.fillMaxWidth(),
+            color = EgDesign.textSecondary,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun CvEmotionSelectTopBar(onBack: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            AppBackButton(onClick = onBack)
+            if (false) Surface(
+                modifier = Modifier.clickable(onClick = onBack),
+                shape = RoundedCornerShape(999.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, EgDesign.cardBorder),
+                shadowElevation = 1.dp
+            ) {
+                Text(
+                    text = "← Quay lại",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    color = EgDesign.blue,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+        }
+        Text(
+            text = "🎮 Thử thách cảm xúc 🎮",
+            modifier = Modifier.fillMaxWidth(),
+            color = EgDesign.textPrimary,
+            fontSize = 23.sp,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = "Chọn một cảm xúc để chơi",
+            modifier = Modifier.fillMaxWidth(),
+            color = EgDesign.textSecondary,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun CvEmotionChoiceCard(
+    choice: CvEmotionChoiceUi,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val progress = choice.progress.coerceIn(0f, 100f)
+    Card(
+        modifier = modifier
+            .height(118.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        border = BorderStroke(2.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 4.dp else 1.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(egEmotionPastelColor(choice.id))
+                .padding(8.dp)
+        ) {
+            Surface(
+                modifier = Modifier.align(Alignment.TopEnd),
+                shape = RoundedCornerShape(999.dp),
+                color = Color.White.copy(alpha = 0.92f),
+                border = BorderStroke(1.dp, EgDesign.cardBorder)
+            ) {
+                Text(
+                    text = if (progress > 0f) "${progress.toInt()}%" else "Chưa luyện",
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                    color = EgDesign.textPrimary,
+                    fontSize = if (progress > 0f) 11.sp else 9.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Text(choice.emoji, fontSize = 31.sp)
+                Text(
+                    text = choice.displayName,
+                    color = EgDesign.textPrimary,
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
     val level = state.level
-    val containerColor = if (state.unlocked) Color.White else Color(0xFFF1F5F9)
-    val titleColor = if (state.unlocked) Color(0xFF203864) else Color(0xFF94A3B8)
+    val containerColor = if (state.unlocked) EgDesign.card else Color(0xFFF1F7FC)
+    val titleColor = if (state.unlocked) EgDesign.textPrimary else Color(0xFF94A3B8)
     val statusText = when {
         state.completed -> "Đã hoàn thành"
         state.unlocked -> "Có thể chơi"
@@ -143,7 +495,7 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
     }
     val statusColor = when {
         state.completed -> Color(0xFF2E7D32)
-        state.unlocked -> Color(0xFF1E4E8C)
+        state.unlocked -> EgDesign.blue
         else -> Color(0xFF94A3B8)
     }
 
@@ -153,7 +505,8 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
             .clickable(enabled = state.unlocked) { onStartGame(level.id.toString()) },
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (state.unlocked) 2.dp else 0.dp)
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (state.unlocked) 1.dp else 0.dp)
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
@@ -178,7 +531,7 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
                 Text(
                     text = level.description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    color = EgDesign.textSecondary
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = MaterialTheme.shapes.medium, color = statusColor.copy(alpha = 0.12f)) {
@@ -194,7 +547,7 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
                         Text(
                             "Điểm gần nhất: $score/100",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.Gray
+                            color = EgDesign.textSecondary
                         )
                     }
                 }
@@ -223,4 +576,13 @@ private fun passThreshold(gameId: String, level: Int): Int {
         5 -> 80
         else -> 90
     }
+}
+
+private fun cvEmotionProgress(scores: Map<String, Float>, emotionId: String): Float {
+    val targetKey = egEmotionKey(emotionId)
+    return scores.entries
+        .firstOrNull { (key, _) -> egEmotionKey(key) == targetKey }
+        ?.value
+        ?.coerceIn(0f, 100f)
+        ?: 0f
 }

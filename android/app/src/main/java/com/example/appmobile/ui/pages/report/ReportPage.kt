@@ -20,7 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -33,11 +32,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.ReportPayloadDto
 import com.example.appmobile.data.remote.dto.ReportPreviewDataDto
 import com.example.appmobile.data.remote.dto.ReportStatsDto
 import com.example.appmobile.data.repository.AnalysisRepository
+import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.theme.SoftWhite
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -46,7 +47,7 @@ import kotlinx.coroutines.launch
 fun ReportPage(onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "local-player" }
+    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
     val repository = remember {
         AnalysisRepository(AppDatabase.getDatabase(context).reportDao(), NetworkClient.apiService)
     }
@@ -79,7 +80,7 @@ fun ReportPage(onBack: () -> Unit) {
             .padding(20.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← Quay lại") }
+            AppBackButton(onClick = onBack)
             Spacer(modifier = Modifier.weight(1f))
             Text("Báo cáo tiến bộ", fontWeight = FontWeight.Bold, fontSize = 20.sp)
         }

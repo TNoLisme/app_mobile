@@ -73,11 +73,38 @@ def _add_column_if_missing(connection, table_name: str, column_name: str, defini
     )
 
 
+def _alter_column_if_exists(connection, table_name: str, column_name: str, definition: str) -> None:
+    connection.execute(
+        text(
+            f"""
+            IF COL_LENGTH('{table_name}', '{column_name}') IS NOT NULL
+            BEGIN
+                ALTER TABLE {table_name} ALTER COLUMN {column_name} {definition}
+            END
+            """
+        )
+    )
+
+
 def apply_additive_migrations() -> None:
     with engine.begin() as connection:
         _add_column_if_missing(connection, "users", "password", "NVARCHAR(255) NULL")
         _add_column_if_missing(connection, "session_questions", "question_id", "NVARCHAR(64) NULL")
         _add_column_if_missing(connection, "session_questions", "used_hint", "INT NULL")
+        _alter_column_if_exists(connection, "games", "name", "NVARCHAR(255) NOT NULL")
+        _alter_column_if_exists(connection, "games", "difficulty_level", "NVARCHAR(50) NULL")
+        _alter_column_if_exists(connection, "game_content", "content_type", "NVARCHAR(50) NOT NULL")
+        _alter_column_if_exists(connection, "game_content", "media_path", "NVARCHAR(500) NULL")
+        _alter_column_if_exists(connection, "game_content", "question_text", "NVARCHAR(MAX) NULL")
+        _alter_column_if_exists(connection, "game_content", "correct_answer", "NVARCHAR(100) NULL")
+        _alter_column_if_exists(connection, "game_content", "emotion", "NVARCHAR(100) NULL")
+        _alter_column_if_exists(connection, "game_content", "explanation", "NVARCHAR(MAX) NULL")
+        _alter_column_if_exists(connection, "emotion_concepts", "emotion", "NVARCHAR(100) NOT NULL")
+        _alter_column_if_exists(connection, "emotion_concepts", "title", "NVARCHAR(255) NOT NULL")
+        _alter_column_if_exists(connection, "emotion_concepts", "video_path", "NVARCHAR(500) NULL")
+        _alter_column_if_exists(connection, "emotion_concepts", "image_path", "NVARCHAR(500) NULL")
+        _alter_column_if_exists(connection, "emotion_concepts", "audio_path", "NVARCHAR(500) NULL")
+        _alter_column_if_exists(connection, "emotion_concepts", "description", "NVARCHAR(MAX) NULL")
 
 
 def init_db() -> None:

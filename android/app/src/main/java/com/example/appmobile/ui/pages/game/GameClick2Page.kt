@@ -25,6 +25,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,6 +43,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.appmobile.R
 import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
@@ -73,7 +76,7 @@ private val faceEmotions = listOf(
 )
 
 @Composable
-fun GameClick2Page(level: Int = 1, onBack: () -> Unit) {
+fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
     val selectedEyebrow = remember(level) { mutableIntStateOf(-1) }
     val selectedEyes = remember(level) { mutableIntStateOf(-1) }
     val selectedMouth = remember(level) { mutableIntStateOf(-1) }
@@ -86,9 +89,13 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit) {
     val summary = remember(level) { mutableStateOf<String?>(null) }
     val isSubmitting = remember(level) { mutableStateOf(false) }
     val questionStartMs = remember(level) { mutableStateOf(System.currentTimeMillis()) }
+    val maxErrors = remember(level) { mutableIntStateOf(3) }
+    val emotionErrors = remember(level) { mutableStateMapOf<String, Int>() }
+    val learnedEmotions = remember(level) { mutableStateListOf<String>() }
+    val learningEmotionId = remember(level) { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "local-player" }
+    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
@@ -97,7 +104,9 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit) {
         if (isSubmitting.value || summary.value != null) return
         scope.launch {
             isSubmitting.value = true
-            val response = sessionId.value?.let { repository.endLevel(it, finalResults) }
+            val response = sessionId.value?.let {
+                repository.endLevel(it, finalResults, learnedEmotions.distinct())
+            }
             summary.value = if (response != null) {
                 val status = if (response.passed) "Đã qua level" else "Chưa qua level"
                 "$status. Điểm: ${response.score}/100."
@@ -120,6 +129,15 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit) {
             selectedEyes.intValue == targetIndex(target.id) &&
             selectedMouth.intValue == targetIndex(target.id)
         if (isCorrect) score.intValue += 10
+        val reviewEmotion = normalizeEmotionForLearning(target.id)
+        if (!isCorrect) {
+            val nextErrorCount = (emotionErrors[reviewEmotion] ?: 0) + 1
+            emotionErrors[reviewEmotion] = nextErrorCount
+            if (nextErrorCount >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
+                learnedEmotions.add(reviewEmotion)
+                learningEmotionId.value = reviewEmotion
+            }
+        }
 
         val selectedAnswer = if (
             selectedEyebrow.intValue == selectedEyes.intValue &&
@@ -156,6 +174,7 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit) {
     LaunchedEffect(level, userId) {
         val started = repository.startGame(GameUiCatalog.GAME_FACE_ASSEMBLY, userId, level)
         sessionId.value = started?.sessionId
+        maxErrors.intValue = started?.maxErrors ?: 3
         val backendQuestions = started?.questions
             ?.mapNotNull { content ->
                 val emotion = (content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null }
@@ -172,13 +191,16 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit) {
         score.intValue = 0
         results.value = emptyList()
         summary.value = null
+        emotionErrors.clear()
+        learnedEmotions.clear()
+        learningEmotionId.value = null
         resetCurrentQuestion()
     }
 
     val question = questions.value[currentIndex.intValue % questions.value.size]
     val target = faceEmotions.firstOrNull { it.id == question.targetEmotion } ?: faceEmotions.first()
 
-    GameScreenShell(contentMaxWidth = 900) {
+    GameScreenShell(contentMaxWidth = 900, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← Quay lại") }
@@ -248,6 +270,10 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit) {
                     }
                 }
             }
+            EmotionLearningDialog(
+                emotionId = learningEmotionId.value,
+                onDismiss = { learningEmotionId.value = null }
+            )
         }
     }
 }

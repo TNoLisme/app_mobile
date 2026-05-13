@@ -13,8 +13,48 @@ interface ApiService {
     @POST("users/register-sync")
     suspend fun registerUserSync(@Body userData: Map<String, String>): Response<Unit>
 
+    @POST("users/register")
+    suspend fun registerUser(@Body request: ChildRegisterRequestDto): Response<BackendRegisterResponseDto>
+
+    @POST("users/login")
+    suspend fun loginUser(@Body request: BackendLoginRequestDto): Response<BackendLoginResponseDto>
+
     @GET("children/{uid}")
     suspend fun getChildProfile(@Path("uid") uid: String): Response<ChildDto>
+
+    @GET("users/me")
+    suspend fun getUserProfile(@Query("user_id") userId: String): Response<UserProfileDto>
+
+    @PUT("users/me")
+    suspend fun updateUserProfile(@Body request: UserProfileUpdateRequestDto): Response<UserProfileDto>
+
+    @GET("users/stats/recent-games/{userId}")
+    suspend fun getRecentGames(
+        @Path("userId") userId: String,
+        @Query("limit") limit: Int = 4
+    ): Response<RecentGamesResponseDto>
+
+    @GET("users/stats/emotion-accuracy/{userId}")
+    suspend fun getEmotionAccuracy(@Path("userId") userId: String): Response<EmotionAccuracyResponseDto>
+
+    @GET("users/stats/emotion-improvement/{userId}")
+    suspend fun getEmotionImprovement(@Path("userId") userId: String): Response<PercentMapResponseDto>
+
+    @GET("users/stats/game-play-ratio/{userId}")
+    suspend fun getGamePlayRatio(@Path("userId") userId: String): Response<PercentMapResponseDto>
+
+    @GET("users/stats/weak-emotions/{userId}")
+    suspend fun getWeakEmotions(
+        @Path("userId") userId: String,
+        @Query("limit") limit: Int = 3
+    ): Response<WeakEmotionsResponseDto>
+
+    @GET("sessions/user/{userId}/history")
+    suspend fun getSessionHistory(
+        @Path("userId") userId: String,
+        @Query("skip") skip: Int = 0,
+        @Query("limit") limit: Int = 1000
+    ): Response<SessionHistoryResponseDto>
 
     // --- GAMES ---
     @GET("games")
@@ -45,6 +85,9 @@ interface ApiService {
         @Query("user_id") userId: String
     ): Response<GameProgressDto?>
 
+    @GET("games/cv/emotion-scores")
+    suspend fun getCvEmotionScores(@Query("user_id") userId: String): Response<CvEmotionScoresResponseDto>
+
     @POST("sessions/save")
     suspend fun saveSession(@Body session: SessionDto): Response<Boolean>
 
@@ -52,6 +95,9 @@ interface ApiService {
     suspend fun saveSessionQuestions(@Body questions: List<SessionQuestionDto>): Response<Boolean>
 
     // --- CHATBOT ---
+    @POST("assistant/chat")
+    suspend fun chatAssistant(@Body request: AssistantChatRequestDto): Response<AssistantChatResponseDto>
+
     @POST("chatbot/logs")
     suspend fun uploadChatLog(@Body log: ChatbotLogDto): Response<Boolean>
 

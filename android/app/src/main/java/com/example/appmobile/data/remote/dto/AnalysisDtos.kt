@@ -61,3 +61,21 @@ data class ReportRequestResponseDto(
     @SerializedName("message") val message: String? = null,
     @SerializedName("data") val data: ReportPayloadDto? = null
 )
+
+data class SessionHistoryItemDto(
+    @SerializedName("session_id") val sessionId: String? = null,
+    @SerializedName("game_id") val gameId: String? = null,
+    @SerializedName("start_time") val startTime: String? = null,
+    @SerializedName("end_time") val endTime: String? = null,
+    @SerializedName("score") val score: Int? = null,
+    @SerializedName("level") val level: Int? = null
+)
+
+data class SessionHistoryResponseDto(
+    @SerializedName("status") val status: String? = null,
+    @SerializedName("sessions") val sessions: List<SessionHistoryItemDto>? = null
+)
+
+data class CvEmotionScoresResponseDto(
+    @SerializedName("scores") val scores: Map<String, Float>? = null
+)

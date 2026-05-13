@@ -98,6 +98,15 @@ class GameRepository(
         }
     }
 
+    suspend fun getCvEmotionScores(userId: String): Map<String, Float> {
+        return try {
+            val response = apiService.getCvEmotionScores(userId)
+            if (response.isSuccessful) response.body()?.scores.orEmpty() else emptyMap()
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
     suspend fun getEmotionConcepts(): List<EmotionConcept> {
         val local = gameDao.getAllConcepts()
         if (local.isNotEmpty()) return local.map { it.toDomain() }

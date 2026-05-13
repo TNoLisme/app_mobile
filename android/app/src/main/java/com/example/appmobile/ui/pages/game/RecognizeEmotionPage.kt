@@ -23,6 +23,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -37,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.R
 import com.example.appmobile.data.local.AppDatabase
+import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
@@ -53,7 +56,7 @@ private data class RecognizeQuestionUi(
 )
 
 @Composable
-fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
+fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
     val currentIndex = remember(level) { mutableIntStateOf(0) }
     val score = remember(level) { mutableIntStateOf(0) }
     val selectedEmotionId = remember(level) { mutableStateOf<String?>(null) }
@@ -64,9 +67,13 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
     val summary = remember(level) { mutableStateOf<String?>(null) }
     val isSubmitting = remember(level) { mutableStateOf(false) }
     val questionStartMs = remember(level) { mutableStateOf(System.currentTimeMillis()) }
+    val maxErrors = remember(level) { mutableIntStateOf(3) }
+    val emotionErrors = remember(level) { mutableStateMapOf<String, Int>() }
+    val learnedEmotions = remember(level) { mutableStateListOf<String>() }
+    val learningEmotionId = remember(level) { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "local-player" }
+    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
@@ -75,7 +82,9 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
         if (isSubmitting.value || summary.value != null) return
         scope.launch {
             isSubmitting.value = true
-            val response = sessionId.value?.let { repository.endLevel(it, finalResults) }
+            val response = sessionId.value?.let {
+                repository.endLevel(it, finalResults, learnedEmotions.distinct())
+            }
             summary.value = if (response != null) {
                 val status = if (response.passed) "Đã qua level" else "Chưa qua level"
                 "$status. Điểm: ${response.score}/100."
@@ -89,6 +98,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
     LaunchedEffect(level, userId) {
         val started = repository.startGame(GameUiCatalog.GAME_RECOGNIZE_EMOTION, userId, level)
         sessionId.value = started?.sessionId
+        maxErrors.intValue = started?.maxErrors ?: 3
         val backendQuestions = started?.questions
             ?.mapNotNull { content ->
                 val emotion = (content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null }
@@ -108,13 +118,16 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
         feedback.value = null
         results.value = emptyList()
         summary.value = null
+        emotionErrors.clear()
+        learnedEmotions.clear()
+        learningEmotionId.value = null
         questionStartMs.value = System.currentTimeMillis()
     }
 
     val currentQuestion = questions.value[currentIndex.intValue % questions.value.size]
     val options = GameUiCatalog.emotions
 
-    GameScreenShell(contentMaxWidth = 800) {
+    GameScreenShell(contentMaxWidth = 800, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← Thoát") }
@@ -226,6 +239,15 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
                         val selected = selectedEmotionId.value ?: return@Button
                         val isCorrect = selected == currentQuestion.correctEmotion
                         if (isCorrect) score.intValue += 10
+                        val reviewEmotion = normalizeEmotionForLearning(currentQuestion.correctEmotion)
+                        if (!isCorrect) {
+                            val nextErrorCount = (emotionErrors[reviewEmotion] ?: 0) + 1
+                            emotionErrors[reviewEmotion] = nextErrorCount
+                            if (nextErrorCount >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
+                                learnedEmotions.add(reviewEmotion)
+                                learningEmotionId.value = reviewEmotion
+                            }
+                        }
                         val updatedResults = results.value + AnswerResultDto(
                             questionId = currentQuestion.questionId,
                             answer = selected,
@@ -261,6 +283,10 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit) {
                     }
                 )
             }
+            EmotionLearningDialog(
+                emotionId = learningEmotionId.value,
+                onDismiss = { learningEmotionId.value = null }
+            )
         }
     }
 }

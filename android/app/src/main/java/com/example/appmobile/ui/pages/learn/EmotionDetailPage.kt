@@ -2,6 +2,7 @@ package com.example.appmobile.ui.pages.learn
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +31,8 @@ import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.AppBackButton
+import com.example.appmobile.ui.pages.game.emotionLearningInfo
 import com.example.appmobile.ui.theme.SoftWhite
 
 @Composable
@@ -58,8 +60,8 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
         if (backendEmotion != null) emotion = backendEmotion
     }
 
-    val example = emotion?.description
-        ?: "Tình huống ví dụ"
+    val learningInfo = emotionLearningInfo(emotionId)
+    val example = learningInfo.situation
 
     Column(
         modifier = Modifier
@@ -68,7 +70,7 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
             .padding(16.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            TextButton(onClick = onBack) { Text("← Quay lại") }
+            AppBackButton(onClick = onBack)
             Spacer(modifier = Modifier.weight(1f))
             Text(
                 text = emotion?.let { "${it.name} ${it.emoji}" } ?: "Cảm xúc",
@@ -109,11 +111,18 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
         Text(text = "Dấu hiệu nhận biết:", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(modifier = Modifier.height(8.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = emotion?.description ?: "Chưa có mô tả cho cảm xúc này.",
+            Column(
                 modifier = Modifier.padding(16.dp),
-                fontSize = 14.sp
-            )
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = emotion?.description ?: learningInfo.description,
+                    fontSize = 14.sp
+                )
+                learningInfo.cues.forEach { cue ->
+                    Text("• $cue", fontSize = 14.sp, color = Color.DarkGray)
+                }
+            }
         }
     }
 }

@@ -13,10 +13,22 @@ class AuthViewModel(private val userRepository: UserRepository) : ViewModel() {
         name: String,
         age: Int,
         gender: String,
+        username: String? = null,
+        dateOfBirth: String? = null,
+        phoneNumber: String? = null,
         onResult: (Boolean, String?) -> Unit
     ) {
         viewModelScope.launch {
-            val result = userRepository.registerNewAccount(email, pass, name, age, gender)
+            val result = userRepository.registerNewAccount(
+                email = email,
+                pass = pass,
+                name = name,
+                age = age,
+                gender = gender,
+                username = username,
+                dateOfBirth = dateOfBirth,
+                phoneNumber = phoneNumber
+            )
             if (result.isSuccess) {
                 onResult(true, null)
             } else {

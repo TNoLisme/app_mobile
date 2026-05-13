@@ -5,16 +5,25 @@ import com.example.appmobile.R
 import com.example.appmobile.ui.catalog.GameUiCatalog
 
 @Composable
-fun GameCV2Page(level: Int = 1, onBack: () -> Unit) {
+fun GameCV2Page(
+    level: Int = 1,
+    selectedEmotion: String? = null,
+    onBack: () -> Unit,
+    onFinish: () -> Unit = onBack,
+    onOpenAssistant: () -> Unit = {}
+) {
     CvTrainingGamePage(
         gameId = GameUiCatalog.GAME_CV_REQUEST,
         level = level,
+        selectedEmotion = selectedEmotion,
         title = "Thử thách cảm xúc",
-        subtitle = "Chụp biểu cảm đúng theo yêu cầu và lưu kết quả luyện tập",
+        subtitle = "Thể hiện biểu cảm đúng theo yêu cầu và lưu kết quả luyện tập",
         imageRes = R.drawable.game_cv_2,
         defaultPrompt = GameUiCatalog.cvRequestPrompt,
         promptLabel = "Yêu cầu",
         targetLabel = "Cảm xúc",
-        onBack = onBack
+        onBack = onBack,
+        onFinish = onFinish,
+        onOpenAssistant = onOpenAssistant
     )
 }

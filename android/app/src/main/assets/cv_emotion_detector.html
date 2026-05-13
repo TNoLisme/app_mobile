@@ -1,0 +1,299 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #102A43;
+    }
+
+    #camera {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      background: #102A43;
+      display: block;
+    }
+  </style>
+  <script src="face-api.min.js"></script>
+</head>
+<body>
+  <video id="camera" autoplay muted playsinline></video>
+  <canvas id="analysisCanvas" style="display:none"></canvas>
+
+  <script>
+    const EMOTION_MAP = {
+      happy: "happy",
+      sad: "sad",
+      angry: "angry",
+      fearful: "fear",
+      surprised: "surprise",
+      disgusted: "disgust",
+      neutral: null
+    };
+
+    const REQUIRED_CONFIDENCE = 0.75;
+    const REQUIRED_HOLD_MS = 1200;
+    const DETECT_INTERVAL_MS = 220;
+
+    let stream = null;
+    let detectionTimer = null;
+    let correctSince = null;
+    let targetEmotion = "happy";
+    let matched = false;
+    let modelsLoaded = false;
+    let frameDetecting = false;
+
+    function notifyError(message) {
+      if (window.AndroidCvBridge && AndroidCvBridge.onError) {
+        AndroidCvBridge.onError(String(message || "Không thể mở camera."));
+      }
+    }
+
+    function notifyReady() {
+      if (window.AndroidCvBridge && AndroidCvBridge.onReady) {
+        AndroidCvBridge.onReady();
+      }
+    }
+
+    function notifyDetectorReady() {
+      if (window.AndroidCvBridge && AndroidCvBridge.onDetectorReady) {
+        AndroidCvBridge.onDetectorReady();
+      }
+    }
+
+    function notifyDetection(emotion, confidence) {
+      if (window.AndroidCvBridge && AndroidCvBridge.onDetection) {
+        AndroidCvBridge.onDetection(emotion || "", Math.round((confidence || 0) * 100));
+      }
+    }
+
+    function notifyMatched(confidence) {
+      if (window.AndroidCvBridge && AndroidCvBridge.onMatched) {
+        AndroidCvBridge.onMatched(Math.round((confidence || 0) * 100));
+      }
+    }
+
+    async function loadModels() {
+      if (modelsLoaded) return;
+      if (!window.faceapi) {
+        throw new Error("Không tải được bộ nhận diện khuôn mặt.");
+      }
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri("./cv_models"),
+        faceapi.nets.faceLandmark68Net.loadFromUri("./cv_models"),
+        faceapi.nets.faceExpressionNet.loadFromUri("./cv_models")
+      ]);
+      modelsLoaded = true;
+    }
+
+    function waitForVideoFrame(video) {
+      return new Promise((resolve, reject) => {
+        const startedAt = Date.now();
+        const timeoutMs = 8000;
+
+        function done() {
+          resolve();
+        }
+
+        function poll() {
+          if (video.readyState >= 3 && video.videoWidth > 0 && video.videoHeight > 0) {
+            done();
+            return;
+          }
+          if (Date.now() - startedAt > timeoutMs) {
+            reject(new Error("Không nhận được hình ảnh từ camera."));
+            return;
+          }
+          setTimeout(poll, 120);
+        }
+
+        if (video.requestVideoFrameCallback) {
+          const timeout = setTimeout(() => {
+            reject(new Error("Không nhận được hình ảnh từ camera."));
+          }, timeoutMs);
+          video.requestVideoFrameCallback(() => {
+            clearTimeout(timeout);
+            done();
+          });
+        } else {
+          poll();
+        }
+      });
+    }
+
+    async function openCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Trình xem hiện tại chưa hỗ trợ mở camera.");
+      }
+      const video = document.getElementById("camera");
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        },
+        audio: false
+      });
+      video.srcObject = stream;
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("Camera timeout")), 7000);
+        video.onloadedmetadata = () => {
+          video.play()
+            .then(() => {
+              clearTimeout(timeout);
+              waitForVideoFrame(video).then(resolve).catch(reject);
+            })
+            .catch(reject);
+        };
+      });
+    }
+
+    async function detectOnce(video) {
+      if (!modelsLoaded || !video) return;
+      if (video.tagName === "VIDEO" && video.readyState < 3) return;
+      const detections = await faceapi
+        .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
+        .withFaceLandmarks()
+        .withFaceExpressions();
+
+      if (!detections.length) {
+        correctSince = null;
+        notifyDetection("", 0);
+        return;
+      }
+
+      const expressions = detections[0].expressions || {};
+      let dominant = "";
+      let confidence = 0;
+      Object.keys(expressions).forEach((key) => {
+        if (expressions[key] > confidence) {
+          dominant = key;
+          confidence = expressions[key];
+        }
+      });
+
+      const mappedEmotion = EMOTION_MAP[dominant] || "";
+      notifyDetection(mappedEmotion, confidence);
+
+      if (mappedEmotion === targetEmotion && confidence >= REQUIRED_CONFIDENCE) {
+        if (!correctSince) correctSince = Date.now();
+        if (Date.now() - correctSince >= REQUIRED_HOLD_MS) {
+          notifyMatched(confidence);
+        }
+      } else {
+        correctSince = null;
+      }
+    }
+
+    function drawDataUrlToAnalysisCanvas(dataUrl, rotationDegrees) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => {
+          const rotation = ((rotationDegrees || 0) + 360) % 360;
+          const canvas = document.getElementById("analysisCanvas");
+          const ctx = canvas.getContext("2d");
+          const rotated = rotation === 90 || rotation === 270;
+          canvas.width = rotated ? image.height : image.width;
+          canvas.height = rotated ? image.width : image.height;
+
+          ctx.save();
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          if (rotation === 90) {
+            ctx.translate(canvas.width, 0);
+            ctx.rotate(Math.PI / 2);
+          } else if (rotation === 180) {
+            ctx.translate(canvas.width, canvas.height);
+            ctx.rotate(Math.PI);
+          } else if (rotation === 270) {
+            ctx.translate(0, canvas.height);
+            ctx.rotate(-Math.PI / 2);
+          }
+          ctx.drawImage(image, 0, 0);
+          ctx.restore();
+          resolve(canvas);
+        };
+        image.onerror = () => reject(new Error("Không đọc được frame camera."));
+        image.src = dataUrl;
+      });
+    }
+
+    async function startFrameDetector(nextTargetEmotion) {
+      try {
+        stopCvDetector();
+        targetEmotion = nextTargetEmotion || "happy";
+        matched = false;
+        correctSince = null;
+        frameDetecting = false;
+        await loadModels();
+        notifyDetectorReady();
+      } catch (error) {
+        notifyError(error && error.message ? error.message : error);
+      }
+    }
+
+    async function detectCvFrame(dataUrl, rotationDegrees) {
+      if (!modelsLoaded || frameDetecting) return;
+      frameDetecting = true;
+      try {
+        const canvas = await drawDataUrlToAnalysisCanvas(dataUrl, rotationDegrees || 0);
+        await detectOnce(canvas);
+      } catch (error) {
+        notifyError(error && error.message ? error.message : error);
+      } finally {
+        frameDetecting = false;
+      }
+    }
+
+    async function startCvDetector(nextTargetEmotion) {
+      try {
+        stopCvDetector();
+        targetEmotion = nextTargetEmotion || "happy";
+        matched = false;
+        correctSince = null;
+        await openCamera();
+        notifyReady();
+        await loadModels();
+        notifyDetectorReady();
+        const video = document.getElementById("camera");
+        clearInterval(detectionTimer);
+        detectionTimer = setInterval(() => {
+          detectOnce(video).catch((error) => notifyError(error.message));
+        }, DETECT_INTERVAL_MS);
+      } catch (error) {
+        notifyError(error && error.message ? error.message : error);
+      }
+    }
+
+    function stopCvDetector() {
+      clearInterval(detectionTimer);
+      detectionTimer = null;
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+        stream = null;
+      }
+      const video = document.getElementById("camera");
+      if (video) video.srcObject = null;
+    }
+
+    window.startCvDetector = startCvDetector;
+    window.startFrameDetector = startFrameDetector;
+    window.detectCvFrame = detectCvFrame;
+    window.stopCvDetector = stopCvDetector;
+    window.addEventListener("error", (event) => {
+      notifyError(event && event.message ? event.message : "Không thể mở camera.");
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+      const reason = event && event.reason;
+      notifyError(reason && reason.message ? reason.message : reason);
+    });
+    window.addEventListener("pagehide", stopCvDetector);
+  </script>
+</body>
+</html>
