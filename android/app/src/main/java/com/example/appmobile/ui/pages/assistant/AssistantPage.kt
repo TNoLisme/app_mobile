@@ -1,6 +1,18 @@
 package com.example.appmobile.ui.pages.assistant
 
+import android.Manifest
+import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,6 +27,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,12 +45,14 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -112,6 +127,14 @@ fun AssistantPage(
     }
     var input by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
+    var listening by remember { mutableStateOf(false) }
+    val speechRecognizer = remember(context) {
+        if (SpeechRecognizer.isRecognitionAvailable(context)) {
+            SpeechRecognizer.createSpeechRecognizer(context)
+        } else {
+            null
+        }
+    }
 
     fun persistMessages() {
         saveStoredMessages(preferences, gson, historyKey, messages)
@@ -148,6 +171,150 @@ fun AssistantPage(
             repository.uploadLog(childId = childId, sender = "bot", content = reply)
             sending = false
         }
+    }
+
+    fun addAssistantSystemMessage(text: String) {
+        messages.add(AssistantMessage(MessageRole.Assistant, text))
+        persistMessages()
+    }
+
+    fun speechIntent(): Intent {
+        return Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "vi-VN")
+            putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, "vi-VN")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Nói câu hỏi cho trợ lý EmoGarden")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+    }
+
+    val systemVoiceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode != Activity.RESULT_OK) {
+            listening = false
+            return@rememberLauncherForActivityResult
+        }
+        listening = false
+        val spokenText = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+            ?.trim()
+            .orEmpty()
+        if (spokenText.isNotBlank()) {
+            sendMessage(spokenText)
+        } else {
+            addAssistantSystemMessage("Mình chưa nghe rõ. Con thử bấm mic và nói lại chậm hơn nhé.")
+        }
+    }
+
+    fun openSystemVoiceInput() {
+        runCatching {
+            listening = true
+            systemVoiceLauncher.launch(speechIntent())
+        }.onFailure { error ->
+            listening = false
+            if (error is ActivityNotFoundException) {
+                addAssistantSystemMessage("Máy này chưa có dịch vụ nhận diện giọng nói. Con có thể cài Google Speech Services hoặc gõ câu hỏi nhé.")
+            } else {
+                addAssistantSystemMessage("Không mở được micro. Con kiểm tra quyền micro rồi thử lại nhé.")
+            }
+        }
+    }
+
+    fun startVoiceRecognition() {
+        if (sending || listening) return
+        if (speechRecognizer == null) {
+            openSystemVoiceInput()
+            return
+        }
+        runCatching {
+            listening = true
+            speechRecognizer.startListening(speechIntent())
+        }.onFailure {
+            listening = false
+            addAssistantSystemMessage("Không mở được micro. Con kiểm tra quyền micro rồi thử lại nhé.")
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            startVoiceRecognition()
+        } else {
+            addAssistantSystemMessage("Con cần cấp quyền micro để hỏi trợ lý bằng giọng nói.")
+        }
+    }
+
+    val sendVoiceResult by rememberUpdatedState<(String) -> Unit> { spokenText ->
+        sendMessage(spokenText)
+    }
+    val addVoiceMessage by rememberUpdatedState<(String) -> Unit> { text ->
+        addAssistantSystemMessage(text)
+    }
+
+    DisposableEffect(speechRecognizer) {
+        val listener = object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                listening = true
+            }
+
+            override fun onBeginningOfSpeech() = Unit
+            override fun onRmsChanged(rmsdB: Float) = Unit
+            override fun onBufferReceived(buffer: ByteArray?) = Unit
+            override fun onEndOfSpeech() = Unit
+
+            override fun onError(error: Int) {
+                listening = false
+                val message = when (error) {
+                    SpeechRecognizer.ERROR_NO_MATCH -> "Mình chưa nghe rõ. Con thử nói chậm hơn nhé."
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Mình chưa nghe thấy câu hỏi. Con bấm mic rồi nói lại nhé."
+                    SpeechRecognizer.ERROR_AUDIO -> "Micro đang gặp lỗi. Con thử lại hoặc gõ câu hỏi nhé."
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Con cần cấp quyền micro để hỏi bằng giọng nói."
+                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Nhận diện giọng nói cần mạng ổn định. Con thử lại hoặc gõ câu hỏi nhé."
+                    else -> "Chưa nhận diện được giọng nói. Con thử lại hoặc gõ câu hỏi nhé."
+                }
+                addVoiceMessage(message)
+            }
+
+            override fun onResults(results: Bundle?) {
+                listening = false
+                val spokenText = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()
+                    ?.trim()
+                    .orEmpty()
+                if (spokenText.isNotBlank()) {
+                    sendVoiceResult(spokenText)
+                } else {
+                    addVoiceMessage("Mình chưa nghe rõ. Con thử bấm mic và nói lại chậm hơn nhé.")
+                }
+            }
+
+            override fun onPartialResults(partialResults: Bundle?) = Unit
+            override fun onEvent(eventType: Int, params: Bundle?) = Unit
+        }
+        speechRecognizer?.setRecognitionListener(listener)
+        onDispose {
+            runCatching { speechRecognizer?.cancel() }
+            runCatching { speechRecognizer?.destroy() }
+        }
+    }
+
+    fun openVoiceInput() {
+        if (sending || listening) return
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!hasPermission) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        startVoiceRecognition()
     }
 
     LaunchedEffect(messages.size, sending) {
@@ -198,8 +365,10 @@ fun AssistantPage(
         AssistantInputRow(
             input = input,
             sending = sending,
+            listening = listening,
             onInputChange = { input = it },
-            onSend = { sendMessage() }
+            onSend = { sendMessage() },
+            onVoiceInput = { openVoiceInput() }
         )
     }
 }
@@ -344,22 +513,22 @@ private fun AssistantBubble(message: AssistantMessage) {
 private fun AssistantTypingBubble() {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(16.dp),
             color = EgDesign.card,
             border = BorderStroke(1.dp, EgDesign.cardBorder),
             shadowElevation = 1.dp
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 CircularProgressIndicator(
-                    modifier = Modifier.height(18.dp),
-                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 1.8.dp,
                     color = EgDesign.primary
                 )
-                Text("Đang trả lời...", color = EgDesign.textSecondary, fontSize = 13.sp)
+                Text("Đang trả lời...", color = EgDesign.textSecondary, fontSize = 12.sp)
             }
         }
     }
@@ -369,8 +538,10 @@ private fun AssistantTypingBubble() {
 private fun AssistantInputRow(
     input: String,
     sending: Boolean,
+    listening: Boolean,
     onInputChange: (String) -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    onVoiceInput: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -394,6 +565,20 @@ private fun AssistantInputRow(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { onSend() })
         )
+        Surface(
+            modifier = Modifier
+                .height(54.dp)
+                .widthIn(min = 54.dp)
+                .clickable(enabled = !sending && !listening) { onVoiceInput() },
+            shape = CircleShape,
+            color = if (listening) EgDesign.primary else EgDesign.card,
+            border = BorderStroke(1.dp, EgDesign.cardBorder),
+            shadowElevation = 1.dp
+        ) {
+            Box(modifier = Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                Text(if (listening) "●" else "🎙️", color = if (listening) Color.White else EgDesign.blue, fontSize = 20.sp)
+            }
+        }
         Surface(
             modifier = Modifier
                 .height(54.dp)

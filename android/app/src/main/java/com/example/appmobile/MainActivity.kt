@@ -172,7 +172,20 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 "aacaf79e-e15e-42a9-a3d1-a522720d919b" -> GameClick4Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_click_4", level)) })
                 // Các game Biểu cảm
                 "e05909f3-3dee-42a6-9a75-fd985b1bdf47" -> GameCVPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("gameCV", level)) })
-                "61f5e09e-eefa-44c1-86e1-87dfceac3b8e" -> GameCV2Page(level = level, selectedEmotion = emotion, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_cv_2", level)) })
+                "61f5e09e-eefa-44c1-86e1-87dfceac3b8e" -> GameCV2Page(
+                    level = level,
+                    selectedEmotion = emotion,
+                    onBack = { navController.popBackStack() },
+                    onFinish = {
+                        val targetRoute = "level_select/$id"
+                        if (!navController.popBackStack(targetRoute, inclusive = false)) {
+                            navController.navigate(targetRoute) {
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    onOpenAssistant = { navController.navigate(assistantRoute("game_cv_2", level)) }
+                )
                 else -> {
                     // Xử lý an toàn khi không tìm thấy Game ID
                     LaunchedEffect(Unit) {

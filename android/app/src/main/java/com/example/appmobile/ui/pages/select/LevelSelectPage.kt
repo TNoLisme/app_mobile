@@ -24,16 +24,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,7 +56,11 @@ import com.example.appmobile.ui.components.egEmotionIcon
 import com.example.appmobile.ui.components.egEmotionKey
 import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.example.appmobile.ui.components.egEmotionRouteValue
+import com.example.appmobile.ui.state.CvEmotionScoreState
 import com.google.firebase.auth.FirebaseAuth
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.launch
 
 private data class LevelProgressUi(
     val level: LevelUiItem,
@@ -191,14 +198,38 @@ private fun CvEmotionSelectPage(
     onBack: () -> Unit,
     onStartGame: (String) -> Unit
 ) {
+    val context = LocalContext.current
     var scores by remember(userId) { mutableStateOf<Map<String, Float>>(emptyMap()) }
     var selectedEmotionId by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+    val scoreVersion = CvEmotionScoreState.version.intValue
 
-    LaunchedEffect(userId) {
-        isLoading = true
-        scores = repository.getCvEmotionScores(userId)
-        isLoading = false
+    fun refreshScores(showLoading: Boolean) {
+        scope.launch {
+            if (showLoading) isLoading = true
+            val localScores = CvEmotionScoreState.loadScores(context, userId)
+            scores = CvEmotionScoreState.mergeScores(scores, localScores)
+            isLoading = false
+            val backendScores = repository.getCvEmotionScores(userId)
+            val latestLocalScores = CvEmotionScoreState.loadScores(context, userId)
+            scores = CvEmotionScoreState.mergeScores(backendScores, latestLocalScores)
+        }
+    }
+
+    LaunchedEffect(userId, scoreVersion) {
+        refreshScores(showLoading = true)
+    }
+
+    DisposableEffect(lifecycleOwner, userId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshScores(showLoading = false)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val choices = remember(scores) {
@@ -425,10 +456,10 @@ private fun CvEmotionChoiceCard(
                 border = BorderStroke(1.dp, EgDesign.cardBorder)
             ) {
                 Text(
-                    text = "${progress.toInt()}%",
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                    text = if (progress > 0f) "${progress.toInt()}%" else "Chưa luyện",
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
                     color = EgDesign.textPrimary,
-                    fontSize = 11.sp,
+                    fontSize = if (progress > 0f) 11.sp else 9.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
             }
