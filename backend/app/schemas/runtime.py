@@ -60,3 +60,4 @@ class EndLevelRequest(BaseModel):
     session_id: str
     results: list[AnswerResult]
     review_emotions: list[str] = []
+    reset_review_emotions: list[str] = []

@@ -85,6 +85,12 @@ interface ApiService {
         @Query("user_id") userId: String
     ): Response<GameProgressDto?>
 
+    @POST("games/progress/{gameId}/review/reset")
+    suspend fun resetReviewEmotions(
+        @Path("gameId") gameId: String,
+        @Body request: ResetReviewRequestDto
+    ): Response<ResetReviewResponseDto>
+
     @GET("games/cv/emotion-scores")
     suspend fun getCvEmotionScores(@Query("user_id") userId: String): Response<CvEmotionScoresResponseDto>
 

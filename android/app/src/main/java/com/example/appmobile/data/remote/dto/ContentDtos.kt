@@ -29,7 +29,15 @@ data class GameContentDto(
     @SerializedName("question_text") val questionText: String?,
     @SerializedName("correct_answer") val correctAnswer: String?,
     @SerializedName("emotion") val emotion: String?,
-    @SerializedName("explanation") val explanation: String?
+    @SerializedName("explanation") val explanation: String?,
+    @SerializedName("options") val options: List<GameContentOptionDto>? = null
+)
+
+data class GameContentOptionDto(
+    @SerializedName("content_id") val contentId: String?,
+    @SerializedName("media_path") val mediaPath: String?,
+    @SerializedName("answer_text") val answerText: String?,
+    @SerializedName("emotion") val emotion: String?
 )
 
 data class QuestionDto(
