@@ -1,5 +1,8 @@
 package com.example.appmobile.ui.pages.settings
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -63,13 +66,13 @@ import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgGradientPill
 import com.example.appmobile.ui.components.EgSoftCard
+import com.example.appmobile.ui.state.AppSettingsState
+import com.example.appmobile.ui.state.AppThemeMode
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsPage(
-    assistantBubbleEnabled: Boolean,
-    onAssistantBubbleChanged: (Boolean) -> Unit,
     onBack: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -86,6 +89,12 @@ fun SettingsPage(
     var message by remember { mutableStateOf<String?>(null) }
     var showEditAccount by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
+    var showResetLocalSettings by remember { mutableStateOf(false) }
+    val assistantBubbleEnabled by AppSettingsState.assistantBubbleEnabled
+    val learnVideoAutoplayEnabled by AppSettingsState.learnVideoAutoplayEnabled
+    val learnVideoSoundEnabled by AppSettingsState.learnVideoSoundEnabled
+    val dynamicColorEnabled by AppSettingsState.dynamicColorEnabled
+    val themeMode by AppSettingsState.themeMode
 
     suspend fun loadProfile() {
         loading = true
@@ -121,9 +130,25 @@ fun SettingsPage(
             )
         }
 
+        message?.let { SettingsStatusBanner(it) }
+
+        AppearanceCard(
+            themeMode = themeMode,
+            dynamicColorEnabled = dynamicColorEnabled,
+            onThemeModeChanged = { mode -> AppSettingsState.setThemeMode(context, mode) },
+            onDynamicColorChanged = { enabled -> AppSettingsState.setDynamicColorEnabled(context, enabled) }
+        )
+
         AssistantBubbleCard(
             assistantBubbleEnabled = assistantBubbleEnabled,
-            onAssistantBubbleChanged = onAssistantBubbleChanged
+            onAssistantBubbleChanged = { enabled -> AppSettingsState.setAssistantBubbleEnabled(context, enabled) }
+        )
+
+        LearningMediaCard(
+            learnVideoAutoplayEnabled = learnVideoAutoplayEnabled,
+            learnVideoSoundEnabled = learnVideoSoundEnabled,
+            onLearnVideoAutoplayChanged = { enabled -> AppSettingsState.setLearnVideoAutoplayEnabled(context, enabled) },
+            onLearnVideoSoundChanged = { enabled -> AppSettingsState.setLearnVideoSoundEnabled(context, enabled) }
         )
 
         if (loading) {
@@ -131,13 +156,23 @@ fun SettingsPage(
                 CircularProgressIndicator(color = EgDesign.primary)
             }
         } else {
-            message?.let { SettingsStatusBanner(it) }
             AccountSecuritySection(
                 profile = profile,
                 onEditAccount = { showEditAccount = true },
                 onChangePassword = { showChangePassword = true }
             )
         }
+
+        PrivacySystemSection(
+            onOpenSystemSettings = {
+                val intent = Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:${context.packageName}")
+                )
+                context.startActivity(intent)
+            },
+            onResetLocalSettings = { showResetLocalSettings = true }
+        )
 
         EgSoftCard {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -190,6 +225,218 @@ fun SettingsPage(
             }
         )
     }
+
+    if (showResetLocalSettings) {
+        ResetLocalSettingsDialog(
+            onDismiss = { showResetLocalSettings = false },
+            onConfirm = {
+                AppSettingsState.resetLocalPreferences(context)
+                message = "ÄÃ£ Ä‘áº·t láº¡i tuá»³ chá»n á»©ng dá»¥ng."
+                showResetLocalSettings = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun AppearanceCard(
+    themeMode: AppThemeMode,
+    dynamicColorEnabled: Boolean,
+    onThemeModeChanged: (AppThemeMode) -> Unit,
+    onDynamicColorChanged: (Boolean) -> Unit
+) {
+    EgSoftCard {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Giao diện", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SettingsChoiceButton(
+                    text = "Hệ thống",
+                    selected = themeMode == AppThemeMode.System,
+                    onClick = { onThemeModeChanged(AppThemeMode.System) },
+                    modifier = Modifier.weight(1f)
+                )
+                SettingsChoiceButton(
+                    text = "Sáng",
+                    selected = themeMode == AppThemeMode.Light,
+                    onClick = { onThemeModeChanged(AppThemeMode.Light) },
+                    modifier = Modifier.weight(1f)
+                )
+                SettingsChoiceButton(
+                    text = "Tối",
+                    selected = themeMode == AppThemeMode.Dark,
+                    onClick = { onThemeModeChanged(AppThemeMode.Dark) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            SettingsSwitchRow(
+                icon = "🎨",
+                title = "Màu hệ thống",
+                description = "Dùng bảng màu Material của thiết bị khi có hỗ trợ.",
+                checked = dynamicColorEnabled,
+                onCheckedChange = onDynamicColorChanged
+            )
+        }
+    }
+}
+
+@Composable
+private fun LearningMediaCard(
+    learnVideoAutoplayEnabled: Boolean,
+    learnVideoSoundEnabled: Boolean,
+    onLearnVideoAutoplayChanged: (Boolean) -> Unit,
+    onLearnVideoSoundChanged: (Boolean) -> Unit
+) {
+    EgSoftCard {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Học tập & video", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+            SettingsSwitchRow(
+                icon = "▶",
+                title = "Tự phát video mẫu",
+                description = "Video ở trang Học sẽ tự chạy khi mở cảm xúc.",
+                checked = learnVideoAutoplayEnabled,
+                onCheckedChange = onLearnVideoAutoplayChanged
+            )
+            SettingsSwitchRow(
+                icon = "🔊",
+                title = "Âm thanh video",
+                description = "Bật hoặc tắt tiếng cho video mẫu trong trang Học.",
+                checked = learnVideoSoundEnabled,
+                onCheckedChange = onLearnVideoSoundChanged
+            )
+        }
+    }
+}
+
+@Composable
+private fun PrivacySystemSection(
+    onOpenSystemSettings: () -> Unit,
+    onResetLocalSettings: () -> Unit
+) {
+    EgSoftCard {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Quyền & dữ liệu", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+            SettingsActionRow(
+                icon = "📷",
+                title = "Quyền ứng dụng",
+                description = "Mở cài đặt hệ thống để cấp camera, bộ nhớ hoặc thông báo khi cần.",
+                actionText = "Mở",
+                onClick = onOpenSystemSettings
+            )
+            SettingsActionRow(
+                icon = "↺",
+                title = "Đặt lại tùy chọn",
+                description = "Khôi phục các cài đặt local như trợ lý, video và giao diện.",
+                actionText = "Đặt lại",
+                onClick = onResetLocalSettings
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    icon: String,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(icon, fontSize = 18.sp)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            Text(description, color = EgDesign.textSecondary, fontSize = 12.sp, lineHeight = 17.sp)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = EgDesign.primary,
+                checkedBorderColor = EgDesign.primary,
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = EgDesign.cardSoft,
+                uncheckedBorderColor = EgDesign.cardBorder
+            )
+        )
+    }
+}
+
+@Composable
+private fun SettingsActionRow(
+    icon: String,
+    title: String,
+    description: String,
+    actionText: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(icon, fontSize = 18.sp)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            Text(description, color = EgDesign.textSecondary, fontSize = 12.sp, lineHeight = 17.sp)
+        }
+        SmallOutlineButton(actionText, onClick = onClick)
+    }
+}
+
+@Composable
+private fun SettingsChoiceButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(42.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.pillRadius),
+        color = if (selected) EgDesign.primary else EgDesign.card,
+        border = BorderStroke(1.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
+        shadowElevation = if (selected) 2.dp else 1.dp
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                color = if (selected) Color.White else EgDesign.primaryDark,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResetLocalSettingsDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    SettingsDialog(onDismiss = onDismiss) {
+        DialogHeader("↺", "Đặt lại tùy chọn", "Các tùy chọn local sẽ quay về mặc định. Tài khoản và tiến trình học không bị xoá.")
+        DialogActions(
+            saving = false,
+            primaryText = "Đặt lại",
+            onCancel = onDismiss,
+            onSave = onConfirm
+        )
+    }
 }
 
 @Composable
@@ -221,7 +468,7 @@ private fun AssistantBubbleCard(
                     checkedTrackColor = EgDesign.primary,
                     checkedBorderColor = EgDesign.primary,
                     uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = Color(0xFFE5EEF7),
+                    uncheckedTrackColor = EgDesign.cardSoft,
                     uncheckedBorderColor = EgDesign.cardBorder
                 )
             )
@@ -274,7 +521,7 @@ private fun SettingsInfoRow(icon: String, label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF8FCFF), RoundedCornerShape(14.dp))
+            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -397,7 +644,7 @@ private fun SettingsDialog(onDismiss: () -> Unit, content: @Composable ColumnSco
                     .fillMaxWidth()
                     .widthIn(max = 560.dp),
                 shape = RoundedCornerShape(24.dp),
-                color = Color.White,
+                color = EgDesign.card,
                 border = BorderStroke(1.dp, EgDesign.cardBorder),
                 shadowElevation = 8.dp
             ) {
@@ -446,8 +693,8 @@ private fun SettingsTextField(
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = EgDesign.primaryDark,
             unfocusedBorderColor = EgDesign.cardBorder,
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
+            focusedContainerColor = EgDesign.card,
+            unfocusedContainerColor = EgDesign.card,
             focusedTextColor = EgDesign.textPrimary,
             unfocusedTextColor = EgDesign.textPrimary,
             cursorColor = EgDesign.primaryDark
@@ -516,7 +763,7 @@ private fun SmallOutlineButton(
             .height(44.dp)
             .clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(EgDesign.pillRadius),
-        color = Color.White,
+        color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = 1.dp
     ) {

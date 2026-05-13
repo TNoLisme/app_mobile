@@ -1,21 +1,21 @@
 package com.example.appmobile
 
-import android.content.Context
+import android.app.Activity
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -41,6 +41,8 @@ import com.example.appmobile.ui.pages.report.ReportPage
 import com.example.appmobile.ui.pages.select.LevelSelectPage
 import com.example.appmobile.ui.pages.select.SelectGamePage
 import com.example.appmobile.ui.pages.settings.SettingsPage
+import com.example.appmobile.ui.state.AppSettingsState
+import com.example.appmobile.ui.state.AppThemeMode
 import com.example.appmobile.ui.theme.AppMobileTheme
 import com.google.firebase.auth.FirebaseAuth
 
@@ -55,11 +57,40 @@ class MainActivity : ComponentActivity() {
             isAppearanceLightStatusBars = true
             isAppearanceLightNavigationBars = true
         }
-        setContent {
-            AppMobileTheme {
-                AppNavigation(modifier = Modifier.fillMaxSize())
+        setContent { AppRoot() }
+    }
+}
+
+@Composable
+private fun AppRoot() {
+    val context = LocalContext.current
+    remember(context) {
+        AppSettingsState.load(context)
+        true
+    }
+
+    val themeMode by AppSettingsState.themeMode
+    val dynamicColorEnabled by AppSettingsState.dynamicColorEnabled
+    val systemDark = isSystemInDarkTheme()
+    val useDarkTheme = when (themeMode) {
+        AppThemeMode.System -> systemDark
+        AppThemeMode.Light -> false
+        AppThemeMode.Dark -> true
+    }
+    val activity = context as? Activity
+
+    SideEffect {
+        AppSettingsState.setActiveDarkTheme(useDarkTheme)
+        activity?.window?.let { window ->
+            WindowInsetsControllerCompat(window, window.decorView).apply {
+                isAppearanceLightStatusBars = !useDarkTheme
+                isAppearanceLightNavigationBars = !useDarkTheme
             }
         }
+    }
+
+    AppMobileTheme(darkTheme = useDarkTheme, dynamicColor = dynamicColorEnabled) {
+        AppNavigation(modifier = Modifier.fillMaxSize())
     }
 }
 
@@ -67,13 +98,7 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val auth = FirebaseAuth.getInstance()
-    val context = LocalContext.current
-    val preferences = remember {
-        context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
-    }
-    var assistantBubbleEnabled by remember {
-        mutableStateOf(preferences.getBoolean("assistant_bubble_enabled", false))
-    }
+    val assistantBubbleEnabled by AppSettingsState.assistantBubbleEnabled
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
     val startDestination = if (auth.currentUser != null) "home" else "login"
@@ -234,11 +259,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         }
         composable("settings") {
             SettingsPage(
-                assistantBubbleEnabled = assistantBubbleEnabled,
-                onAssistantBubbleChanged = { enabled ->
-                    assistantBubbleEnabled = enabled
-                    preferences.edit().putBoolean("assistant_bubble_enabled", enabled).apply()
-                },
                 onBack = { navController.popBackStack() },
                 onLogout = ::logout
             )
