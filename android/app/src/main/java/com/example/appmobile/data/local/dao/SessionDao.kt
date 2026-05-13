@@ -29,6 +29,18 @@ interface SessionDao {
     @Query("SELECT * FROM session_questions WHERE session_id = :sessionId")
     suspend fun getQuestionsBySession(sessionId: String): List<SessionQuestionEntity>
 
+    @Query("DELETE FROM session_questions WHERE session_id IN (SELECT session_id FROM sessions WHERE user_id = :userId)")
+    suspend fun clearQuestionsForUser(userId: String)
+
+    @Query("DELETE FROM sessions WHERE user_id = :userId")
+    suspend fun clearSessionsForUser(userId: String)
+
+    @Transaction
+    suspend fun clearLearningHistoryForUser(userId: String) {
+        clearQuestionsForUser(userId)
+        clearSessionsForUser(userId)
+    }
+
     // --- Giao dịch gộp (Transaction) ---
     // Đảm bảo nếu lưu lỗi thì sẽ hủy toàn bộ, tránh dữ liệu rác
     @Transaction

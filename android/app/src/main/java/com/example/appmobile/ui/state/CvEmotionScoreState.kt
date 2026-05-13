@@ -28,6 +28,16 @@ object CvEmotionScoreState {
         }
     }
 
+    fun clearScores(context: Context, userId: String) {
+        val preferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val editor = preferences.edit()
+        cvScoreKeys.forEach { emotionId ->
+            editor.remove(scoreKey(userId, emotionId))
+        }
+        editor.apply()
+        version.intValue += 1
+    }
+
     fun mergeScores(primary: Map<String, Float>, secondary: Map<String, Float>): Map<String, Float> {
         return cvScoreKeys.associateWith { emotionId ->
             val localScore = secondary[emotionId] ?: 0f
