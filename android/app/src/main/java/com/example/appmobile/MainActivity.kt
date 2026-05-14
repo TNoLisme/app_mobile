@@ -240,7 +240,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         composable("learn") {
             LearnPage(
                 onBack = { navController.popBackStack() },
-                onSelectEmotion = { id -> navController.navigate("learn_detail/$id") },
                 onGoHome = ::goHome,
                 onOpenGames = ::goGames,
                 onOpenProfile = ::goProfile,
@@ -296,10 +295,9 @@ fun AppNavigation(modifier: Modifier = Modifier) {
 private fun shouldShowAssistantBubble(route: String?, loggedIn: Boolean): Boolean {
     if (!loggedIn) return false
     if (route == null) return false
-    return route == "home" ||
-        route.startsWith("learn") ||
-        route == "profile" ||
-        route == "settings"
+    return route != "login" &&
+        route != "register" &&
+        !route.startsWith("assistant")
 }
 
 private fun assistantContext(route: String?): String {
