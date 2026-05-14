@@ -6,20 +6,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.NavHost
@@ -29,7 +26,8 @@ import androidx.navigation.navArgument
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.appmobile.data.local.AppSession
-import com.example.appmobile.ui.components.AssistantChatBubble
+import com.example.appmobile.ui.components.DraggableAssistantBubble
+import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.pages.assistant.AssistantPage
 import com.example.appmobile.ui.pages.auth.LoginPage
 import com.example.appmobile.ui.pages.auth.RegisterPage
@@ -145,8 +143,18 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         navController.navigate("login") { popUpTo("home") { inclusive = true } }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        NavHost(navController = navController, startDestination = startDestination, modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(EgDesign.background)
+    ) {
+        NavHost(
+            navController = navController,
+            startDestination = startDestination,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(EgDesign.background)
+        ) {
         composable("login") {
             LoginPage(
                 onNavigateToRegister = { navController.navigate("register") },
@@ -277,12 +285,9 @@ fun AppNavigation(modifier: Modifier = Modifier) {
     }
 
         if (assistantBubbleEnabled && shouldShowAssistantBubble(currentRoute, auth.currentUser != null)) {
-            AssistantChatBubble(
+            DraggableAssistantBubble(
                 onClick = { navController.navigate(assistantRoute(assistantContext(currentRoute))) },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .navigationBarsPadding()
-                    .padding(end = 18.dp, bottom = 24.dp)
+                modifier = Modifier.fillMaxSize()
             )
         }
     }
@@ -291,11 +296,10 @@ fun AppNavigation(modifier: Modifier = Modifier) {
 private fun shouldShowAssistantBubble(route: String?, loggedIn: Boolean): Boolean {
     if (!loggedIn) return false
     if (route == null) return false
-    return route != "login" &&
-        route != "register" &&
-        !route.startsWith("assistant") &&
-        route != "settings" &&
-        !route.startsWith("game/")
+    return route == "home" ||
+        route.startsWith("learn") ||
+        route == "profile" ||
+        route == "settings"
 }
 
 private fun assistantContext(route: String?): String {

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -85,28 +86,29 @@ fun SettingsPage(
     val repository = remember {
         UserRepository(NetworkClient.apiService, FirebaseAuthHelper(), database.userDao())
     }
-    val systemSettingsIntent = remember(context) {
-        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
-    }
     val userId = remember {
         FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.getBackendUserId(context)
     }
     val isLoggedIn = userId != null
+    val systemSettingsIntent = remember(context) {
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+    }
 
     var profile by remember { mutableStateOf<UserProfileDto?>(null) }
     var accountLoading by remember { mutableStateOf(false) }
     var accountError by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
+    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var showParentGate by remember { mutableStateOf(false) }
+    var showParentArea by remember { mutableStateOf(false) }
     var showEditAccount by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
     var showCameraPrivacy by remember { mutableStateOf(false) }
     var confirmAction by remember { mutableStateOf<ConfirmAction?>(null) }
-    var parentAction by remember { mutableStateOf<ParentAction?>(null) }
 
     val assistantBubbleEnabled by AppSettingsState.assistantBubbleEnabled
-    val learnVideoAutoplayEnabled by AppSettingsState.learnVideoAutoplayEnabled
-    val learnVideoSoundEnabled by AppSettingsState.learnVideoSoundEnabled
+    val autoPlayVideo by AppSettingsState.learnVideoAutoplayEnabled
+    val videoSoundEnabled by AppSettingsState.learnVideoSoundEnabled
     val soundEffectsEnabled by AppSettingsState.soundEffectsEnabled
     val learningReminderEnabled by AppSettingsState.learningReminderEnabled
     val dynamicColorEnabled by AppSettingsState.dynamicColorEnabled
@@ -114,19 +116,6 @@ fun SettingsPage(
 
     fun openSystemSettings() {
         context.startActivity(systemSettingsIntent)
-    }
-
-    fun runParentAction(action: ParentAction) {
-        when (action) {
-            ParentAction.Account -> {
-                if (isLoggedIn) showEditAccount = true else message = "Vui lòng đăng nhập để cập nhật tài khoản."
-            }
-            ParentAction.Password -> {
-                if (isLoggedIn) showChangePassword = true else message = "Vui lòng đăng nhập để đổi mật khẩu."
-            }
-            ParentAction.CameraPrivacy -> showCameraPrivacy = true
-            ParentAction.AppPermissions -> openSystemSettings()
-        }
     }
 
     fun loadProfile() {
@@ -150,91 +139,58 @@ fun SettingsPage(
         loadProfile()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(EgDesign.background)
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AppBackButton(onClick = onBack)
-            Spacer(modifier = Modifier.weight(1f))
-        }
+    SettingsScreen(
+        themeMode = themeMode,
+        dynamicColorEnabled = dynamicColorEnabled,
+        assistantBubbleEnabled = assistantBubbleEnabled,
+        autoPlayVideo = autoPlayVideo,
+        videoSoundEnabled = videoSoundEnabled,
+        soundEffectsEnabled = soundEffectsEnabled,
+        learningReminderEnabled = learningReminderEnabled,
+        isLoggedIn = isLoggedIn,
+        statusMessage = statusMessage,
+        onBack = onBack,
+        onThemeModeChanged = { AppSettingsState.setThemeMode(context, it) },
+        onDynamicColorChanged = { AppSettingsState.setDynamicColorEnabled(context, it) },
+        onAssistantBubbleChanged = { AppSettingsState.setAssistantBubbleEnabled(context, it) },
+        onAutoPlayVideoChanged = { AppSettingsState.setLearnVideoAutoplayEnabled(context, it) },
+        onVideoSoundChanged = { AppSettingsState.setLearnVideoSoundEnabled(context, it) },
+        onSoundEffectsChanged = { AppSettingsState.setSoundEffectsEnabled(context, it) },
+        onOpenParentArea = { showParentGate = true },
+        onLogin = onLogin,
+        onLogout = { confirmAction = ConfirmAction.Logout }
+    )
 
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Cài đặt", color = EgDesign.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-            Text(
-                "Tùy chỉnh trải nghiệm học và chơi cho bé.",
-                color = EgDesign.textSecondary,
-                fontSize = 14.sp,
-                lineHeight = 20.sp
-            )
-        }
-
-        message?.let { SettingsStatusBanner(it) }
-
-        AppearanceSection(
-            themeMode = themeMode,
-            dynamicColorEnabled = dynamicColorEnabled,
-            onThemeModeChanged = { mode -> AppSettingsState.setThemeMode(context, mode) },
-            onDynamicColorChanged = { enabled -> AppSettingsState.setDynamicColorEnabled(context, enabled) }
+    if (showParentGate) {
+        ParentGateDialog(
+            onDismiss = { showParentGate = false },
+            onContinue = {
+                showParentGate = false
+                showParentArea = true
+            }
         )
+    }
 
-        AssistantSection(
-            assistantBubbleEnabled = assistantBubbleEnabled,
-            onAssistantBubbleChanged = { enabled -> AppSettingsState.setAssistantBubbleEnabled(context, enabled) }
-        )
-
-        LearningMediaSection(
-            learnVideoAutoplayEnabled = learnVideoAutoplayEnabled,
-            learnVideoSoundEnabled = learnVideoSoundEnabled,
-            soundEffectsEnabled = soundEffectsEnabled,
-            learningReminderEnabled = learningReminderEnabled,
-            onLearnVideoAutoplayChanged = { enabled -> AppSettingsState.setLearnVideoAutoplayEnabled(context, enabled) },
-            onLearnVideoSoundChanged = { enabled -> AppSettingsState.setLearnVideoSoundEnabled(context, enabled) },
-            onSoundEffectsChanged = { enabled -> AppSettingsState.setSoundEffectsEnabled(context, enabled) }
-        )
-
-        ParentAreaCard(
-            onOpenAccount = { parentAction = ParentAction.Account },
-            onOpenPassword = { parentAction = ParentAction.Password },
-            onOpenCameraPrivacy = { parentAction = ParentAction.CameraPrivacy },
-            onOpenPermissions = { parentAction = ParentAction.AppPermissions }
-        )
-
-        AccountSection(
+    if (showParentArea) {
+        ParentAreaBottomSheet(
             isLoggedIn = isLoggedIn,
             loading = accountLoading,
             error = accountError,
             profile = profile,
+            onDismiss = { showParentArea = false },
             onLogin = onLogin,
             onRetry = { loadProfile() },
-            onEdit = { parentAction = ParentAction.Account }
-        )
-
-        SecuritySection(onChangePassword = { parentAction = ParentAction.Password })
-
-        CameraPrivacySection(onViewDetail = { parentAction = ParentAction.CameraPrivacy })
-
-        AppPermissionsSection(onOpenSystemSettings = { parentAction = ParentAction.AppPermissions })
-
-        DataSection(
+            onEditAccount = {
+                if (isLoggedIn) showEditAccount = true else statusMessage = "Vui lòng đăng nhập để cập nhật tài khoản."
+            },
+            onChangePassword = {
+                if (isLoggedIn) showChangePassword = true else statusMessage = "Vui lòng đăng nhập để đổi mật khẩu."
+            },
+            onCameraPrivacy = { showCameraPrivacy = true },
+            onOpenSystemSettings = ::openSystemSettings,
             onResetPreferences = { confirmAction = ConfirmAction.ResetPreferences },
             onClearProgress = { confirmAction = ConfirmAction.ClearProgress }
         )
-
-        SessionSection(
-            isLoggedIn = isLoggedIn,
-            onLogout = { confirmAction = ConfirmAction.Logout },
-            onLogin = onLogin
-        )
-
-        AboutSection()
-
-        Spacer(modifier = Modifier.height(24.dp))
     }
 
     if (showEditAccount) {
@@ -251,10 +207,10 @@ fun SettingsPage(
                     if (updated != null) {
                         profile = updated
                         accountError = false
-                        message = "Đã cập nhật thông tin tài khoản."
+                        statusMessage = "Đã cập nhật thông tin tài khoản."
                         showEditAccount = false
                     } else {
-                        message = "Không lưu được thông tin. Vui lòng thử lại."
+                        statusMessage = "Không lưu được thông tin. Vui lòng thử lại."
                     }
                 }
             }
@@ -272,10 +228,10 @@ fun SettingsPage(
                     val updated = repository.updateProfile(targetUserId, UserProfileUpdateDto(password = newPassword))
                     saving = false
                     if (updated != null) {
-                        message = "Đã đổi mật khẩu."
+                        statusMessage = "Đã đổi mật khẩu."
                         showChangePassword = false
                     } else {
-                        message = "Không đổi được mật khẩu. Vui lòng thử lại."
+                        statusMessage = "Không đổi được mật khẩu. Vui lòng thử lại."
                     }
                 }
             }
@@ -286,18 +242,8 @@ fun SettingsPage(
         CameraPrivacyDialog(onDismiss = { showCameraPrivacy = false }, onOpenSystemSettings = ::openSystemSettings)
     }
 
-    parentAction?.let { action ->
-        ParentGateDialog(
-            onDismiss = { parentAction = null },
-            onContinue = {
-                parentAction = null
-                runParentAction(action)
-            }
-        )
-    }
-
     confirmAction?.let { action ->
-        SettingsConfirmDialog(
+        ConfirmActionDialog(
             action = action,
             onDismiss = { confirmAction = null },
             onConfirm = {
@@ -305,7 +251,7 @@ fun SettingsPage(
                 when (action) {
                     ConfirmAction.ResetPreferences -> {
                         AppSettingsState.resetLocalPreferences(context)
-                        message = "Đã đặt lại tùy chọn trên máy."
+                        statusMessage = "Đã đặt lại tùy chọn trên máy."
                     }
                     ConfirmAction.ClearProgress -> {
                         scope.launch {
@@ -316,9 +262,9 @@ fun SettingsPage(
                                 database.reportDao().clearOldReports(targetUserId)
                                 CvEmotionScoreState.clearScores(context, targetUserId)
                             }.onSuccess {
-                                message = "Đã xóa tiến độ học lưu trên máy."
+                                statusMessage = "Đã xóa tiến độ học trên thiết bị này."
                             }.onFailure {
-                                message = "Không xóa được tiến độ học. Vui lòng thử lại."
+                                statusMessage = "Không xóa được tiến độ học. Vui lòng thử lại."
                             }
                         }
                     }
@@ -330,6 +276,82 @@ fun SettingsPage(
 }
 
 @Composable
+private fun SettingsScreen(
+    themeMode: AppThemeMode,
+    dynamicColorEnabled: Boolean,
+    assistantBubbleEnabled: Boolean,
+    autoPlayVideo: Boolean,
+    videoSoundEnabled: Boolean,
+    soundEffectsEnabled: Boolean,
+    learningReminderEnabled: Boolean,
+    isLoggedIn: Boolean,
+    statusMessage: String?,
+    onBack: () -> Unit,
+    onThemeModeChanged: (AppThemeMode) -> Unit,
+    onDynamicColorChanged: (Boolean) -> Unit,
+    onAssistantBubbleChanged: (Boolean) -> Unit,
+    onAutoPlayVideoChanged: (Boolean) -> Unit,
+    onVideoSoundChanged: (Boolean) -> Unit,
+    onSoundEffectsChanged: (Boolean) -> Unit,
+    onOpenParentArea: () -> Unit,
+    onLogin: () -> Unit,
+    onLogout: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(EgDesign.background)
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        SettingsHeader(onBack = onBack)
+        statusMessage?.let { SettingsStatusBanner(it) }
+        AppearanceSection(
+            themeMode = themeMode,
+            dynamicColorEnabled = dynamicColorEnabled,
+            onThemeModeChanged = onThemeModeChanged,
+            onDynamicColorChanged = onDynamicColorChanged
+        )
+        LearningExperienceSection(
+            assistantBubbleEnabled = assistantBubbleEnabled,
+            autoPlayVideo = autoPlayVideo,
+            videoSoundEnabled = videoSoundEnabled,
+            soundEffectsEnabled = soundEffectsEnabled,
+            learningReminderEnabled = learningReminderEnabled,
+            onAssistantBubbleChanged = onAssistantBubbleChanged,
+            onAutoPlayVideoChanged = onAutoPlayVideoChanged,
+            onVideoSoundChanged = onVideoSoundChanged,
+            onSoundEffectsChanged = onSoundEffectsChanged
+        )
+        ParentAreaEntryCard(onClick = onOpenParentArea)
+        AboutAppSection()
+        SessionSection(isLoggedIn = isLoggedIn, onLogin = onLogin, onLogout = onLogout)
+        Spacer(modifier = Modifier.height(20.dp))
+    }
+}
+
+@Composable
+private fun SettingsHeader(onBack: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            AppBackButton(onClick = onBack)
+            Spacer(modifier = Modifier.weight(1f))
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Cài đặt", color = EgDesign.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                "Tùy chỉnh trải nghiệm học và chơi cho bé.",
+                color = EgDesign.textSecondary,
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+        }
+    }
+}
+
+@Composable
 private fun AppearanceSection(
     themeMode: AppThemeMode,
     dynamicColorEnabled: Boolean,
@@ -337,15 +359,11 @@ private fun AppearanceSection(
     onDynamicColorChanged: (Boolean) -> Unit
 ) {
     SettingsSection(title = "Giao diện", icon = "🎨") {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SettingsChoiceButton("Hệ thống", themeMode == AppThemeMode.System, { onThemeModeChanged(AppThemeMode.System) }, Modifier.weight(1f))
-            SettingsChoiceButton("Sáng", themeMode == AppThemeMode.Light, { onThemeModeChanged(AppThemeMode.Light) }, Modifier.weight(1f))
-            SettingsChoiceButton("Tối", themeMode == AppThemeMode.Dark, { onThemeModeChanged(AppThemeMode.Dark) }, Modifier.weight(1f))
-        }
-        SettingsSwitchTile(
+        SegmentedThemeSelector(themeMode = themeMode, onThemeModeChanged = onThemeModeChanged)
+        SwitchSettingsRow(
             icon = "🎨",
             title = "Màu theo thiết bị",
-            description = "Giao diện sẽ tự đồng bộ màu theo cài đặt của điện thoại nếu được hỗ trợ.",
+            description = "Giao diện tự đồng bộ màu theo cài đặt của điện thoại nếu được hỗ trợ.",
             checked = dynamicColorEnabled,
             onCheckedChange = onDynamicColorChanged
         )
@@ -353,86 +371,234 @@ private fun AppearanceSection(
 }
 
 @Composable
-private fun AssistantSection(
+private fun LearningExperienceSection(
     assistantBubbleEnabled: Boolean,
-    onAssistantBubbleChanged: (Boolean) -> Unit
+    autoPlayVideo: Boolean,
+    videoSoundEnabled: Boolean,
+    soundEffectsEnabled: Boolean,
+    learningReminderEnabled: Boolean,
+    onAssistantBubbleChanged: (Boolean) -> Unit,
+    onAutoPlayVideoChanged: (Boolean) -> Unit,
+    onVideoSoundChanged: (Boolean) -> Unit,
+    onSoundEffectsChanged: (Boolean) -> Unit
 ) {
-    SettingsSection(title = "Trợ lý", icon = "💬") {
-        SettingsSwitchTile(
+    SettingsSection(title = "Trải nghiệm học", icon = "✨") {
+        SwitchSettingsRow(
             icon = "💬",
             title = "Bong bóng trợ lý",
-            description = "Hiện nút trợ lý nhỏ ở góc màn hình để hỗ trợ bé khi cần.",
+            description = "Hiện nút trợ lý nhỏ ở góc màn hình.",
             checked = assistantBubbleEnabled,
             onCheckedChange = onAssistantBubbleChanged
         )
-    }
-}
-
-@Composable
-private fun LearningMediaSection(
-    learnVideoAutoplayEnabled: Boolean,
-    learnVideoSoundEnabled: Boolean,
-    soundEffectsEnabled: Boolean,
-    learningReminderEnabled: Boolean,
-    onLearnVideoAutoplayChanged: (Boolean) -> Unit,
-    onLearnVideoSoundChanged: (Boolean) -> Unit,
-    onSoundEffectsChanged: (Boolean) -> Unit
-) {
-    SettingsSection(title = "Học tập & video", icon = "🎬") {
-        SettingsSwitchTile(
+        ThinDivider()
+        SwitchSettingsRow(
             icon = "▶",
             title = "Tự phát video mẫu",
             description = "Video ở trang Học sẽ tự chạy khi mở cảm xúc.",
-            checked = learnVideoAutoplayEnabled,
-            onCheckedChange = onLearnVideoAutoplayChanged
+            checked = autoPlayVideo,
+            onCheckedChange = onAutoPlayVideoChanged
         )
-        SettingsSwitchTile(
+        ThinDivider()
+        SwitchSettingsRow(
             icon = "🔊",
             title = "Âm thanh video",
             description = "Bật hoặc tắt tiếng cho video mẫu.",
-            checked = learnVideoSoundEnabled,
-            onCheckedChange = onLearnVideoSoundChanged
+            checked = videoSoundEnabled,
+            onCheckedChange = onVideoSoundChanged
         )
-        SettingsSwitchTile(
+        ThinDivider()
+        SwitchSettingsRow(
             icon = "♪",
             title = "Âm thanh hiệu ứng",
             description = "Bật âm thanh khi bấm nút, trả lời đúng hoặc nhận phần thưởng.",
             checked = soundEffectsEnabled,
             onCheckedChange = onSoundEffectsChanged
         )
-        SettingsSwitchTile(
+        ThinDivider()
+        SwitchSettingsRow(
             icon = "🔔",
             title = "Nhắc nhở học tập",
-            description = "Gửi thông báo nhắc bé luyện tập mỗi ngày.",
+            description = "Nhắc bé luyện tập mỗi ngày.",
             checked = learningReminderEnabled,
             onCheckedChange = {},
             enabled = false,
-            status = "Sắp ra mắt"
+            badge = "Sắp ra mắt"
         )
     }
 }
 
 @Composable
-private fun ParentAreaCard(
-    onOpenAccount: () -> Unit,
-    onOpenPassword: () -> Unit,
-    onOpenCameraPrivacy: () -> Unit,
-    onOpenPermissions: () -> Unit
-) {
-    SettingsSection(
-        title = "Khu vực phụ huynh",
-        description = "Quản lý tài khoản, quyền riêng tư và dữ liệu của bé.",
-        icon = "👤"
-    ) {
-        ParentAreaRow("👤", "Thông tin tài khoản", onOpenAccount)
-        ParentAreaRow("🔒", "Đổi mật khẩu", onOpenPassword)
-        ParentAreaRow("📷", "Quyền riêng tư camera", onOpenCameraPrivacy)
-        ParentAreaRow("⚙", "Quyền ứng dụng", onOpenPermissions)
+private fun ParentAreaEntryCard(onClick: () -> Unit) {
+    EgSoftCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SettingsIcon("👤")
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Khu vực phụ huynh", color = EgDesign.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "Quản lý tài khoản, bảo mật, quyền riêng tư và dữ liệu học tập của bé.",
+                    color = EgDesign.textSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(">", color = EgDesign.textSecondary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
 @Composable
-private fun AccountSection(
+private fun AboutAppSection() {
+    SettingsSection(title = "Về ứng dụng", icon = "ℹ") {
+        CompactValueRow("ℹ", "Phiên bản ứng dụng", "1.0")
+        ThinDivider()
+        CompactValueRow("🔐", "Chính sách quyền riêng tư", "Sắp cập nhật")
+        ThinDivider()
+        CompactValueRow("📄", "Điều khoản sử dụng", "Sắp cập nhật")
+        ThinDivider()
+        CompactValueRow("☎", "Liên hệ hỗ trợ", "Sắp cập nhật")
+    }
+}
+
+@Composable
+private fun SessionSection(
+    isLoggedIn: Boolean,
+    onLogin: () -> Unit,
+    onLogout: () -> Unit
+) {
+    if (isLoggedIn) {
+        SettingsButton(
+            text = "Đăng xuất",
+            onClick = onLogout,
+            modifier = Modifier.fillMaxWidth(),
+            danger = true,
+            tonal = true
+        )
+    } else {
+        SettingsButton(
+            text = "Đăng nhập",
+            onClick = onLogin,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun ParentAreaBottomSheet(
+    isLoggedIn: Boolean,
+    loading: Boolean,
+    error: Boolean,
+    profile: UserProfileDto?,
+    onDismiss: () -> Unit,
+    onLogin: () -> Unit,
+    onRetry: () -> Unit,
+    onEditAccount: () -> Unit,
+    onChangePassword: () -> Unit,
+    onCameraPrivacy: () -> Unit,
+    onOpenSystemSettings: () -> Unit,
+    onResetPreferences: () -> Unit,
+    onClearProgress: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 620.dp)
+                    .heightIn(max = 720.dp),
+                shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp, bottomStart = 20.dp, bottomEnd = 20.dp),
+                color = EgDesign.card,
+                border = BorderStroke(1.dp, EgDesign.cardBorder),
+                shadowElevation = 10.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    BottomSheetHeader(
+                        title = "Khu vực phụ huynh",
+                        subtitle = "Quản lý tài khoản, quyền riêng tư và dữ liệu của bé.",
+                        onDismiss = onDismiss
+                    )
+                    ParentAccountSection(
+                        isLoggedIn = isLoggedIn,
+                        loading = loading,
+                        error = error,
+                        profile = profile,
+                        onLogin = onLogin,
+                        onRetry = onRetry,
+                        onEdit = onEditAccount
+                    )
+                    ParentCompactSection(title = "Bảo mật", icon = "🔒") {
+                        ActionSettingsRow(
+                            icon = "🔒",
+                            title = "Đổi mật khẩu",
+                            description = "Bạn có thể đổi mật khẩu đăng nhập tại đây.",
+                            actionText = "Đổi",
+                            onClick = onChangePassword
+                        )
+                    }
+                    ParentCompactSection(title = "Quyền riêng tư", icon = "📷") {
+                        ActionSettingsRow(
+                            icon = "📷",
+                            title = "Quyền riêng tư camera",
+                            description = "Camera chỉ dùng để nhận diện biểu cảm khi chơi. App không lưu ảnh hoặc video của bé.",
+                            actionText = "Xem",
+                            onClick = onCameraPrivacy
+                        )
+                        ThinDivider()
+                        ActionSettingsRow(
+                            icon = "⚙",
+                            title = "Quyền ứng dụng",
+                            description = "Cấp quyền camera để chơi thử thách biểu cảm và quyền thông báo để nhận nhắc nhở học tập.",
+                            actionText = "Mở",
+                            onClick = onOpenSystemSettings
+                        )
+                    }
+                    ParentCompactSection(title = "Dữ liệu học tập", icon = "💾") {
+                        ActionSettingsRow(
+                            icon = "↺",
+                            title = "Đặt lại tùy chọn",
+                            description = "Khôi phục giao diện, trợ lý, video và âm thanh về mặc định.",
+                            actionText = "Đặt lại",
+                            onClick = onResetPreferences
+                        )
+                        ThinDivider()
+                        ActionSettingsRow(
+                            icon = "💾",
+                            title = "Xóa tiến độ học",
+                            description = "Xóa điểm, lịch sử chơi và tiến độ học của bé.",
+                            actionText = "Xóa tiến độ",
+                            onClick = onClearProgress,
+                            danger = true,
+                            fullWidthAction = true
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParentAccountSection(
     isLoggedIn: Boolean,
     loading: Boolean,
     error: Boolean,
@@ -441,128 +607,43 @@ private fun AccountSection(
     onRetry: () -> Unit,
     onEdit: () -> Unit
 ) {
-    SettingsSection(title = "Tài khoản", icon = "👤") {
+    ParentCompactSection(title = "Tài khoản", icon = "👤") {
         when {
             !isLoggedIn -> {
-                SettingsTile(icon = "👤", title = "Bạn chưa đăng nhập", description = "Đăng nhập để đồng bộ tiến độ học của bé.")
-                SettingsButton("Đăng nhập", onClick = onLogin, modifier = Modifier.fillMaxWidth())
+                ActionSettingsRow(
+                    icon = "👤",
+                    title = "Bạn chưa đăng nhập",
+                    description = "Đăng nhập để đồng bộ tiến độ học của bé.",
+                    actionText = "Đăng nhập",
+                    onClick = onLogin
+                )
             }
-            loading -> AccountLoadingCard()
+            loading -> AccountLoadingRow()
             error -> {
-                SettingsTile(
+                ActionSettingsRow(
                     icon = "!",
                     title = "Không tải được thông tin tài khoản.",
-                    description = "Vui lòng thử lại."
+                    description = "Vui lòng thử lại.",
+                    actionText = "Thử lại",
+                    onClick = onRetry
                 )
-                SettingsButton("Thử lại", onClick = onRetry, modifier = Modifier.fillMaxWidth())
             }
             else -> {
-                SettingsInfoRow("👤", "Tên đăng nhập", missing(profile?.username))
-                SettingsInfoRow("✉", "Email", missing(profile?.email))
-                SettingsInfoRow("☎", "Số điện thoại", missing(profile?.child?.phone))
-                SettingsButton("Cập nhật thông tin", onClick = onEdit, modifier = Modifier.fillMaxWidth())
+                CompactValueRow("👤", "Tên đăng nhập", missing(profile?.username))
+                ThinDivider()
+                CompactValueRow("✉", "Email", missing(profile?.email))
+                ThinDivider()
+                CompactValueRow("☎", "Số điện thoại", missing(profile?.child?.phone))
+                ThinDivider()
+                ActionSettingsRow(
+                    icon = "👤",
+                    title = "Hồ sơ bé",
+                    description = "Cập nhật thông tin tài khoản khi cần.",
+                    actionText = "Sửa",
+                    onClick = onEdit
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun SecuritySection(onChangePassword: () -> Unit) {
-    SettingsSection(title = "Bảo mật", icon = "🔒") {
-        SettingsActionTile(
-            icon = "🔒",
-            title = "Bảo mật",
-            description = "Bạn có thể đổi mật khẩu đăng nhập tại đây.",
-            actionText = "Đổi mật khẩu",
-            onClick = onChangePassword
-        )
-    }
-}
-
-@Composable
-private fun CameraPrivacySection(onViewDetail: () -> Unit) {
-    SettingsSection(title = "Quyền riêng tư camera", icon = "📷") {
-        SettingsActionTile(
-            icon = "📷",
-            title = "Quyền riêng tư camera",
-            description = "Camera chỉ dùng để nhận diện biểu cảm khi chơi. App không lưu ảnh hoặc video của bé.",
-            actionText = "Xem chi tiết",
-            onClick = onViewDetail
-        )
-    }
-}
-
-@Composable
-private fun AppPermissionsSection(onOpenSystemSettings: () -> Unit) {
-    SettingsSection(title = "Quyền ứng dụng", icon = "⚙") {
-        SettingsActionTile(
-            icon = "⚙",
-            title = "Quyền ứng dụng",
-            description = "Cấp quyền camera để chơi thử thách biểu cảm và quyền thông báo để nhận nhắc nhở học tập.",
-            actionText = "Mở cài đặt",
-            onClick = onOpenSystemSettings
-        )
-    }
-}
-
-@Composable
-private fun DataSection(
-    onResetPreferences: () -> Unit,
-    onClearProgress: () -> Unit
-) {
-    SettingsSection(title = "Dữ liệu", icon = "💾") {
-        SettingsActionTile(
-            icon = "↺",
-            title = "Đặt lại tùy chọn",
-            description = "Khôi phục giao diện, trợ lý, video và âm thanh về mặc định.",
-            actionText = "Đặt lại",
-            onClick = onResetPreferences
-        )
-        SettingsActionTile(
-            icon = "💾",
-            title = "Đặt lại tiến độ học",
-            description = "Xóa điểm, lịch sử chơi và tiến độ học của bé.",
-            actionText = "Xóa tiến độ",
-            onClick = onClearProgress,
-            danger = true
-        )
-    }
-}
-
-@Composable
-private fun SessionSection(
-    isLoggedIn: Boolean,
-    onLogout: () -> Unit,
-    onLogin: () -> Unit
-) {
-    SettingsSection(title = "Phiên đăng nhập", icon = "🚪") {
-        if (isLoggedIn) {
-            SettingsButton(
-                text = "Đăng xuất",
-                onClick = onLogout,
-                modifier = Modifier.fillMaxWidth(),
-                danger = true,
-                tonal = true
-            )
-        } else {
-            SettingsActionTile(
-                icon = "👤",
-                title = "Bạn chưa đăng nhập",
-                description = "Đăng nhập để đồng bộ dữ liệu học tập.",
-                actionText = "Đăng nhập",
-                onClick = onLogin
-            )
-        }
-    }
-}
-
-@Composable
-private fun AboutSection() {
-    SettingsSection(title = "Về ứng dụng", icon = "ℹ") {
-        SettingsInfoRow("ℹ", "Phiên bản ứng dụng", "1.0")
-        SettingsInfoRow("🔐", "Chính sách quyền riêng tư", "Sắp cập nhật")
-        SettingsInfoRow("📄", "Điều khoản sử dụng", "Sắp cập nhật")
-        SettingsInfoRow("☎", "Liên hệ hỗ trợ", "Sắp cập nhật")
     }
 }
 
@@ -570,183 +651,202 @@ private fun AboutSection() {
 private fun SettingsSection(
     title: String,
     icon: String,
-    description: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     EgSoftCard {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SettingsIcon(icon)
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(title, color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                    description?.let {
-                        Text(it, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
-                    }
-                }
-            }
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionTitle(title = title, icon = icon)
             content()
         }
     }
 }
 
 @Composable
-private fun SettingsTile(
-    icon: String,
+private fun ParentCompactSection(
     title: String,
-    description: String,
-    trailing: (@Composable () -> Unit)? = null,
-    enabled: Boolean = true
+    icon: String,
+    content: @Composable ColumnScope.() -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        SettingsIcon(icon, size = 38.dp)
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, color = if (enabled) EgDesign.textPrimary else EgDesign.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text(description, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionTitle(title = title, icon = icon)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = EgDesign.cardSoft,
+            border = BorderStroke(1.dp, EgDesign.cardBorder)
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                content()
+            }
         }
-        trailing?.invoke()
     }
 }
 
 @Composable
-private fun SettingsSwitchTile(
+private fun SectionTitle(title: String, icon: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+        SettingsIcon(icon, size = 34.dp)
+        Text(title, color = EgDesign.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+    }
+}
+
+@Composable
+private fun SegmentedThemeSelector(
+    themeMode: AppThemeMode,
+    onThemeModeChanged: (AppThemeMode) -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SettingsChoiceButton("Hệ thống", themeMode == AppThemeMode.System, { onThemeModeChanged(AppThemeMode.System) }, Modifier.weight(1f))
+        SettingsChoiceButton("Sáng", themeMode == AppThemeMode.Light, { onThemeModeChanged(AppThemeMode.Light) }, Modifier.weight(1f))
+        SettingsChoiceButton("Tối", themeMode == AppThemeMode.Dark, { onThemeModeChanged(AppThemeMode.Dark) }, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun SwitchSettingsRow(
     icon: String,
     title: String,
     description: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean = true,
-    status: String? = null
+    badge: String? = null
 ) {
-    SettingsTile(
-        icon = icon,
-        title = title,
-        description = description,
-        enabled = enabled,
-        trailing = {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Switch(
-                    checked = checked,
-                    onCheckedChange = onCheckedChange,
-                    enabled = enabled,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = EgDesign.primary,
-                        checkedBorderColor = EgDesign.primary,
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = EgDesign.cardSoft,
-                        uncheckedBorderColor = EgDesign.cardBorder,
-                        disabledCheckedThumbColor = Color.White.copy(alpha = 0.65f),
-                        disabledCheckedTrackColor = EgDesign.cardBorder,
-                        disabledUncheckedThumbColor = Color.White.copy(alpha = 0.65f),
-                        disabledUncheckedTrackColor = EgDesign.cardBorder
-                    )
-                )
-                status?.let {
-                    Text(it, color = EgDesign.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 54.dp)
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        SettingsIcon(icon, size = 36.dp)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(title, color = if (enabled) EgDesign.textPrimary else EgDesign.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                badge?.let { SettingsBadge(it) }
             }
+            Text(description, color = EgDesign.textSecondary, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-    )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = EgDesign.primary,
+                checkedBorderColor = EgDesign.primary,
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = EgDesign.cardSoft,
+                uncheckedBorderColor = EgDesign.cardBorder,
+                disabledCheckedThumbColor = Color.White.copy(alpha = 0.7f),
+                disabledCheckedTrackColor = EgDesign.cardBorder,
+                disabledUncheckedThumbColor = Color.White.copy(alpha = 0.7f),
+                disabledUncheckedTrackColor = EgDesign.cardBorder
+            )
+        )
+    }
 }
 
 @Composable
-private fun SettingsActionTile(
+private fun ActionSettingsRow(
     icon: String,
     title: String,
     description: String,
     actionText: String,
     onClick: () -> Unit,
     danger: Boolean = false,
-    enabled: Boolean = true
+    fullWidthAction: Boolean = false
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SettingsIcon(icon, size = 38.dp)
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-                Text(description, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val narrow = maxWidth < 360.dp || fullWidthAction
+        if (narrow) {
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CompactTextBlock(icon = icon, title = title, description = description)
+                SettingsButton(
+                    text = actionText,
+                    onClick = onClick,
+                    modifier = if (fullWidthAction) Modifier.fillMaxWidth() else Modifier.align(Alignment.End),
+                    danger = danger,
+                    tonal = danger,
+                    minWidth = 120.dp
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CompactTextBlock(icon = icon, title = title, description = description, modifier = Modifier.weight(1f))
+                SettingsButton(text = actionText, onClick = onClick, danger = danger, tonal = danger, minWidth = 112.dp)
             }
         }
-        SettingsButton(
-            text = actionText,
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
-            danger = danger,
-            tonal = danger,
-            enabled = enabled
-        )
     }
 }
 
 @Composable
-private fun ParentAreaRow(icon: String, title: String, onClick: () -> Unit) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
-        color = EgDesign.cardSoft,
-        border = BorderStroke(1.dp, EgDesign.cardBorder)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            SettingsIcon(icon, size = 34.dp)
-            Text(title, modifier = Modifier.weight(1f), color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text(">", color = EgDesign.textSecondary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
-private fun SettingsInfoRow(icon: String, label: String, value: String) {
+private fun CompactValueRow(icon: String, label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .heightIn(min = 46.dp)
+            .padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        SettingsIcon(icon, size = 36.dp)
+        SettingsIcon(icon, size = 34.dp)
+        Text(label, modifier = Modifier.weight(1f), color = EgDesign.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, color = EgDesign.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
+    }
+}
+
+@Composable
+private fun CompactTextBlock(
+    icon: String,
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier
+) {
+    Row(modifier = modifier, verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        SettingsIcon(icon, size = 34.dp)
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = EgDesign.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            Text(value, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(description, color = EgDesign.textSecondary, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
 
 @Composable
-private fun AccountLoadingCard() {
+private fun AccountLoadingRow() {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(EgDesign.cardSoft, RoundedCornerShape(14.dp))
-            .padding(14.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = EgDesign.primary)
         Text("Đang tải thông tin tài khoản...", color = EgDesign.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun BottomSheetHeader(title: String, subtitle: String, onDismiss: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        SettingsIcon("👤")
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, color = EgDesign.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            Text(subtitle, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+        }
+        Surface(
+            modifier = Modifier.size(40.dp).clickable(onClick = onDismiss),
+            shape = CircleShape,
+            color = EgDesign.cardSoft,
+            border = BorderStroke(1.dp, EgDesign.cardBorder)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("x", color = EgDesign.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -758,13 +858,11 @@ private fun SettingsChoiceButton(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier
-            .height(44.dp)
-            .clickable(onClick = onClick),
+        modifier = modifier.height(42.dp).clickable(onClick = onClick),
         shape = RoundedCornerShape(EgDesign.pillRadius),
-        color = if (selected) EgDesign.primary else EgDesign.card,
+        color = if (selected) EgDesign.primary else EgDesign.cardSoft,
         border = BorderStroke(1.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
-        shadowElevation = if (selected) 2.dp else 1.dp
+        shadowElevation = if (selected) 2.dp else 0.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
@@ -802,10 +900,7 @@ private fun SettingsButton(
         else -> Color.White
     }
     Surface(
-        modifier = modifier
-            .height(44.dp)
-            .widthIn(min = minWidth)
-            .clickable(enabled = enabled, onClick = onClick),
+        modifier = modifier.height(44.dp).widthIn(min = minWidth).clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(EgDesign.pillRadius),
         color = if (enabled) background else EgDesign.cardBorder,
         border = BorderStroke(1.dp, if (danger && tonal) Color(0xFFFECACA) else EgDesign.cardBorder),
@@ -826,7 +921,7 @@ private fun SettingsButton(
 }
 
 @Composable
-private fun SettingsIcon(icon: String, size: Dp = 42.dp) {
+private fun SettingsIcon(icon: String, size: Dp = 40.dp) {
     Surface(
         modifier = Modifier.size(size),
         shape = CircleShape,
@@ -834,9 +929,21 @@ private fun SettingsIcon(icon: String, size: Dp = 42.dp) {
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(icon, fontSize = if (size < 38.dp) 16.sp else 20.sp, textAlign = TextAlign.Center)
+            Text(icon, fontSize = if (size < 36.dp) 15.sp else 19.sp, textAlign = TextAlign.Center)
         }
     }
+}
+
+@Composable
+private fun SettingsBadge(text: String) {
+    Surface(shape = RoundedCornerShape(EgDesign.pillRadius), color = EgDesign.cardSoft, border = BorderStroke(1.dp, EgDesign.cardBorder)) {
+        Text(text, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = EgDesign.textSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun ThinDivider() {
+    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(EgDesign.cardBorder.copy(alpha = 0.55f)))
 }
 
 @Composable
@@ -961,9 +1068,10 @@ private fun ChangePasswordDialog(
 private fun CameraPrivacyDialog(onDismiss: () -> Unit, onOpenSystemSettings: () -> Unit) {
     SettingsDialog(onDismiss = onDismiss) {
         DialogHeader("📷", "Quyền riêng tư camera", "Camera chỉ dùng trong các trò chơi biểu cảm.")
-        CameraPrivacyItem("Khi nào camera được bật?", "Camera chỉ bật khi bé vào trò chơi cần nhận diện khuôn mặt.")
-        CameraPrivacyItem("Dữ liệu có được lưu không?", "App không lưu ảnh hoặc video của bé trên thiết bị.")
-        CameraPrivacyItem("Dữ liệu có gửi lên máy chủ không?", "App chỉ lưu kết quả luyện tập như điểm số và cảm xúc đã hoàn thành.")
+        CameraPrivacyItem("Khi nào camera được bật?", "Camera chỉ bật khi bé bắt đầu trò chơi cần nhận diện khuôn mặt.")
+        CameraPrivacyItem("Camera dùng để làm gì?", "Camera giúp app nhận diện biểu cảm trong lúc bé chơi.")
+        CameraPrivacyItem("Dữ liệu có được lưu không?", "App không lưu ảnh hoặc video của bé.")
+        CameraPrivacyItem("Dữ liệu có gửi lên máy chủ không?", "Quá trình nhận diện được xử lý trên thiết bị; app chỉ lưu kết quả luyện tập như điểm số.")
         CameraPrivacyItem("Cách tắt quyền camera", "Bạn có thể vào quyền ứng dụng của điện thoại và tắt Camera bất cứ lúc nào.")
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SettingsButton("Đóng", onClick = onDismiss, modifier = Modifier.weight(1f), tonal = true)
@@ -989,7 +1097,7 @@ private fun CameraPrivacyItem(title: String, description: String) {
 @Composable
 private fun ParentGateDialog(onDismiss: () -> Unit, onContinue: () -> Unit) {
     SettingsDialog(onDismiss = onDismiss) {
-        DialogHeader("👤", "Khu vực phụ huynh", "Đây là khu vực dành cho phụ huynh. Bạn có muốn tiếp tục không?")
+        DialogHeader("👤", "Khu vực phụ huynh", "Phần này dành cho phụ huynh để quản lý tài khoản và dữ liệu của bé.")
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SettingsButton("Hủy", onClick = onDismiss, modifier = Modifier.weight(1f), tonal = true)
             SettingsButton("Tiếp tục", onClick = onContinue, modifier = Modifier.weight(1f))
@@ -998,7 +1106,7 @@ private fun ParentGateDialog(onDismiss: () -> Unit, onContinue: () -> Unit) {
 }
 
 @Composable
-private fun SettingsConfirmDialog(
+private fun ConfirmActionDialog(
     action: ConfirmAction,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
@@ -1019,7 +1127,7 @@ private fun SettingsConfirmDialog(
 @Composable
 private fun SettingsDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        BoxWithConstraints(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 14.dp, vertical = 18.dp)
@@ -1028,18 +1136,14 @@ private fun SettingsDialog(onDismiss: () -> Unit, content: @Composable ColumnSco
             contentAlignment = Alignment.Center
         ) {
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = 560.dp),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 560.dp),
                 shape = RoundedCornerShape(24.dp),
                 color = EgDesign.card,
                 border = BorderStroke(1.dp, EgDesign.cardBorder),
                 shadowElevation = 8.dp
             ) {
                 Column(
-                    modifier = Modifier
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
+                    modifier = Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     content = content
                 )
@@ -1102,13 +1206,6 @@ private fun SettingsTextField(
             cursorColor = EgDesign.primaryDark
         )
     )
-}
-
-private enum class ParentAction {
-    Account,
-    Password,
-    CameraPrivacy,
-    AppPermissions
 }
 
 private enum class ConfirmAction {

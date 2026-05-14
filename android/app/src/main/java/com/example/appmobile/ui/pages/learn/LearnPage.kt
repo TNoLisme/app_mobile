@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -55,7 +54,6 @@ import com.example.appmobile.ui.catalog.EmotionUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
 import com.example.appmobile.ui.components.EgDesign
-import com.example.appmobile.ui.components.EgGradientPill
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgTab
 import com.example.appmobile.ui.components.egEmotionDisplayName
@@ -127,9 +125,10 @@ fun LearnPage(
             emotion = selectedEmotion,
             pageIndex = pageIndex,
             onPrevious = { pageIndex = if (pageIndex == 0) 1 else 0 },
-            onNext = { pageIndex = if (pageIndex == 0) 1 else 0 },
-            onSelectDetail = { onSelectEmotion(selectedEmotion.id) }
+            onNext = { pageIndex = if (pageIndex == 0) 1 else 0 }
         )
+
+        EmotionRememberCard(emotion = selectedEmotion)
 
         EmotionGrid(
             emotions = gridEmotions,
@@ -172,7 +171,7 @@ private fun EmotionGrid(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        emotions.take(6).chunked(3).forEach { rowEmotions ->
+        emotions.take(6).chunked(2).forEach { rowEmotions ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -185,9 +184,46 @@ private fun EmotionGrid(
                         modifier = Modifier.weight(1f)
                     )
                 }
-                repeat(3 - rowEmotions.size) {
+                repeat(2 - rowEmotions.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmotionRememberCard(emotion: EmotionUiItem) {
+    val key = egEmotionKey(emotion)
+    val notes = remember(key) { rememberTextsForEmotion(key) }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFFF8FCFF),
+        border = BorderStroke(1.dp, Color(0xFFDCEBFA)),
+        shadowElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("💡", fontSize = 19.sp)
+                Text(
+                    "Bé cần nhớ",
+                    color = EgDesign.blue,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            notes.forEach { note ->
+                Text(
+                    text = "• $note",
+                    color = EgDesign.textPrimary,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
@@ -236,8 +272,7 @@ private fun LearnMediaCarousel(
     emotion: EmotionUiItem,
     pageIndex: Int,
     onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onSelectDetail: () -> Unit
+    onNext: () -> Unit
 ) {
     EgSoftCard {
         Column(
@@ -259,9 +294,6 @@ private fun LearnMediaCarousel(
                         color = EgDesign.textSecondary,
                         fontSize = 13.sp
                     )
-                }
-                TextButton(onClick = onSelectDetail) {
-                    Text("Chi tiết", color = EgDesign.blue, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -288,7 +320,7 @@ private fun LearnMediaCarousel(
             }
 
             if (pageIndex == 1) {
-                SituationPanel(emotion = emotion, onSelectDetail = onSelectDetail)
+                SituationPanel(emotion = emotion)
             }
 
             Row(
@@ -309,15 +341,15 @@ private fun MediaArrow(text: String, modifier: Modifier, onClick: () -> Unit) {
     Surface(
         modifier = modifier
             .padding(horizontal = 8.dp)
-            .size(40.dp)
+            .size(34.dp)
             .clickable(onClick = onClick),
         shape = CircleShape,
-        color = Color.White.copy(alpha = 0.92f),
+        color = Color.White.copy(alpha = 0.82f),
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = 2.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(text, color = EgDesign.blue, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            Text(text, color = EgDesign.blue, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -444,7 +476,7 @@ private fun AssetVideoPlayer(emotionId: String) {
         } else {
             Surface(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(42.dp)
                     .align(Alignment.Center)
                     .clickable {
                         if (!isPrepared) return@clickable
@@ -475,24 +507,19 @@ private fun AssetVideoPlayer(emotionId: String) {
 }
 
 @Composable
-private fun SituationPanel(emotion: EmotionUiItem, onSelectDetail: () -> Unit) {
+private fun SituationPanel(emotion: EmotionUiItem) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = Color(0xFFF8FBFF),
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = situationForEmotion(egEmotionKey(emotion)),
                 color = EgDesign.textPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 lineHeight = 22.sp
-            )
-            EgGradientPill(
-                text = "Xem dấu hiệu nhận biết",
-                onClick = onSelectDetail,
-                modifier = Modifier.fillMaxWidth()
             )
         }
     }
@@ -537,5 +564,38 @@ private fun situationForEmotion(emotionId: String): String {
         "surprise" -> "Huy mở hộp quà và thấy món đồ chơi mình thích nên rất ngạc nhiên."
         "disgust" -> "Minh ngửi thấy mùi rác thối nên cảm thấy ghê tởm."
         else -> "Hãy quan sát khuôn mặt và cơ thể để đoán cảm xúc của bạn nhỏ."
+    }
+}
+
+private fun rememberTextsForEmotion(emotionId: String): List<String> {
+    return when (egEmotionKey(emotionId)) {
+        "happy" -> listOf(
+            "Bé cảm thấy vui khi được chơi, được khen hoặc gặp người thân.",
+            "Khi vui, bé có thể cười và chia sẻ niềm vui với mọi người."
+        )
+        "sad" -> listOf(
+            "Bé có thể buồn khi mất đồ chơi hoặc phải xa người thân.",
+            "Khi buồn, bé có thể nói với bố mẹ hoặc cô giáo."
+        )
+        "angry" -> listOf(
+            "Bé có thể tức giận khi bị giành đồ chơi hoặc bị làm đau.",
+            "Khi tức giận, bé hãy hít thở chậm và nói với người lớn nhé."
+        )
+        "fear" -> listOf(
+            "Bé có thể sợ khi nghe tiếng lớn hoặc ở nơi tối.",
+            "Khi sợ, bé hãy ở gần người lớn và nói điều mình lo lắng."
+        )
+        "surprise" -> listOf(
+            "Bé có thể ngạc nhiên khi thấy điều mới lạ.",
+            "Khi ngạc nhiên, bé thường mở to mắt hoặc há miệng nhẹ."
+        )
+        "disgust" -> listOf(
+            "Bé có thể thấy ghê tởm khi ngửi mùi khó chịu hoặc thấy đồ bẩn.",
+            "Bé có thể tránh ra xa và nói với người lớn."
+        )
+        else -> listOf(
+            "Bé có thể nhìn mắt, miệng và lông mày để nhận ra cảm xúc.",
+            "Khi chưa chắc, bé hãy hỏi người lớn để được giúp nhé."
+        )
     }
 }

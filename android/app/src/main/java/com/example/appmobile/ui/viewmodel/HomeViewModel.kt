@@ -135,7 +135,7 @@ class HomeViewModel : ViewModel() {
             }
 
             if (!connected && failedRequests > 0) {
-                errorMessage.value = "Chưa kết nối được backend."
+                errorMessage.value = "Chưa tải được dữ liệu. Bé vẫn có thể học và chơi trên thiết bị này."
             }
 
             isLoading.value = false

@@ -31,12 +31,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,6 +46,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -128,6 +131,7 @@ fun AssistantPage(
     var input by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
+    var showClearConfirm by remember { mutableStateOf(false) }
     val speechRecognizer = remember(context) {
         if (SpeechRecognizer.isRecognitionAvailable(context)) {
             SpeechRecognizer.createSpeechRecognizer(context)
@@ -333,11 +337,7 @@ fun AssistantPage(
             .padding(horizontal = EgDesign.screenPadding, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        AssistantHeader(onBack = onBack, onClear = {
-            messages.clear()
-            messages.add(AssistantMessage(MessageRole.Assistant, welcomeMessage(gameId, level)))
-            persistMessages()
-        })
+        AssistantHeader(onBack = onBack, onClear = { showClearConfirm = true })
 
         AssistantIntroCard(gameId = gameId, level = level)
 
@@ -371,6 +371,18 @@ fun AssistantPage(
             onVoiceInput = { openVoiceInput() }
         )
     }
+
+    if (showClearConfirm) {
+        ClearChatConfirmDialog(
+            onDismiss = { showClearConfirm = false },
+            onConfirm = {
+                showClearConfirm = false
+                messages.clear()
+                messages.add(AssistantMessage(MessageRole.Assistant, welcomeMessage(gameId, level)))
+                persistMessages()
+            }
+        )
+    }
 }
 
 @Composable
@@ -399,6 +411,37 @@ private fun AssistantHeader(onBack: () -> Unit, onClear: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun ClearChatConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Text("🧹", fontSize = 26.sp) },
+        title = {
+            Text("Xóa cuộc trò chuyện?", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold)
+        },
+        text = {
+            Text(
+                "Các tin nhắn hiện tại sẽ bị xóa khỏi màn hình.",
+                color = EgDesign.textSecondary,
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Hủy", color = EgDesign.textSecondary, fontWeight = FontWeight.Bold)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Xóa", color = Color(0xFFDC2626), fontWeight = FontWeight.ExtraBold)
+            }
+        },
+        containerColor = EgDesign.card,
+        shape = RoundedCornerShape(22.dp)
+    )
 }
 
 @Composable
@@ -450,15 +493,15 @@ private fun SuggestionRow(
     onSuggestionClick: (String) -> Unit
 ) {
     val suggestions = quickSuggestions(gameId)
-    Row(
+    LazyRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        suggestions.take(3).forEach { suggestion ->
+        items(suggestions) { suggestion ->
             Surface(
                 modifier = Modifier
-                    .weight(1f)
                     .height(42.dp)
+                    .widthIn(min = 116.dp)
                     .clickable(enabled = enabled) { onSuggestionClick(suggestion) },
                 shape = RoundedCornerShape(EgDesign.pillRadius),
                 color = EgDesign.cardSoft,
@@ -552,7 +595,7 @@ private fun AssistantInputRow(
             value = input,
             onValueChange = onInputChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Hỏi cách chơi hoặc gợi ý cảm xúc...") },
+            placeholder = { Text("Hỏi mình về cảm xúc hoặc cách chơi...") },
             minLines = 1,
             maxLines = 3,
             shape = RoundedCornerShape(18.dp),
@@ -655,11 +698,11 @@ private fun assistantContextText(gameId: String, level: Int?): String {
 
 private fun quickSuggestions(gameId: String): List<String> {
     return when (gameId) {
-        "learn" -> listOf("Nhận biết vui vẻ", "Nhận biết buồn bã", "Học gì trước?")
-        "select_game" -> listOf("Game nào dễ?", "Nên chơi gì?", "Game camera?")
-        "level_select" -> listOf("Chọn cấp nào?", "Sao bị khóa?", "Cách mở cấp")
-        "gameCV" -> listOf("Cách chơi?", "Đoán tình huống?", "Camera không bật")
-        "game_cv_2" -> listOf("Cách chơi?", "Gợi ý vui vẻ", "Camera không bật")
-        else -> listOf("Con nên chơi gì?", "Gợi ý cảm xúc", "Cách dùng app")
+        "learn" -> listOf("Hôm nay nên học gì?", "Giải thích cảm xúc", "Con đang buồn", "Dành cho phụ huynh")
+        "select_game" -> listOf("Gợi ý trò chơi", "Cách chơi game", "Hôm nay nên học gì?", "Dành cho phụ huynh")
+        "level_select" -> listOf("Cách chơi game", "Gợi ý trò chơi", "Hôm nay nên học gì?", "Dành cho phụ huynh")
+        "gameCV" -> listOf("Cách chơi game", "Giải thích cảm xúc", "Camera không bật", "Con đang buồn")
+        "game_cv_2" -> listOf("Cách chơi game", "Gợi ý trò chơi", "Camera không bật", "Con đang buồn")
+        else -> listOf("Hôm nay nên học gì?", "Gợi ý trò chơi", "Cách chơi game", "Giải thích cảm xúc", "Con đang buồn", "Dành cho phụ huynh")
     }
 }
