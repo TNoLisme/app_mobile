@@ -76,6 +76,11 @@ fun HomePage(
 ) {
     val loading by vm.isLoading
     val errorMessage by vm.errorMessage
+    val childName by vm.childName
+    val recommendedEmotion = recommendedHomeEmotion(vm.emotions)
+    val learnedEmotionCount = vm.emotions.count { it.correct + it.incorrect > 0 }.coerceAtMost(6)
+    val gamesPlayedCount = vm.recentGames.size
+    val averageAccuracy = vm.emotions.takeIf { it.isNotEmpty() }?.map { it.accuracy }?.average()?.toInt()
 
     EgCollapsibleMainScaffold(
         activeTab = EgTab.Home,
@@ -91,13 +96,43 @@ fun HomePage(
         }
 
         if (loading) {
-            LoadingStrip("Đang tải dữ liệu trang chủ...")
+            LoadingStrip("Đang chuẩn bị bài học cho bé...")
         }
 
-        EmotionAccuracySection(emotions = vm.emotions)
+        GreetingSection(childName = childName)
+
+        TodayLearningCard(
+            emotionName = recommendedEmotion,
+            onStartLearn = onNavigateToLearn,
+            onStartChallenge = { onNavigateToLevel(GameUiCatalog.GAME_CV_REQUEST) }
+        )
+
+        QuickActionRow(
+            onLearn = onNavigateToLearn,
+            onGames = { onNavigateToGame("all") },
+            onReport = onNavigateToReport
+        )
+
+        ProgressSummaryCard(
+            learnedEmotionCount = learnedEmotionCount,
+            gamesPlayedCount = gamesPlayedCount,
+            averageAccuracy = averageAccuracy,
+            onPlay = { onNavigateToGame("all") }
+        )
+
+        RecommendationCard(
+            emotionName = recommendedEmotion,
+            hasProgress = vm.emotions.isNotEmpty(),
+            onStartLearn = onNavigateToLearn
+        )
+
+        if (vm.emotions.isNotEmpty()) {
+            EmotionAccuracySection(emotions = vm.emotions)
+        }
 
         RecentGamesSection(
             games = vm.recentGames,
+            onPlayNow = { onNavigateToGame("all") },
             onOpenGame = { game ->
                 if (!game.id.isNullOrBlank()) {
                     onNavigateToLevel(game.id)
@@ -109,6 +144,232 @@ fun HomePage(
 
         ProgressReportCard(onNavigateToReport = onNavigateToReport)
     }
+}
+
+@Composable
+private fun GreetingSection(childName: String?) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = childName?.takeIf { it.isNotBlank() }?.let { "Chào bé $it 👋" } ?: "Chào bé yêu 👋",
+            color = HomeTextPrimary,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+        Text(
+            text = "Hôm nay mình cùng học cảm xúc nhé!",
+            color = HomeTextSecondary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun TodayLearningCard(
+    emotionName: String,
+    onStartLearn: () -> Unit,
+    onStartChallenge: () -> Unit
+) {
+    val emoji = egEmotionIcon(emotionName)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7FF)),
+        border = BorderStroke(1.dp, Color(0xFFCDE7FA)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Hôm nay bé học gì?", color = HomeBlue, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(emoji, fontSize = 42.sp)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "Cùng luyện cảm xúc ${egEmotionDisplayName(emotionName)}",
+                        color = HomeTextPrimary,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        "Xem mẫu cảm xúc và thử làm khuôn mặt trước camera nhé.",
+                        color = HomeTextSecondary,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                HomeActionPill("Bắt đầu học", onStartLearn, Modifier.weight(1f), primary = true)
+                HomeActionPill("Chơi thử thách", onStartChallenge, Modifier.weight(1f), primary = false)
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickActionRow(
+    onLearn: () -> Unit,
+    onGames: () -> Unit,
+    onReport: () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        QuickActionCard("📚", "Học cảm xúc", onLearn, Modifier.weight(1f))
+        QuickActionCard("🎮", "Chơi game", onGames, Modifier.weight(1f))
+        QuickActionCard("📋", "Báo cáo", onReport, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun QuickActionCard(icon: String, text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier
+            .height(74.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = HomeCard,
+        border = BorderStroke(1.dp, HomeCardBorder),
+        shadowElevation = 1.dp
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(icon, fontSize = 23.sp)
+            Text(text, color = HomeBlue, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun ProgressSummaryCard(
+    learnedEmotionCount: Int,
+    gamesPlayedCount: Int,
+    averageAccuracy: Int?,
+    onPlay: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(HomeRadiusCard),
+        colors = CardDefaults.cardColors(containerColor = HomeCard),
+        border = BorderStroke(1.dp, HomeCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SectionTitle("Tiến độ nhanh")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProgressMiniStat("$learnedEmotionCount/6", "Cảm xúc đã học", Modifier.weight(1f))
+                ProgressMiniStat(if (gamesPlayedCount > 0) "$gamesPlayedCount" else "Chưa chơi", "Lượt chơi", Modifier.weight(1f))
+                ProgressMiniStat(averageAccuracy?.let { "$it%" } ?: "Chưa có", "Độ chính xác", Modifier.weight(1f))
+            }
+            if (gamesPlayedCount == 0) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Bé chơi thử một màn để xem tiến độ nhé!",
+                        modifier = Modifier.weight(1f),
+                        color = HomeTextSecondary,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
+                    )
+                    HomeActionPill("Chơi ngay", onPlay, primary = false)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressMiniStat(value: String, label: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.height(64.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFFF8FCFF),
+        border = BorderStroke(1.dp, Color(0xFFE3EEF8))
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Text(value, color = HomeBlue, fontSize = 17.sp, fontWeight = FontWeight.Black, maxLines = 1)
+            Text(label, color = HomeTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun RecommendationCard(emotionName: String, hasProgress: Boolean, onStartLearn: () -> Unit) {
+    HomeEmptyStateCard(
+        title = "Gợi ý cho bé",
+        subtitle = if (hasProgress) {
+            "Bé có thể luyện thêm cảm xúc ${egEmotionDisplayName(emotionName)} ${egEmotionIcon(emotionName)}."
+        } else {
+            "Bắt đầu với cảm xúc Vui vẻ 😊 để mở thống kê đầu tiên."
+        },
+        icon = "🌟",
+        actionText = "Xem bài học",
+        onAction = onStartLearn
+    )
+}
+
+@Composable
+private fun HomeEmptyStateCard(
+    title: String,
+    subtitle: String,
+    icon: String,
+    actionText: String,
+    onAction: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(HomeRadiusCard),
+        color = HomeCard,
+        border = BorderStroke(1.dp, HomeCardBorder),
+        shadowElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(icon, fontSize = 28.sp)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, color = HomeTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                Text(subtitle, color = HomeTextSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+            }
+            HomeActionPill(actionText, onAction, primary = false)
+        }
+    }
+}
+
+@Composable
+private fun HomeActionPill(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    primary: Boolean
+) {
+    Surface(
+        modifier = modifier
+            .height(42.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(HomeRadiusPill),
+        color = if (primary) HomePrimaryGradient else Color.White,
+        border = if (primary) null else BorderStroke(1.dp, HomeCardBorder),
+        shadowElevation = if (primary) 2.dp else 1.dp
+    ) {
+        Box(modifier = Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+            Text(
+                text,
+                color = if (primary) Color.White else HomeBlue,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+private fun recommendedHomeEmotion(emotions: List<HomeEmotionUi>): String {
+    if (emotions.isEmpty()) return "happy"
+    return emotions.minByOrNull { it.accuracy }?.name ?: "happy"
 }
 
 @Composable
@@ -203,8 +464,8 @@ private fun EmotionAccuracySection(emotions: List<HomeEmotionUi>) {
 
         if (emotions.isEmpty()) {
             EmptyHomeCard(
-                message = "Chưa có dữ liệu độ chính xác.",
-                subtitle = "Bé hãy chơi vài câu hỏi để có thống kê nhé.",
+                message = "Chơi thử thách đầu tiên để mở thống kê.",
+                subtitle = "Bé sẽ thấy cảm xúc nào mình làm tốt nhất.",
                 icon = "📊"
             )
             return
@@ -271,16 +532,19 @@ private fun EmotionStatCard(emotion: HomeEmotionUi, modifier: Modifier = Modifie
 @Composable
 private fun RecentGamesSection(
     games: List<HomeRecentGameUi>,
+    onPlayNow: () -> Unit,
     onOpenGame: (HomeRecentGameUi) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle("Trò chơi đã chơi gần đây")
 
         if (games.isEmpty()) {
-            EmptyHomeCard(
-                message = "Chưa có trò chơi nào được chơi gần đây.",
-                subtitle = "Hãy thử chơi một màn đầu tiên nhé!",
-                icon = "🎮"
+            HomeEmptyStateCard(
+                title = "Bé chưa chơi game nào",
+                subtitle = "Thử một trò chơi nhỏ để luyện cảm xúc nhé.",
+                icon = "🎮",
+                actionText = "Chơi ngay",
+                onAction = onPlayNow
             )
             return
         }

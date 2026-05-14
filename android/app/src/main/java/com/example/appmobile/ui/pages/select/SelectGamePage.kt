@@ -228,7 +228,7 @@ private fun GameBlock(
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 EgGradientPill(
-                    text = "Chọn cấp độ",
+                    text = displayGameActionText(game),
                     onClick = onClick,
                     modifier = Modifier.fillMaxWidth(),
                     height = 40.dp,
@@ -274,5 +274,12 @@ private fun displayGameDescription(game: GameUiItem): String {
         GameUiCatalog.GAME_CV_STORY -> "Bắt chước biểu cảm của nhân vật"
         GameUiCatalog.GAME_CV_REQUEST -> "Thể hiện biểu cảm theo yêu cầu"
         else -> game.description.ifBlank { "Chơi ngay!" }
+    }
+}
+
+private fun displayGameActionText(game: GameUiItem): String {
+    return when (game.id) {
+        GameUiCatalog.GAME_CV_REQUEST -> "Chơi ngay"
+        else -> "Chọn cấp độ"
     }
 }

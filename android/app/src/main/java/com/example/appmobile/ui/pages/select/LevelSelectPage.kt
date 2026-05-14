@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -54,7 +55,6 @@ import com.example.appmobile.ui.components.GameScreenShell
 import com.example.appmobile.ui.components.egEmotionDisplayName
 import com.example.appmobile.ui.components.egEmotionIcon
 import com.example.appmobile.ui.components.egEmotionKey
-import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.example.appmobile.ui.components.egEmotionRouteValue
 import com.example.appmobile.ui.state.CvEmotionScoreState
 import com.google.firebase.auth.FirebaseAuth
@@ -254,7 +254,7 @@ private fun CvEmotionSelectPage(
         listOf("happy", "sad", "surprise", "angry", "fear", "disgust").map { id ->
             CvEmotionChoiceUi(
                 id = id,
-                displayName = egEmotionDisplayName(id),
+                displayName = cvChallengeEmotionLabel(id),
                 routeValue = egEmotionRouteValue(id),
                 emoji = egEmotionIcon(id),
                 progress = cvEmotionProgress(scores, id)
@@ -262,14 +262,12 @@ private fun CvEmotionSelectPage(
         }
     }
     val selectedChoice = choices.firstOrNull { it.id == selectedEmotionId }
-    val startButtonText = if (selectedChoice != null) "🚀 Bắt đầu" else "Chọn cảm xúc để bắt đầu"
-    val selectedStatusText = selectedChoice?.let { "✨ Bạn đã chọn cảm xúc ${it.displayName} ✨" }
-        ?: "Hãy chọn một cảm xúc để bắt đầu"
+    val startButtonText = "Bắt đầu thử thách"
 
     GameScreenShell(contentMaxWidth = 560, onOpenAssistant = null) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             CvEmotionSelectHeader(onBack = onBack)
@@ -286,24 +284,22 @@ private fun CvEmotionSelectPage(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (false && isLoading) Row(
+                    if (isLoading) Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (isLoading) {
-                            Surface(
-                                shape = RoundedCornerShape(999.dp),
-                                color = Color(0xFFEAF7FF),
-                                border = BorderStroke(1.dp, EgDesign.cardBorder)
-                            ) {
-                                Text(
-                                    "Đang tải...",
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    color = EgDesign.textSecondary,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = Color(0xFFEAF7FF),
+                            border = BorderStroke(1.dp, EgDesign.cardBorder)
+                        ) {
+                            Text(
+                                "Đang cập nhật tiến trình...",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                color = EgDesign.textSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
 
@@ -322,6 +318,8 @@ private fun CvEmotionSelectPage(
                             }
                         }
                     }
+
+                    SelectedEmotionMissionCard(choice = selectedChoice)
 
                     Button(
                         onClick = {
@@ -359,14 +357,6 @@ private fun CvEmotionSelectPage(
                             )
                         }
                     }
-
-                    Text(
-                        text = selectedStatusText,
-                        color = if (selectedChoice != null) EgDesign.blue else EgDesign.textSecondary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center
-                    )
                 }
             }
         }
@@ -383,7 +373,7 @@ private fun CvEmotionSelectHeader(onBack: () -> Unit) {
             AppBackButton(onClick = onBack)
         }
         Text(
-            text = "🎮 Thử thách cảm xúc 🎮",
+            text = "Bé muốn luyện cảm xúc nào?",
             modifier = Modifier.fillMaxWidth(),
             color = EgDesign.textPrimary,
             fontSize = 23.sp,
@@ -391,7 +381,7 @@ private fun CvEmotionSelectHeader(onBack: () -> Unit) {
             textAlign = TextAlign.Center
         )
         Text(
-            text = "Chọn một cảm xúc để chơi",
+            text = "Chọn cảm xúc, rồi làm khuôn mặt giống vậy trước camera nhé.",
             modifier = Modifier.fillMaxWidth(),
             color = EgDesign.textSecondary,
             fontSize = 14.sp,
@@ -445,6 +435,35 @@ private fun CvEmotionSelectTopBar(onBack: () -> Unit) {
 }
 
 @Composable
+private fun SelectedEmotionMissionCard(choice: CvEmotionChoiceUi?) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White.copy(alpha = 0.88f),
+        border = BorderStroke(1.dp, EgDesign.cardBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "Nhiệm vụ của bé",
+                color = if (choice != null) EgDesign.textPrimary else EgDesign.textSecondary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = choice?.let { cvChallengeEmotionMissionCompact(it.id, it.emoji) }
+                    ?: "Chọn một cảm xúc để xem nhiệm vụ của bé.",
+                color = EgDesign.textSecondary,
+                fontSize = 13.sp,
+                lineHeight = 18.sp
+            )
+        }
+    }
+}
+
+@Composable
 private fun CvEmotionChoiceCard(
     choice: CvEmotionChoiceUi,
     selected: Boolean,
@@ -452,52 +471,98 @@ private fun CvEmotionChoiceCard(
     modifier: Modifier = Modifier
 ) {
     val progress = choice.progress.coerceIn(0f, 100f)
+    val statusText = if (progress > 0f) "${progress.toInt()}%" else "Mới"
     Card(
         modifier = modifier
-            .height(118.dp)
+            .height(106.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
-        border = BorderStroke(2.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 4.dp else 1.dp)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) Color(0xFFEAF7FF) else Color.White
+        ),
+        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) EgDesign.primaryDark else Color(0xFFDCEBFA)),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 3.dp else 1.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(egEmotionPastelColor(choice.id))
+                .background(if (selected) Color(0xFFEAF7FF) else Color.White)
                 .padding(8.dp)
         ) {
-            Surface(
-                modifier = Modifier.align(Alignment.TopEnd),
-                shape = RoundedCornerShape(999.dp),
-                color = Color.White.copy(alpha = 0.92f),
-                border = BorderStroke(1.dp, EgDesign.cardBorder)
-            ) {
-                Text(
-                    text = if (progress > 0f) "${progress.toInt()}%" else "Chưa luyện",
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                    color = EgDesign.textPrimary,
-                    fontSize = if (progress > 0f) 11.sp else 9.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
+            if (selected) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(22.dp),
+                    shape = CircleShape,
+                    color = EgDesign.primary
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("✓", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    }
+                }
             }
             Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(5.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(choice.emoji, fontSize = 31.sp)
+                Text(choice.emoji, fontSize = 34.sp)
                 Text(
                     text = choice.displayName,
                     color = EgDesign.textPrimary,
-                    fontSize = 12.sp,
-                    lineHeight = 15.sp,
+                    fontSize = 13.sp,
+                    lineHeight = 16.sp,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
-                    maxLines = 2
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = statusText,
+                    color = if (selected) EgDesign.blue else EgDesign.textSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
                 )
             }
         }
+    }
+}
+
+private fun cvChallengeEmotionLabel(id: String): String {
+    return when (egEmotionKey(id)) {
+        "happy" -> "Vui vẻ"
+        "sad" -> "Buồn bã"
+        "surprise" -> "Ngạc nhiên"
+        "angry" -> "Tức giận"
+        "fear" -> "Sợ hãi"
+        "disgust" -> "Ghê tởm"
+        else -> egEmotionDisplayName(id)
+    }
+}
+
+private fun cvChallengeEmotionMission(id: String): String {
+    return when (egEmotionKey(id)) {
+        "happy" -> "Hãy cười thật tươi trước camera trong 3 giây."
+        "sad" -> "Hãy làm khuôn mặt buồn trước camera trong 3 giây."
+        "surprise" -> "Hãy mở mắt to và làm vẻ ngạc nhiên trong 3 giây."
+        "angry" -> "Hãy nhíu mày như đang tức giận trong 3 giây."
+        "fear" -> "Hãy làm khuôn mặt sợ hãi trước camera trong 3 giây."
+        "disgust" -> "Hãy nhăn mũi như không thích mùi gì đó trong 3 giây."
+        else -> "Hãy làm đúng biểu cảm trước camera trong 3 giây."
+    }
+}
+
+private fun cvChallengeEmotionMissionCompact(id: String, emoji: String): String {
+    return when (egEmotionKey(id)) {
+        "happy" -> "Hãy làm khuôn mặt vui vẻ trong 3 giây $emoji"
+        "sad" -> "Hãy làm khuôn mặt buồn trong 3 giây $emoji"
+        "surprise" -> "Hãy làm khuôn mặt ngạc nhiên trong 3 giây $emoji"
+        "angry" -> "Hãy làm khuôn mặt tức giận trong 3 giây $emoji"
+        "fear" -> "Hãy làm khuôn mặt sợ hãi trong 3 giây $emoji"
+        "disgust" -> "Hãy làm khuôn mặt ghê tởm trong 3 giây $emoji"
+        else -> "Hãy làm khuôn mặt giống cảm xúc đã chọn trong 3 giây $emoji"
     }
 }
 
