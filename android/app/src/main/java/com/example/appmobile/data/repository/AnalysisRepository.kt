@@ -51,9 +51,9 @@ class AnalysisRepository(
         }
     }
 
-    suspend fun requestReport(childId: String): ReportPayloadDto? {
+    suspend fun requestReport(childId: String, reportType: String = "weekly"): ReportPayloadDto? {
         return try {
-            val response = apiService.requestReport(ReportRequestDto(childUserId = childId))
+            val response = apiService.requestReport(ReportRequestDto(childUserId = childId, reportType = reportType))
             if (response.isSuccessful) response.body()?.data else null
         } catch (e: Exception) {
             null
