@@ -31,7 +31,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.ReportPayloadDto
@@ -47,29 +46,42 @@ import kotlinx.coroutines.launch
 fun ReportPage(onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
+    val userId = remember(context) {
+        runCatching { FirebaseAuth.getInstance().currentUser?.uid }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: AppSession.currentBackendUserId()?.takeIf { it.isNotBlank() }
+            ?: AppSession.getBackendUserId(context)?.takeIf { it.isNotBlank() }
+            ?: "local-player"
+    }
     val repository = remember {
-        AnalysisRepository(AppDatabase.getDatabase(context).reportDao(), NetworkClient.apiService)
+        AnalysisRepository(
+            reportDao = null,
+            apiService = NetworkClient.apiService
+        )
     }
     val preview = remember { mutableStateOf<ReportPreviewDataDto?>(null) }
     val history = remember { mutableStateOf<List<ReportPayloadDto>>(emptyList()) }
     val loading = remember { mutableStateOf(true) }
     val actionMessage = remember { mutableStateOf<String?>(null) }
 
-    fun refresh() {
-        scope.launch {
-            loading.value = true
+    suspend fun loadData() {
+        loading.value = true
+        try {
             preview.value = repository.previewReport(userId)
             history.value = repository.getReportHistory(userId)
+        } catch (_: Exception) {
+            actionMessage.value = "Không tải được báo cáo. Vui lòng thử lại."
+        } finally {
             loading.value = false
         }
     }
 
+    fun refresh() {
+        scope.launch { loadData() }
+    }
+
     LaunchedEffect(userId) {
-        loading.value = true
-        preview.value = repository.previewReport(userId)
-        history.value = repository.getReportHistory(userId)
-        loading.value = false
+        loadData()
     }
 
     Column(
@@ -88,59 +100,66 @@ fun ReportPage(onBack: () -> Unit) {
         Spacer(modifier = Modifier.height(20.dp))
 
         if (loading.value) {
-            Box(modifier = Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator()
             }
-            return@Column
-        }
-
-        val stats = preview.value?.stats
-        ReportSummaryCard(summary = preview.value?.summary, stats = stats)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = {
-                    scope.launch {
-                        actionMessage.value = "Đang tạo báo cáo..."
-                        val created = repository.requestReport(userId)
-                        actionMessage.value = if (created != null) "Đã tạo báo cáo mới." else "Chưa tạo được báo cáo."
-                        preview.value = repository.previewReport(userId)
-                        history.value = repository.getReportHistory(userId)
-                    }
-                },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Tạo báo cáo")
-            }
-            OutlinedButton(onClick = { refresh() }, modifier = Modifier.weight(1f)) {
-                Text("Tải lại")
-            }
-        }
-
-        actionMessage.value?.let { message ->
-            Spacer(modifier = Modifier.height(10.dp))
-            Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFE7F1FF)) {
-                Text(
-                    message,
-                    modifier = Modifier.padding(12.dp),
-                    color = Color(0xFF1E4E8C),
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("Lịch sử báo cáo", fontWeight = FontWeight.ExtraBold, color = Color.Gray)
-        Spacer(modifier = Modifier.height(12.dp))
-
-        if (history.value.isEmpty()) {
-            EmptyHistoryCard()
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                history.value.forEach { report ->
-                    ReportHistoryCard(report)
+            val stats = preview.value?.stats
+            ReportSummaryCard(summary = preview.value?.summary, stats = stats)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            actionMessage.value = "Đang tạo báo cáo..."
+                            val created = runCatching { repository.requestReport(userId) }.getOrNull()
+                            actionMessage.value = if (created != null) {
+                                "Đã tạo báo cáo mới."
+                            } else {
+                                "Chưa tạo được báo cáo. Vui lòng thử lại."
+                            }
+                            loadData()
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Tạo báo cáo")
+                }
+                OutlinedButton(onClick = { refresh() }, modifier = Modifier.weight(1f)) {
+                    Text("Tải lại")
+                }
+            }
+
+            actionMessage.value?.let { message ->
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFE7F1FF)) {
+                    Text(
+                        message,
+                        modifier = Modifier.padding(12.dp),
+                        color = Color(0xFF1E4E8C),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("Lịch sử báo cáo", fontWeight = FontWeight.ExtraBold, color = Color.Gray)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (history.value.isEmpty()) {
+                EmptyHistoryCard()
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    history.value.forEach { report ->
+                        ReportHistoryCard(report)
+                    }
                 }
             }
         }

@@ -9,26 +9,27 @@ import com.example.appmobile.data.remote.dto.ReportPreviewDataDto
 import com.example.appmobile.data.remote.dto.ReportRequestDto
 import com.example.appmobile.domain.model.Statistics
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 class AnalysisRepository(
-    private val reportDao: ReportDao,
+    private val reportDao: ReportDao?,
     private val apiService: ApiService
 ) {
-    // Lấy tiến độ học tập (accuracy, score...)
     fun getChildStatistics(childId: String): Flow<List<Statistics>> {
-        return reportDao.getAllProgressForChild(childId).map { list ->
+        val dao = reportDao ?: return flowOf(emptyList())
+        return dao.getAllProgressForChild(childId).map { list ->
             list.map { it.toDomain() }
         }
     }
 
-    // Tải báo cáo mới nhất từ Server về
     suspend fun refreshReports(childId: String) {
+        val dao = reportDao ?: return
         val response = apiService.getReports(childId)
         if (response.isSuccessful) {
             response.body()?.let { dtos ->
-                reportDao.clearOldReports(childId)
-                reportDao.insertReports(dtos.map { it.toEntity() })
+                dao.clearOldReports(childId)
+                dao.insertReports(dtos.map { it.toEntity() })
             }
         }
     }
@@ -37,7 +38,7 @@ class AnalysisRepository(
         return try {
             val response = apiService.previewReport(childId)
             if (response.isSuccessful) response.body()?.data else null
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -46,7 +47,7 @@ class AnalysisRepository(
         return try {
             val response = apiService.getReportHistory(childId)
             if (response.isSuccessful) response.body()?.data.orEmpty() else emptyList()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyList()
         }
     }
@@ -55,7 +56,7 @@ class AnalysisRepository(
         return try {
             val response = apiService.requestReport(ReportRequestDto(childUserId = childId))
             if (response.isSuccessful) response.body()?.data else null
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }

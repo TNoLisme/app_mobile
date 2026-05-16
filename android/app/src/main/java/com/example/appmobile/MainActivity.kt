@@ -25,7 +25,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
+import com.example.appmobile.data.remote.NetworkClient
+import com.example.appmobile.data.repository.GameRepository
+import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.DraggableAssistantBubble
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.pages.assistant.AssistantPage
@@ -102,6 +106,18 @@ fun AppNavigation(modifier: Modifier = Modifier) {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
     val startDestination = if (auth.currentUser != null) "home" else "login"
+    val repository = remember(context) {
+        GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
+    }
+    val activeUserId = auth.currentUser?.uid ?: AppSession.currentBackendUserId()
+
+    LaunchedEffect(activeUserId) {
+        val userId = activeUserId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        repository.preloadGameProgress(
+            userId = userId,
+            gameIds = GameUiCatalog.games.map { it.id }
+        )
+    }
 
     fun assistantRoute(gameId: String, level: Int? = null): String {
         return if (level == null) "assistant/$gameId" else "assistant/$gameId?level=$level"
@@ -297,7 +313,10 @@ private fun shouldShowAssistantBubble(route: String?, loggedIn: Boolean): Boolea
     if (route == null) return false
     return route != "login" &&
         route != "register" &&
-        !route.startsWith("assistant")
+        route != "report" &&
+        !route.startsWith("assistant") &&
+        !route.startsWith("game/") &&
+        !route.startsWith("level_select")
 }
 
 private fun assistantContext(route: String?): String {

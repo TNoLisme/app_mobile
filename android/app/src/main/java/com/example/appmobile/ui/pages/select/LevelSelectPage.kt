@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,6 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -70,6 +72,8 @@ private data class LevelProgressUi(
     val available: Boolean = true
 )
 
+private val LevelCardMinHeight = 126.dp
+
 private data class CvEmotionChoiceUi(
     val id: String,
     val displayName: String,
@@ -106,19 +110,34 @@ fun LevelSelectPage(
             LevelProgressUi(level = level, unlocked = index == 0, completed = false, score = null)
         })
     }
-    var isLoading by remember(gameId) { mutableStateOf(true) }
-    var progressText by remember(gameId) { mutableStateOf("Level 1 đang mở") }
+    val hasCachedProgress = remember(gameId, userId) {
+        repository.peekGameProgress(gameId = gameId, userId = userId) != null
+    }
+    var isLoading by remember(gameId, userId) { mutableStateOf(false) }
+    var progressText by remember(gameId) {
+        mutableStateOf(
+            if (gameId == GameUiCatalog.GAME_CV_STORY) {
+                "Mỗi cấp độ có 5 tình huống cảm xúc."
+            } else {
+                "Cấp độ 1 đang mở"
+            }
+        )
+    }
 
     LaunchedEffect(gameId, userId) {
-        isLoading = true
+        isLoading = !hasCachedProgress
 
         val catalogMaxLevel = GameUiCatalog.gameById(gameId)?.maxLevel ?: 0
-        val backendMaxLevel = runCatching {
-            repository.getGames()
-                .firstOrNull { it.id == gameId }
-                ?.level
-                ?: 0
-        }.getOrDefault(0)
+        val backendMaxLevel = if (gameId == GameUiCatalog.GAME_CV_STORY) {
+            0
+        } else {
+            runCatching {
+                repository.getGames()
+                    .firstOrNull { it.id == gameId }
+                    ?.level
+                    ?: 0
+            }.getOrDefault(0)
+        }
         val maxLevel = maxOf(backendMaxLevel, catalogMaxLevel)
 
         val levels = if (gameId == GameUiCatalog.GAME_CV_STORY) {
@@ -163,9 +182,10 @@ fun LevelSelectPage(
                 available = available
             )
         }
-        progressText = "Level $unlockedLevel đang mở"
-        if (gameId == GameUiCatalog.GAME_CV_STORY) {
-            progressText = "Mỗi cấp độ gồm 5 câu hỏi ngẫu nhiên."
+        progressText = if (gameId == GameUiCatalog.GAME_CV_STORY) {
+            "Mỗi cấp độ có 5 tình huống cảm xúc."
+        } else {
+            "Cấp độ $unlockedLevel đang mở"
         }
         isLoading = false
     }
@@ -173,7 +193,7 @@ fun LevelSelectPage(
     GameScreenShell(
         contentMaxWidth = 520,
         onOpenAssistant = if (gameId == GameUiCatalog.GAME_CV_STORY) null else onOpenAssistant,
-        scrollEnabled = gameId != GameUiCatalog.GAME_CV_STORY,
+        scrollEnabled = true,
         bottomSpacerHeight = if (gameId == GameUiCatalog.GAME_CV_STORY) 0.dp else 96.dp
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -195,12 +215,32 @@ fun LevelSelectPage(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            if (isLoading) {
-                Text("Đang tải tiến trình...", color = EgDesign.textSecondary)
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                if (isLoading) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = Color(0xFFEAF7FF),
+                        border = BorderStroke(1.dp, EgDesign.cardBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = EgDesign.primary
+                            )
+                            Text(
+                                text = "Đang cập nhật tiến trình...",
+                                color = EgDesign.textSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
                 levelStates.forEach { state ->
                     LevelCard(state = state, onStartGame = onStartGame)
                 }
@@ -474,7 +514,7 @@ private fun CvEmotionChoiceCard(
     val statusText = if (progress > 0f) "${progress.toInt()}%" else "Mới"
     Card(
         modifier = modifier
-            .height(106.dp)
+            .height(118.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
@@ -505,23 +545,28 @@ private fun CvEmotionChoiceCard(
             Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Text(choice.emoji, fontSize = 34.sp)
-                Text(
-                    text = choice.displayName,
-                    color = EgDesign.textPrimary,
-                    fontSize = 13.sp,
-                    lineHeight = 16.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Text(choice.emoji, fontSize = 32.sp)
+                Box(
+                    modifier = Modifier.height(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = choice.displayName,
+                        color = EgDesign.textPrimary,
+                        fontSize = 13.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Text(
                     text = statusText,
                     color = if (selected) EgDesign.blue else EgDesign.textSecondary,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
@@ -567,12 +612,95 @@ private fun cvChallengeEmotionMissionCompact(id: String, emoji: String): String 
 }
 
 @Composable
+private fun LevelLoadingCard() {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        repeat(5) { index ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = LevelCardMinHeight),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, EgDesign.cardBorder),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(Color(0xFFD9E6F2), MaterialTheme.shapes.small)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .height(18.dp)
+                                .fillMaxWidth(0.35f)
+                                .background(Color(0xFFEAF2F9), RoundedCornerShape(8.dp))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .height(14.dp)
+                                .fillMaxWidth(0.22f)
+                                .background(Color(0xFFF1F6FB), RoundedCornerShape(7.dp))
+                        )
+                        if (index == 0) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp,
+                                    color = EgDesign.primary
+                                )
+                                Text(
+                                    text = "Đang tải tiến trình...",
+                                    color = EgDesign.textSecondary,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .height(22.dp)
+                                    .fillMaxWidth(0.28f)
+                                    .background(Color(0xFFF1F6FB), RoundedCornerShape(11.dp))
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .height(14.dp)
+                                    .fillMaxWidth(0.62f)
+                                    .background(Color(0xFFF1F6FB), RoundedCornerShape(7.dp))
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .height(34.dp)
+                            .width(86.dp)
+                            .background(Color(0xFFEAF2F9), RoundedCornerShape(18.dp))
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
     val level = state.level
     val containerColor = if (state.unlocked) EgDesign.card else Color(0xFFF1F7FC)
     val titleColor = if (state.unlocked) EgDesign.textPrimary else Color(0xFF94A3B8)
     val statusText = when {
-        !state.available -> "Dang cap nhat"
+        !state.available -> "Đang cập nhật"
         state.completed -> "Đã hoàn thành"
         state.unlocked -> "Có thể chơi"
         else -> "Đã khóa"
@@ -587,6 +715,7 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = LevelCardMinHeight)
             .clickable(enabled = state.unlocked) { onStartGame(level.id.toString()) },
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = containerColor),
@@ -636,16 +765,30 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
                         )
                     }
                 }
+                if (!state.unlocked && state.available) {
+                    Text(
+                        text = "Hoàn thành cấp độ ${level.id - 1} để mở khóa.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = EgDesign.textSecondary
+                    )
+                }
             }
-            Text(
-                text = when {
-                    !state.available -> "..."
-                    state.completed -> "✓"
-                    state.unlocked -> "▶"
-                    else -> "🔒"
-                },
-                color = if (state.unlocked) Color(0xFF94A3B8) else Color(0xFFCBD5E1)
-            )
+            if (state.unlocked) {
+                Surface(
+                    shape = MaterialTheme.shapes.large,
+                    color = EgDesign.primary.copy(alpha = 0.16f)
+                ) {
+                    Text(
+                        text = if (state.completed) "Chơi lại" else "Bắt đầu",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        color = EgDesign.blue,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            } else {
+                Text("🔒", color = Color(0xFFCBD5E1))
+            }
         }
     }
 }
