@@ -91,56 +91,88 @@ fun ReportPage(onBack: () -> Unit) {
             Box(modifier = Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-            return@Column
-        }
-
-        val stats = preview.value?.stats
-        ReportSummaryCard(summary = preview.value?.summary, stats = stats)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = {
-                    scope.launch {
-                        actionMessage.value = "Đang tạo báo cáo..."
-                        val created = repository.requestReport(userId)
-                        actionMessage.value = if (created != null) "Đã tạo báo cáo mới." else "Chưa tạo được báo cáo."
-                        preview.value = repository.previewReport(userId)
-                        history.value = repository.getReportHistory(userId)
-                    }
-                },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Tạo báo cáo")
-            }
-            OutlinedButton(onClick = { refresh() }, modifier = Modifier.weight(1f)) {
-                Text("Tải lại")
-            }
-        }
-
-        actionMessage.value?.let { message ->
-            Spacer(modifier = Modifier.height(10.dp))
-            Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFE7F1FF)) {
-                Text(
-                    message,
-                    modifier = Modifier.padding(12.dp),
-                    color = Color(0xFF1E4E8C),
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("Lịch sử báo cáo", fontWeight = FontWeight.ExtraBold, color = Color.Gray)
-        Spacer(modifier = Modifier.height(12.dp))
-
-        if (history.value.isEmpty()) {
-            EmptyHistoryCard()
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                history.value.forEach { report ->
-                    ReportHistoryCard(report)
+            val stats = preview.value?.stats
+            ReportSummaryCard(summary = preview.value?.summary, stats = stats)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(1.dp)
+            ) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("📊 Báo cáo tiến độ", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
+                    Text("Nhận báo cáo chi tiết về tiến độ học tập qua email", color = Color.DarkGray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    actionMessage.value = "Đang gửi báo cáo tuần..."
+                                    val created = repository.requestReport(userId, "weekly")
+                                    actionMessage.value = if (created != null) {
+                                        "Báo cáo tuần đã được tạo và gửi về email của bạn."
+                                    } else {
+                                        "Chưa tạo được báo cáo tuần."
+                                    }
+                                    preview.value = repository.previewReport(userId)
+                                    history.value = repository.getReportHistory(userId)
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("📅 Báo cáo tuần này")
+                        }
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    actionMessage.value = "Đang gửi báo cáo tháng..."
+                                    val created = repository.requestReport(userId, "monthly")
+                                    actionMessage.value = if (created != null) {
+                                        "Báo cáo tháng đã được tạo và gửi về email của bạn."
+                                    } else {
+                                        "Chưa tạo được báo cáo tháng."
+                                    }
+                                    preview.value = repository.previewReport(userId)
+                                    history.value = repository.getReportHistory(userId)
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("📆 Báo cáo tháng này")
+                        }
+                    }
+                    OutlinedButton(onClick = { refresh() }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Tải lại")
+                    }
+                }
+            }
+
+            actionMessage.value?.let { message ->
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFE7F1FF)) {
+                    Text(
+                        message,
+                        modifier = Modifier.padding(12.dp),
+                        color = Color(0xFF1E4E8C),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("Lịch sử báo cáo", fontWeight = FontWeight.ExtraBold, color = Color.Gray)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (history.value.isEmpty()) {
+                EmptyHistoryCard()
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    history.value.forEach { report ->
+                        ReportHistoryCard(report)
+                    }
                 }
             }
         }
