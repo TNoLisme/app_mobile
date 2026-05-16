@@ -105,6 +105,27 @@ def apply_additive_migrations() -> None:
         _alter_column_if_exists(connection, "emotion_concepts", "image_path", "NVARCHAR(500) NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "audio_path", "NVARCHAR(500) NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "description", "NVARCHAR(MAX) NULL")
+        # Backfill legacy rows so progress payload is always JSON-shaped for FE.
+        connection.execute(
+            text(
+                """
+                UPDATE child_progress
+                SET ratio='[0.1667,0.1667,0.1667,0.1667,0.1667,0.1665]'
+                WHERE ratio IS NULL OR LTRIM(RTRIM(ratio))=''
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                UPDATE child_progress
+                SET review_emotions='{"happy":0,"sad":0,"angry":0,"fear":0,"surprise":0,"disgust":0}'
+                WHERE review_emotions IS NULL
+                  OR LTRIM(RTRIM(review_emotions))=''
+                  OR LTRIM(RTRIM(review_emotions))='[]'
+                """
+            )
+        )
 
 
 def init_db() -> None:
