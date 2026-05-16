@@ -31,7 +31,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.ReportPayloadDto
@@ -47,29 +46,42 @@ import kotlinx.coroutines.launch
 fun ReportPage(onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
+    val userId = remember(context) {
+        runCatching { FirebaseAuth.getInstance().currentUser?.uid }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: AppSession.currentBackendUserId()?.takeIf { it.isNotBlank() }
+            ?: AppSession.getBackendUserId(context)?.takeIf { it.isNotBlank() }
+            ?: "local-player"
+    }
     val repository = remember {
-        AnalysisRepository(AppDatabase.getDatabase(context).reportDao(), NetworkClient.apiService)
+        AnalysisRepository(
+            reportDao = null,
+            apiService = NetworkClient.apiService
+        )
     }
     val preview = remember { mutableStateOf<ReportPreviewDataDto?>(null) }
     val history = remember { mutableStateOf<List<ReportPayloadDto>>(emptyList()) }
     val loading = remember { mutableStateOf(true) }
     val actionMessage = remember { mutableStateOf<String?>(null) }
 
-    fun refresh() {
-        scope.launch {
-            loading.value = true
+    suspend fun loadData() {
+        loading.value = true
+        try {
             preview.value = repository.previewReport(userId)
             history.value = repository.getReportHistory(userId)
+        } catch (_: Exception) {
+            actionMessage.value = "Không tải được báo cáo. Vui lòng thử lại."
+        } finally {
             loading.value = false
         }
     }
 
+    fun refresh() {
+        scope.launch { loadData() }
+    }
+
     LaunchedEffect(userId) {
-        loading.value = true
-        preview.value = repository.previewReport(userId)
-        history.value = repository.getReportHistory(userId)
-        loading.value = false
+        loadData()
     }
 
     Column(
@@ -88,7 +100,12 @@ fun ReportPage(onBack: () -> Unit) {
         Spacer(modifier = Modifier.height(20.dp))
 
         if (loading.value) {
-            Box(modifier = Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator()
             }
         } else {
@@ -97,56 +114,26 @@ fun ReportPage(onBack: () -> Unit) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(1.dp)
-            ) {
-                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("📊 Báo cáo tiến độ", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
-                    Text("Nhận báo cáo chi tiết về tiến độ học tập qua email", color = Color.DarkGray)
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    actionMessage.value = "Đang gửi báo cáo tuần..."
-                                    val created = repository.requestReport(userId, "weekly")
-                                    actionMessage.value = if (created != null) {
-                                        "Báo cáo tuần đã được tạo và gửi về email của bạn."
-                                    } else {
-                                        "Chưa tạo được báo cáo tuần."
-                                    }
-                                    preview.value = repository.previewReport(userId)
-                                    history.value = repository.getReportHistory(userId)
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("📅 Báo cáo tuần này")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            actionMessage.value = "Đang tạo báo cáo..."
+                            val created = runCatching { repository.requestReport(userId) }.getOrNull()
+                            actionMessage.value = if (created != null) {
+                                "Đã tạo báo cáo mới."
+                            } else {
+                                "Chưa tạo được báo cáo. Vui lòng thử lại."
+                            }
+                            loadData()
                         }
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    actionMessage.value = "Đang gửi báo cáo tháng..."
-                                    val created = repository.requestReport(userId, "monthly")
-                                    actionMessage.value = if (created != null) {
-                                        "Báo cáo tháng đã được tạo và gửi về email của bạn."
-                                    } else {
-                                        "Chưa tạo được báo cáo tháng."
-                                    }
-                                    preview.value = repository.previewReport(userId)
-                                    history.value = repository.getReportHistory(userId)
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("📆 Báo cáo tháng này")
-                        }
-                    }
-                    OutlinedButton(onClick = { refresh() }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Tải lại")
-                    }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Tạo báo cáo")
+                }
+                OutlinedButton(onClick = { refresh() }, modifier = Modifier.weight(1f)) {
+                    Text("Tải lại")
                 }
             }
 

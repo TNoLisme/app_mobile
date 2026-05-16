@@ -13,6 +13,7 @@ class AssistantRepository(private val apiService: ApiService) {
     suspend fun chat(
         gameId: String,
         level: Int?,
+        screenContext: String?,
         message: String,
         childId: String?,
         history: List<AssistantChatHistoryDto>
@@ -22,6 +23,7 @@ class AssistantRepository(private val apiService: ApiService) {
                 AssistantChatRequestDto(
                     gameId = gameId,
                     level = level,
+                    screenContext = screenContext,
                     message = message,
                     childId = childId,
                     history = history.takeLast(10)

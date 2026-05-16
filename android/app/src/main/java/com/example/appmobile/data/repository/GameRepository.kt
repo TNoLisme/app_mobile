@@ -19,6 +19,13 @@ class GameRepository(
     private val gameDao: GameContentDao,
     private val apiService: ApiService
 ) {
+    companion object {
+        private const val ProgressCacheTtlMs = 5 * 60 * 1000L
+        private val progressCache = mutableMapOf<String, Pair<Long, GameProgressDto?>>()
+
+        private fun cacheKey(gameId: String, userId: String): String = "$userId::$gameId"
+    }
+
     suspend fun getGames(type: String? = null): List<Game> {
         val local = if (type.isNullOrBlank()) {
             gameDao.getAllGames()
@@ -92,12 +99,39 @@ class GameRepository(
         }
     }
 
-    suspend fun getGameProgress(gameId: String, userId: String): GameProgressDto? {
+    suspend fun getGameProgress(gameId: String, userId: String, forceRefresh: Boolean = false): GameProgressDto? {
+        val key = cacheKey(gameId, userId)
+        val now = System.currentTimeMillis()
+        if (!forceRefresh) {
+            val cached = progressCache[key]
+            if (cached != null && now - cached.first <= ProgressCacheTtlMs) {
+                return cached.second
+            }
+        }
+
         return try {
             val response = apiService.getGameProgress(gameId, userId)
-            if (response.isSuccessful) response.body() else null
+            if (response.isSuccessful) {
+                response.body().also { progress ->
+                    progressCache[key] = System.currentTimeMillis() to progress
+                }
+            } else {
+                progressCache[key]?.second
+            }
         } catch (e: Exception) {
-            null
+            progressCache[key]?.second
+        }
+    }
+
+    fun peekGameProgress(gameId: String, userId: String): GameProgressDto? {
+        val key = cacheKey(gameId, userId)
+        val cached = progressCache[key] ?: return null
+        return cached.second
+    }
+
+    suspend fun preloadGameProgress(userId: String, gameIds: List<String>) {
+        gameIds.distinct().forEach { gameId ->
+            getGameProgress(gameId = gameId, userId = userId, forceRefresh = false)
         }
     }
 

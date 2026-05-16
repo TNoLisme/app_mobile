@@ -97,7 +97,8 @@ private data class StoredAssistantMessage(
 fun AssistantPage(
     onBack: () -> Unit,
     gameId: String = "home",
-    level: Int? = null
+    level: Int? = null,
+    screenContext: String? = null
 ) {
     val context = LocalContext.current
     val repository = remember { AssistantRepository(NetworkClient.apiService) }
@@ -166,6 +167,7 @@ fun AssistantPage(
             val reply = repository.chat(
                 gameId = gameId,
                 level = level,
+                screenContext = screenContext,
                 message = text,
                 childId = childId,
                 history = requestHistory

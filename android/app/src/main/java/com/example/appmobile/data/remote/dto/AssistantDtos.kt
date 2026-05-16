@@ -5,6 +5,7 @@ import com.google.gson.annotations.SerializedName
 data class AssistantChatRequestDto(
     @SerializedName("game_id") val gameId: String,
     @SerializedName("level") val level: Int? = null,
+    @SerializedName("screen_context") val screenContext: String? = null,
     @SerializedName("message") val message: String,
     @SerializedName("child_id") val childId: String? = null,
     @SerializedName("history") val history: List<AssistantChatHistoryDto> = emptyList()

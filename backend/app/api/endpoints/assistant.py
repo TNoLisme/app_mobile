@@ -17,6 +17,7 @@ class ChatHistoryItem(BaseModel):
 class ChatRequest(BaseModel):
     game_id: str = Field(default="home")
     level: int | None = None
+    screen_context: str | None = None
     message: str
     child_id: str | None = None
     history: list[ChatHistoryItem] = Field(default_factory=list)
@@ -116,12 +117,56 @@ SUGGESTIONS_BY_CONTEXT: dict[str, list[str]] = {
     "level_select": ["Nên chọn cấp độ nào?", "Cấp độ bị khóa là gì?", "Làm sao mở cấp tiếp theo?"],
     "gameCV": ["Game này chơi thế nào?", "Camera không bật thì sao?", "Làm sao đoán tình huống?"],
     "game_cv_2": ["Cách giữ mặt trong camera", "Gợi ý biểu cảm vui vẻ", "Camera không bật thì sao?"],
+    "profile": ["Sửa hồ sơ ở đâu?", "Xem thành tích thế nào?", "Đổi ảnh đại diện ra sao?"],
+    "settings": ["Đổi mật khẩu ở đâu?", "Tắt trợ lý nổi thế nào?", "Gửi báo cáo qua mail ra sao?"],
+    "report": ["Tạo báo cáo thế nào?", "Gửi báo cáo cho phụ huynh", "Đọc chỉ số báo cáo"],
 }
 
 
 def _normalize_game_id(game_id: str | None) -> str:
     raw = (game_id or "home").strip()
     return GAME_ALIASES.get(raw, raw)
+
+
+def _context_from_screen(screen_context: str | None) -> str | None:
+    if not screen_context:
+        return None
+    route = screen_context.strip().lower()
+    if route.startswith("game/"):
+        if "61f5e09e-eefa-44c1-86e1-87dfceac3b8e" in route:
+            return "game_cv_2"
+        if "e05909f3-3dee-42a6-9a75-fd985b1bdf47" in route:
+            return "gameCV"
+        if "3bcb2108-721c-4a15-a585-31f3084ed000" in route:
+            return "recognize_emotion"
+        if "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051" in route:
+            return "game_click_2"
+        if "08bbffbf-d147-4556-bccb-b7621cafbf15" in route:
+            return "game_click_3"
+        if "aacaf79e-e15e-42a9-a3d1-a522720d919b" in route:
+            return "game_click_4"
+    if route.startswith("level_select"):
+        return "level_select"
+    if route.startswith("select_game"):
+        return "select_game"
+    if route.startswith("learn"):
+        return "learn"
+    if route.startswith("home"):
+        return "home"
+    if route.startswith("profile"):
+        return "profile"
+    if route.startswith("settings"):
+        return "settings"
+    if route.startswith("report"):
+        return "report"
+    return None
+
+
+def _resolve_context(req: ChatRequest) -> str:
+    context_from_route = _context_from_screen(req.screen_context)
+    if context_from_route:
+        return context_from_route
+    return _normalize_game_id(req.game_id)
 
 
 def _contains_any(text: str, keywords: list[str]) -> bool:
@@ -136,7 +181,7 @@ def _emotion_tip(text: str) -> str | None:
 
 
 def _fallback_reply(req: ChatRequest) -> str:
-    game_id = _normalize_game_id(req.game_id)
+    game_id = _resolve_context(req)
     text = (req.message or "").strip().lower()
     rules = GAME_RULES.get(game_id)
     level_text = f" Cấp độ hiện tại là {req.level}." if req.level else ""
@@ -191,7 +236,7 @@ def _fallback_reply(req: ChatRequest) -> str:
 
 
 def _build_prompt(req: ChatRequest) -> str:
-    game_id = _normalize_game_id(req.game_id)
+    game_id = _resolve_context(req)
     rules = GAME_RULES.get(game_id, "Không có mô tả riêng cho màn này.")
     history_lines = []
     for item in req.history[-8:]:
@@ -207,6 +252,7 @@ Không dùng Markdown, không trả lời chủ đề ngoài game/cảm xúc/an 
 
 Ngữ cảnh:
 - game_id: {game_id}
+- screen_context: {req.screen_context}
 - level: {req.level}
 - luật/mô tả: {rules}
 
@@ -242,7 +288,7 @@ def _ask_gemini(req: ChatRequest) -> str | None:
 
 @router.post("/chat", response_model=ChatResponse)
 def chat_with_assistant(req: ChatRequest) -> ChatResponse:
-    game_id = _normalize_game_id(req.game_id)
+    game_id = _resolve_context(req)
     answer = _ask_gemini(req)
     source = "gemini" if answer else "fallback"
     if not answer:

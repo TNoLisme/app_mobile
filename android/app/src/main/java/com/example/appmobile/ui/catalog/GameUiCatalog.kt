@@ -73,7 +73,7 @@ object GameUiCatalog {
         ),
         GameUiItem(
             GAME_CV_STORY,
-            "Câu chuyện trên khuôn mặt",
+            "Câu chuyện khuôn mặt",
             "Bắt chước biểu cảm của nhân vật",
             "camera_game",
             R.drawable.game_cv,
@@ -149,7 +149,7 @@ object GameUiCatalog {
             LevelUiItem(
                 id = level,
                 name = "Cấp độ $level",
-                description = "5 câu hỏi",
+                description = "5 màn chơi",
                 colorHex = when (level) {
                     1 -> 0xFF81C784
                     2 -> 0xFFFFB74D
