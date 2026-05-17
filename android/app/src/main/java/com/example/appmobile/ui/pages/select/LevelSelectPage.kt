@@ -58,7 +58,6 @@ import com.example.appmobile.ui.components.egEmotionDisplayName
 import com.example.appmobile.ui.components.egEmotionIcon
 import com.example.appmobile.ui.components.egEmotionKey
 import com.example.appmobile.ui.components.egEmotionRouteValue
-import com.example.appmobile.ui.state.CvEmotionScoreState
 import com.google.firebase.auth.FirebaseAuth
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -90,6 +89,8 @@ fun LevelSelectPage(
     onOpenAssistant: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
     val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
@@ -111,7 +112,11 @@ fun LevelSelectPage(
         })
     }
     val hasCachedProgress = remember(gameId, userId) {
-        repository.peekGameProgress(gameId = gameId, userId = userId) != null
+        if (gameId == GameUiCatalog.GAME_CV_STORY) {
+            repository.peekCvCompletedLevels(userId) != null
+        } else {
+            repository.peekGameProgress(gameId = gameId, userId = userId) != null
+        }
     }
     var isLoading by remember(gameId, userId) { mutableStateOf(false) }
     var progressText by remember(gameId) {
@@ -124,28 +129,46 @@ fun LevelSelectPage(
         )
     }
 
-    LaunchedEffect(gameId, userId) {
-        isLoading = !hasCachedProgress
+    suspend fun loadLevelProgress(forceRefresh: Boolean, showLoading: Boolean) {
+        if (showLoading) {
+            isLoading = true
+        }
+
+        if (gameId == GameUiCatalog.GAME_CV_STORY) {
+            val levels = GameUiCatalog.levelsForGame(gameId)
+            val completedLevels = repository.getCvCompletedLevels(userId = userId, forceRefresh = forceRefresh)
+            val backendLevelsById = completedLevels?.levels.orEmpty().associateBy { it.level }
+            val backendCurrentLevel = completedLevels?.currentLevel?.coerceIn(1, levels.size.coerceAtLeast(1)) ?: 1
+
+            levelStates = levels.map { level ->
+                val backendLevel = backendLevelsById[level.id]
+                val unlocked = backendLevel?.unlocked ?: (level.id <= backendCurrentLevel)
+                val completed = backendLevel?.completed ?: (level.id < backendCurrentLevel)
+                val score = backendLevel?.score
+                LevelProgressUi(
+                    level = level,
+                    unlocked = unlocked,
+                    completed = completed,
+                    score = score,
+                    available = true
+                )
+            }
+            progressText = "Mỗi cấp độ có 5 tình huống cảm xúc."
+            isLoading = false
+            return
+        }
 
         val catalogMaxLevel = GameUiCatalog.gameById(gameId)?.maxLevel ?: 0
-        val backendMaxLevel = if (gameId == GameUiCatalog.GAME_CV_STORY) {
-            0
-        } else {
-            runCatching {
-                repository.getGames()
-                    .firstOrNull { it.id == gameId }
-                    ?.level
-                    ?: 0
-            }.getOrDefault(0)
-        }
+        val backendMaxLevel = runCatching {
+            repository.getGames()
+                .firstOrNull { it.id == gameId }
+                ?.level
+                ?: 0
+        }.getOrDefault(0)
         val maxLevel = maxOf(backendMaxLevel, catalogMaxLevel)
 
-        val levels = if (gameId == GameUiCatalog.GAME_CV_STORY) {
-            GameUiCatalog.levelsForGame(gameId)
-        } else {
-            GameUiCatalog.levelsForMaxLevel(maxLevel)
-                .ifEmpty { GameUiCatalog.levelsForGame(gameId) }
-        }
+        val levels = GameUiCatalog.levelsForMaxLevel(maxLevel)
+            .ifEmpty { GameUiCatalog.levelsForGame(gameId) }
 
         val isClickGame = GameUiCatalog.isClickGame(gameId)
         val availabilityByLevel = if (isClickGame) {
@@ -156,7 +179,7 @@ fun LevelSelectPage(
             levels.associate { it.id to true }
         }
 
-        val progress = repository.getGameProgress(gameId, userId)
+        val progress = repository.getGameProgress(gameId, userId, forceRefresh = forceRefresh)
         val progressLevel = progress?.level ?: 0
         val progressScore = progress?.score ?: 0
         val completedCurrent = !isClickGame && progressLevel > 0 && progressScore >= passThreshold(gameId, progressLevel)
@@ -188,6 +211,22 @@ fun LevelSelectPage(
             "Cấp độ $unlockedLevel đang mở"
         }
         isLoading = false
+    }
+
+    LaunchedEffect(gameId, userId) {
+        loadLevelProgress(forceRefresh = false, showLoading = !hasCachedProgress)
+    }
+
+    DisposableEffect(lifecycleOwner, gameId, userId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                scope.launch {
+                    loadLevelProgress(forceRefresh = true, showLoading = false)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     GameScreenShell(
@@ -256,27 +295,28 @@ private fun CvEmotionSelectPage(
     onBack: () -> Unit,
     onStartGame: (String) -> Unit
 ) {
-    val context = LocalContext.current
     var scores by remember(userId) { mutableStateOf<Map<String, Float>>(emptyMap()) }
     var selectedEmotionId by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
-    val scoreVersion = CvEmotionScoreState.version.intValue
 
     fun refreshScores(showLoading: Boolean) {
         scope.launch {
             if (showLoading) isLoading = true
-            val localScores = CvEmotionScoreState.loadScores(context, userId)
-            scores = CvEmotionScoreState.mergeScores(scores, localScores)
+            if (scores.isEmpty()) {
+                scores = repository.peekCvEmotionScores(userId)
+            }
+            val backendScores = repository.getCvEmotionScores(
+                userId = userId,
+                forceRefresh = !showLoading
+            )
+            scores = backendScores
             isLoading = false
-            val backendScores = repository.getCvEmotionScores(userId)
-            val latestLocalScores = CvEmotionScoreState.loadScores(context, userId)
-            scores = CvEmotionScoreState.mergeScores(backendScores, latestLocalScores)
         }
     }
 
-    LaunchedEffect(userId, scoreVersion) {
+    LaunchedEffect(userId) {
         refreshScores(showLoading = true)
     }
 
@@ -511,7 +551,7 @@ private fun CvEmotionChoiceCard(
     modifier: Modifier = Modifier
 ) {
     val progress = choice.progress.coerceIn(0f, 100f)
-    val statusText = if (progress > 0f) "${progress.toInt()}%" else "Mới"
+    val statusText = if (progress > 0f) "${progress.toInt()}%" else "Chưa luyện"
     Card(
         modifier = modifier
             .height(118.dp)

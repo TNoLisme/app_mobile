@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,12 +35,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appmobile.R
 import com.example.appmobile.ui.catalog.GameUiCatalog
@@ -74,6 +78,7 @@ fun HomePage(
     onNavigateToLevel: (String) -> Unit = {},
     vm: HomeViewModel = viewModel()
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
     val loading by vm.isLoading
     val errorMessage by vm.errorMessage
     val childName by vm.childName
@@ -81,6 +86,16 @@ fun HomePage(
     val learnedEmotionCount = vm.emotions.count { it.correct + it.incorrect > 0 }.coerceAtMost(6)
     val gamesPlayedCount = vm.recentGames.size
     val averageAccuracy = vm.emotions.takeIf { it.isNotEmpty() }?.map { it.accuracy }?.average()?.toInt()
+
+    DisposableEffect(lifecycleOwner, vm) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                vm.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     EgCollapsibleMainScaffold(
         activeTab = EgTab.Home,

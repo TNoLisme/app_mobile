@@ -79,3 +79,17 @@ data class SessionHistoryResponseDto(
 data class CvEmotionScoresResponseDto(
     @SerializedName("scores") val scores: Map<String, Float>? = null
 )
+
+data class CvCompletedLevelItemDto(
+    @SerializedName("level") val level: Int,
+    @SerializedName("score") val score: Int? = null,
+    @SerializedName("max_score") val maxScore: Int? = null,
+    @SerializedName("completed") val completed: Boolean = false,
+    @SerializedName("unlocked") val unlocked: Boolean = false
+)
+
+data class CvCompletedLevelsResponseDto(
+    @SerializedName("levels") val levels: List<CvCompletedLevelItemDto>? = null,
+    @SerializedName("current_level") val currentLevel: Int? = null,
+    @SerializedName("max_level") val maxLevel: Int? = null
+)

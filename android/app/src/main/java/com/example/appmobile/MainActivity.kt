@@ -117,6 +117,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             userId = userId,
             gameIds = GameUiCatalog.games.map { it.id }
         )
+        repository.preloadCvGameData(userId = userId)
     }
 
     fun assistantRoute(gameId: String, level: Int? = null): String {

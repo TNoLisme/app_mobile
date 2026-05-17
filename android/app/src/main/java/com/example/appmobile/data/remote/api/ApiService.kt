@@ -79,6 +79,9 @@ interface ApiService {
     @POST("games/end-level")
     suspend fun endLevel(@Body request: EndLevelRequestDto): Response<EndLevelResponseDto>
 
+    @POST("games/abandon-session")
+    suspend fun abandonSession(@Body request: AbandonSessionRequestDto): Response<AbandonSessionResponseDto>
+
     @GET("games/progress/{gameId}")
     suspend fun getGameProgress(
         @Path("gameId") gameId: String,
@@ -93,6 +96,9 @@ interface ApiService {
 
     @GET("games/cv/emotion-scores")
     suspend fun getCvEmotionScores(@Query("user_id") userId: String): Response<CvEmotionScoresResponseDto>
+
+    @GET("games/cv/completed-levels")
+    suspend fun getCvCompletedLevels(@Query("user_id") userId: String): Response<CvCompletedLevelsResponseDto>
 
     @POST("sessions/save")
     suspend fun saveSession(@Body session: SessionDto): Response<Boolean>

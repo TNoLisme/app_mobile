@@ -44,6 +44,10 @@ class ResetReviewRequest(BaseModel):
     emotions: list[str] = []
 
 
+class AbandonSessionRequest(BaseModel):
+    session_id: str
+
+
 GAME_RECOGNIZE_EMOTION = "3bcb2108-721c-4a15-a585-31f3084ed000"
 GAME_FACE_ASSEMBLY = "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051"
 GAME_EMOTION_MATCH = "08bbffbf-d147-4556-bccb-b7621cafbf15"
@@ -84,6 +88,27 @@ EMOTION_ALIASES = {
 }
 DEFAULT_RATIO = [0.1667, 0.1667, 0.1667, 0.1667, 0.1667, 0.1665]
 DEFAULT_REVIEW_EMOTIONS = {emotion: 0 for emotion in EMOTION_KEYS}
+
+
+def _clamp_confidence(value: float | None) -> float:
+    try:
+        if value is None:
+            return 0.0
+        return max(0.0, min(float(value), 100.0))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _parse_question_ids(raw_value: str | None) -> set[str]:
+    if not raw_value:
+        return set()
+    try:
+        parsed = json.loads(raw_value)
+    except (TypeError, ValueError):
+        return set()
+    if not isinstance(parsed, list):
+        return set()
+    return {str(item) for item in parsed if item}
 
 
 def _load_json(value, fallback):
@@ -583,38 +608,54 @@ def end_cv_session(body: CvEndRequest, db: Session = Depends(get_db)):
 @router.get("/games/cv/emotion-scores")
 def get_cv_emotion_scores(user_id: str, db: Session = Depends(get_db)):
     scores = {"happy": 0.0, "sad": 0.0, "surprise": 0.0, "angry": 0.0, "fear": 0.0, "disgust": 0.0}
-    emotion_map = {key: key for key in scores}
     rows = (
         db.query(GameContent.emotion, SessionQuestion.cv_confidence)
         .join(SessionQuestion, SessionQuestion.question_id == GameContent.content_id)
         .join(PlaySession, PlaySession.session_id == SessionQuestion.session_id)
         .filter(PlaySession.user_id == user_id)
         .filter(PlaySession.game_id == CV_REQUEST_GAME_ID)
+        .filter(PlaySession.end_time.isnot(None))
         .all()
     )
     for emotion, confidence in rows:
-        key = emotion_map.get((emotion or "").lower())
+        normalized = _normalize_emotion(emotion)
+        key = "surprise" if normalized == "surprise" else normalized
         if key:
             scores[key] = max(scores[key], round(float(confidence or 0.0), 2))
     return {"scores": scores}
 
 
+@router.post("/games/abandon-session")
+def abandon_session(body: AbandonSessionRequest, db: Session = Depends(get_db)):
+    session = db.get(PlaySession, body.session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if session.end_time is None:
+        session.end_time = datetime.utcnow()
+    if session.state == "playing":
+        session.state = "ended"
+
+    db.commit()
+    return {
+        "session_id": session.session_id,
+        "state": session.state,
+        "end_time": session.end_time.isoformat() if session.end_time else None,
+    }
+
+
 @router.get("/games/cv/completed-levels")
 def get_cv_completed_levels(user_id: str, db: Session = Depends(get_db)):
     max_level = CV_STORY_MAX_LEVEL
-    rows = (
-        db.query(ChildProgress)
-        .filter(ChildProgress.child_id == user_id, ChildProgress.game_id == CV_STORY_GAME_ID)
-        .all()
-    )
-    progress_by_level = {row.level: row for row in rows}
+    progress = _ensure_progress(db, user_id, CV_STORY_GAME_ID)
+    unlocked_level = max(1, min(int(progress.level or 1), max_level))
+    latest_score = int(progress.score or 0)
     levels = []
-    current_level = 1
+    current_level = unlocked_level
     for level in range(1, max_level + 1):
-        progress = progress_by_level.get(level)
-        score = int(progress.score or 0) if progress else 0
-        completed = score >= 80
-        unlocked = level == 1 or (level - 1 in progress_by_level and int(progress_by_level[level - 1].score or 0) >= 80)
+        unlocked = level <= unlocked_level
+        completed = level < unlocked_level
+        score = latest_score if level == unlocked_level else (100 if completed else 0)
         if unlocked and not completed:
             current_level = level
         levels.append({"level": level, "score": score, "max_score": 100, "completed": completed, "unlocked": unlocked})
@@ -639,11 +680,15 @@ def start_game(game_id: str, body: StartGameRequest, db: Session = Depends(get_d
     if game is None:
         raise HTTPException(status_code=404, detail="Game not found")
     _ensure_user(db, body.user_id)
+    if body.level < 1:
+        raise HTTPException(status_code=400, detail="Level must be greater than 0")
+    if game.level and body.level > int(game.level):
+        raise HTTPException(status_code=400, detail=f"Level must be between 1 and {int(game.level)}")
 
     if game_id in CLICK_GAME_IDS:
         if game.game_type != "click_game":
             raise HTTPException(status_code=400, detail="Game is not a click game")
-        if body.level < 1 or body.level > CLICK_MAX_LEVEL:
+        if body.level > CLICK_MAX_LEVEL:
             raise HTTPException(status_code=400, detail=f"Level must be between 1 and {CLICK_MAX_LEVEL}")
 
     progress = _ensure_progress(db, body.user_id, game_id)
@@ -704,13 +749,31 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    total = max(len(body.results), 1)
-    correct = sum(1 for result in body.results if result.is_correct)
+    allowed_question_ids = _parse_question_ids(session.question_ids)
+    filtered_results = [
+        result for result in body.results
+        if not allowed_question_ids or result.question_id in allowed_question_ids
+    ]
+    if allowed_question_ids and not filtered_results:
+        raise HTTPException(status_code=400, detail="No valid question results for this session")
+
+    total = max(len(filtered_results), 1)
+    correct = sum(1 for result in filtered_results if result.is_correct)
     accuracy = correct * 100.0 / total
-    score = correct * 10
+    if session.game_id == CV_REQUEST_GAME_ID:
+        successful_confidences = [
+            _clamp_confidence(result.cv_confidence)
+            for result in filtered_results
+            if result.is_correct
+        ]
+        score = int(round(max(successful_confidences, default=0.0)))
+    elif session.game_id == CV_STORY_GAME_ID:
+        score = int(round(accuracy))
+    else:
+        score = correct * 10
     emotion_errors: dict[str, int] = {}
 
-    for result in body.results:
+    for result in filtered_results:
         if result.is_correct:
             continue
         content = db.get(GameContent, result.question_id)
@@ -719,7 +782,7 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
             emotion_errors[emotion] = emotion_errors.get(emotion, 0) + 1
 
     db.query(SessionQuestion).filter(SessionQuestion.session_id == session.session_id).delete()
-    for result in body.results:
+    for result in filtered_results:
         db.add(
             SessionQuestion(
                 id=str(uuid.uuid4()),
@@ -727,7 +790,7 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
                 question_id=result.question_id,
                 is_correct=1 if result.is_correct else 0,
                 response_time_ms=int(result.response_time_ms or 0),
-                cv_confidence=result.cv_confidence,
+                cv_confidence=_clamp_confidence(result.cv_confidence) if result.cv_confidence is not None else None,
                 used_hint=1 if result.used_hint else 0,
             )
         )
@@ -754,7 +817,12 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
         if emotion in EMOTION_KEYS and count >= max_errors
     ]
 
-    passed = score >= CLICK_PASS_SCORE if session.game_id in CLICK_GAME_IDS else accuracy >= float(session.level_threshold or 70)
+    if session.game_id in CLICK_GAME_IDS:
+        passed = score >= CLICK_PASS_SCORE
+    elif session.game_id == CV_REQUEST_GAME_ID:
+        passed = score >= float(session.level_threshold or 40)
+    else:
+        passed = accuracy >= float(session.level_threshold or 70)
     unlocked_level = int(progress.level or 1)
     if session.game_id in CLICK_GAME_IDS and passed and int(session.level or 1) >= unlocked_level:
         unlocked_level = min(int(session.level or 1) + 1, CLICK_MAX_LEVEL)
@@ -767,7 +835,7 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
     progress.score = score
     progress.level = unlocked_level
     progress.avg_response_time = (
-        sum(int(result.response_time_ms or 0) for result in body.results) / total
+        sum(int(result.response_time_ms or 0) for result in filtered_results) / total
         if total > 0 else 0.0
     )
     progress.last_played = datetime.utcnow()

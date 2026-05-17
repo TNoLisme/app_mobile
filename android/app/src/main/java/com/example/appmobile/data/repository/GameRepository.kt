@@ -5,8 +5,10 @@ import com.example.appmobile.data.mapper.toDomain
 import com.example.appmobile.data.mapper.toEntity
 import com.example.appmobile.data.remote.api.ApiService
 import com.example.appmobile.data.remote.dto.AnswerResultDto
+import com.example.appmobile.data.remote.dto.AbandonSessionRequestDto
 import com.example.appmobile.data.remote.dto.EndLevelRequestDto
 import com.example.appmobile.data.remote.dto.EndLevelResponseDto
+import com.example.appmobile.data.remote.dto.CvCompletedLevelsResponseDto
 import com.example.appmobile.data.remote.dto.GameProgressDto
 import com.example.appmobile.data.remote.dto.ResetReviewRequestDto
 import com.example.appmobile.data.remote.dto.StartGameRequestDto
@@ -22,6 +24,8 @@ class GameRepository(
     companion object {
         private const val ProgressCacheTtlMs = 5 * 60 * 1000L
         private val progressCache = mutableMapOf<String, Pair<Long, GameProgressDto?>>()
+        private val cvEmotionScoreCache = mutableMapOf<String, Pair<Long, Map<String, Float>>>()
+        private val cvCompletedLevelsCache = mutableMapOf<String, Pair<Long, CvCompletedLevelsResponseDto?>>()
 
         private fun cacheKey(gameId: String, userId: String): String = "$userId::$gameId"
     }
@@ -123,6 +127,17 @@ class GameRepository(
         }
     }
 
+    suspend fun abandonSession(sessionId: String): Boolean {
+        return try {
+            val response = apiService.abandonSession(
+                AbandonSessionRequestDto(sessionId = sessionId)
+            )
+            response.isSuccessful
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun peekGameProgress(gameId: String, userId: String): GameProgressDto? {
         val key = cacheKey(gameId, userId)
         val cached = progressCache[key] ?: return null
@@ -133,6 +148,11 @@ class GameRepository(
         gameIds.distinct().forEach { gameId ->
             getGameProgress(gameId = gameId, userId = userId, forceRefresh = false)
         }
+    }
+
+    suspend fun preloadCvGameData(userId: String) {
+        getCvEmotionScores(userId = userId, forceRefresh = false)
+        getCvCompletedLevels(userId = userId, forceRefresh = false)
     }
 
     suspend fun resetReviewEmotions(gameId: String, userId: String, emotions: List<String>): Map<String, Int> {
@@ -148,12 +168,60 @@ class GameRepository(
         }
     }
 
-    suspend fun getCvEmotionScores(userId: String): Map<String, Float> {
+    fun peekCvEmotionScores(userId: String): Map<String, Float> {
+        return cvEmotionScoreCache[userId]?.second.orEmpty()
+    }
+
+    suspend fun getCvEmotionScores(userId: String, forceRefresh: Boolean = false): Map<String, Float> {
+        val now = System.currentTimeMillis()
+        if (!forceRefresh) {
+            val cached = cvEmotionScoreCache[userId]
+            if (cached != null && now - cached.first <= ProgressCacheTtlMs) {
+                return cached.second
+            }
+        }
+
         return try {
             val response = apiService.getCvEmotionScores(userId)
-            if (response.isSuccessful) response.body()?.scores.orEmpty() else emptyMap()
+            if (response.isSuccessful) {
+                val scores = response.body()?.scores.orEmpty()
+                cvEmotionScoreCache[userId] = System.currentTimeMillis() to scores
+                scores
+            } else {
+                cvEmotionScoreCache[userId]?.second.orEmpty()
+            }
         } catch (e: Exception) {
-            emptyMap()
+            cvEmotionScoreCache[userId]?.second.orEmpty()
+        }
+    }
+
+    fun peekCvCompletedLevels(userId: String): CvCompletedLevelsResponseDto? {
+        return cvCompletedLevelsCache[userId]?.second
+    }
+
+    suspend fun getCvCompletedLevels(
+        userId: String,
+        forceRefresh: Boolean = false
+    ): CvCompletedLevelsResponseDto? {
+        val now = System.currentTimeMillis()
+        if (!forceRefresh) {
+            val cached = cvCompletedLevelsCache[userId]
+            if (cached != null && now - cached.first <= ProgressCacheTtlMs) {
+                return cached.second
+            }
+        }
+
+        return try {
+            val response = apiService.getCvCompletedLevels(userId)
+            if (response.isSuccessful) {
+                response.body().also { body ->
+                    cvCompletedLevelsCache[userId] = System.currentTimeMillis() to body
+                }
+            } else {
+                cvCompletedLevelsCache[userId]?.second
+            }
+        } catch (e: Exception) {
+            cvCompletedLevelsCache[userId]?.second
         }
     }
 
