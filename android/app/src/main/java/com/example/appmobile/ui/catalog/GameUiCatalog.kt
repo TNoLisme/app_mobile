@@ -104,7 +104,7 @@ object GameUiCatalog {
     )
 
     val cvRequestPrompt = CvPromptUiItem(
-        questionText = "Hãy cười thật tươi trong 3 giây.",
+        questionText = "Hãy cười thật tươi trong 5 giây.",
         correctAnswer = "happy"
     )
 

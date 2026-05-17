@@ -766,7 +766,10 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
             for result in filtered_results
             if result.is_correct
         ]
-        score = int(round(max(successful_confidences, default=0.0)))
+        if successful_confidences:
+            score = int(sum(successful_confidences) / len(successful_confidences))
+        else:
+            score = 0
     elif session.game_id == CV_STORY_GAME_ID:
         score = int(round(accuracy))
     else:
