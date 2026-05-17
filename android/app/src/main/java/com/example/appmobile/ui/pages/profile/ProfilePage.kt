@@ -85,6 +85,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
+import kotlin.math.roundToInt
 
 private val ProfileBackgroundGradient = Color(0xFFEAF7FF)
 private val ProfileButtonGradient = Color(0xFF62B5FF)
@@ -110,7 +111,12 @@ private data class ProfileStat(
 fun ProfilePage(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
+    val userId = remember {
+        FirebaseAuth.getInstance().currentUser?.uid
+            ?: AppSession.getBackendUserId(context)
+            ?: AppSession.currentBackendUserId()
+            ?: "local-player"
+    }
     val repository = remember {
         UserRepository(
             NetworkClient.apiService,
@@ -127,6 +133,7 @@ fun ProfilePage(onBack: () -> Unit) {
     var saving by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var showEdit by remember { mutableStateOf(false) }
+    var selectedBadge by remember { mutableStateOf<ProfileBadge?>(null) }
     val avatarUri = UserAvatarState.avatarUri.value
     val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let { selectedUri ->
@@ -213,7 +220,8 @@ fun ProfilePage(onBack: () -> Unit) {
                 badges = profileBadges(),
                 unlocked = unlockedBadges,
                 avatarUri = avatarUri,
-                onChangeAvatar = { avatarPicker.launch(arrayOf("image/*")) }
+                onChangeAvatar = { avatarPicker.launch(arrayOf("image/*")) },
+                onBadgeClick = { badge -> selectedBadge = badge }
             )
             ProfilePersonalInfoGrid(profile)
             ProfileStatsSection(
@@ -247,6 +255,14 @@ fun ProfilePage(onBack: () -> Unit) {
                     }
                 }
             }
+        )
+    }
+
+    selectedBadge?.let { badge ->
+        BadgeRequirementDialog(
+            badge = badge,
+            unlocked = badge.id in unlockedBadgeIds(sessions, cvEmotionScores),
+            onDismiss = { selectedBadge = null }
         )
     }
 }
@@ -303,7 +319,8 @@ private fun ProfileCard(
     badges: List<ProfileBadge>,
     unlocked: Set<String>,
     avatarUri: String?,
-    onChangeAvatar: () -> Unit
+    onChangeAvatar: () -> Unit,
+    onBadgeClick: (ProfileBadge) -> Unit
 ) {
     ProfileSurface {
         Column(
@@ -344,7 +361,7 @@ private fun ProfileCard(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
-                BadgeGrid(badges = badges, unlocked = unlocked)
+                BadgeGrid(badges = badges, unlocked = unlocked, onBadgeClick = onBadgeClick)
             }
         }
     }
@@ -427,14 +444,22 @@ private fun Avatar() {
 }
 
 @Composable
-private fun BadgeGrid(badges: List<ProfileBadge>, unlocked: Set<String>) {
+private fun BadgeGrid(
+    badges: List<ProfileBadge>,
+    unlocked: Set<String>,
+    onBadgeClick: (ProfileBadge) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         badges.forEach { badge ->
-            BadgeCircle(badge = badge, unlocked = badge.id in unlocked)
+            BadgeCircle(
+                badge = badge,
+                unlocked = badge.id in unlocked,
+                onClick = { onBadgeClick(badge) }
+            )
         }
     }
 }
@@ -442,10 +467,13 @@ private fun BadgeGrid(badges: List<ProfileBadge>, unlocked: Set<String>) {
 @Composable
 private fun BadgeCircle(
     badge: ProfileBadge,
-    unlocked: Boolean
+    unlocked: Boolean,
+    onClick: () -> Unit
 ) {
     Box(
-        modifier = Modifier.size(34.dp),
+        modifier = Modifier
+            .size(34.dp)
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.TopEnd
     ) {
         Surface(
@@ -467,6 +495,46 @@ private fun BadgeCircle(
             Text("🔒", fontSize = 7.sp)
         }
     }
+}
+
+@Composable
+private fun BadgeRequirementDialog(
+    badge: ProfileBadge,
+    unlocked: Boolean,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Text(badge.icon, fontSize = 28.sp) },
+        title = {
+            Text(
+                badge.title,
+                color = ProfileTextPrimary,
+                fontWeight = FontWeight.ExtraBold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    if (unlocked) "Huy hiệu này đã mở khóa." else "Điều kiện mở khóa:",
+                    color = ProfileTextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    badgeUnlockCondition(badge),
+                    color = ProfileTextSecondary,
+                    lineHeight = 20.sp
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Đã hiểu", color = ProfileBlue, fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(22.dp)
+    )
 }
 
 @Composable
@@ -1204,24 +1272,29 @@ private fun profileStats(
     recentGames: List<RecentGameDto>,
     unlockedBadges: Int
 ): List<ProfileStat> {
-    val totalScore = sessions.sumOf { it.score ?: 0 }
+    val playedGames = sessions.mapNotNull { it.gameId }.distinct().size.takeIf { it > 0 } ?: recentGames.size
+    val avgScore = if (sessions.isNotEmpty()) {
+        sessions.map { it.score ?: 0 }.average().roundToInt().coerceIn(0, 100)
+    } else {
+        0
+    }
     val playTimeHours = sessions.sumOf { sessionDurationMillis(it) }.toDouble() / (1000 * 60 * 60)
     return listOf(
-        ProfileStat((sessions.size.takeIf { it > 0 } ?: recentGames.size).toString(), "Từ vựng đã chơi", "🎮"),
-        ProfileStat(totalScore.toString(), "Đúng điểm", "⭐"),
-        ProfileStat(unlockedBadges.toString(), "Thành tích", "🏆"),
-        ProfileStat(String.format(Locale.US, "%.1fh", playTimeHours), "Thời gian chơi", "⏱️")
+        ProfileStat(playedGames.toString(), "Trò đã chơi", "🎮"),
+        ProfileStat("$avgScore/100", "Điểm TB", "⭐"),
+        ProfileStat("$unlockedBadges/${profileBadges().size}", "Huy hiệu mở", "🏆"),
+        ProfileStat(String.format(Locale.US, "%.1fh", playTimeHours), "Thời gian luyện", "⏱️")
     )
 }
 
 private fun profileBadges(): List<ProfileBadge> {
     return listOf(
-        ProfileBadge(GameUiCatalog.GAME_RECOGNIZE_EMOTION, "Hộp", "📦"),
-        ProfileBadge(GameUiCatalog.GAME_DETECTIVE, "Thám tử", "🕵️"),
-        ProfileBadge(GameUiCatalog.GAME_EMOTION_MATCH, "Đúng chỗ", "🎯"),
-        ProfileBadge(GameUiCatalog.GAME_FACE_ASSEMBLY, "Lắp ghép", "🧩"),
-        ProfileBadge(GameUiCatalog.GAME_CV_STORY, "Khuôn mặt", "🎭"),
-        ProfileBadge(GameUiCatalog.GAME_CV_REQUEST, "CV 6 cảm xúc", "📷"),
+        ProfileBadge(GameUiCatalog.GAME_RECOGNIZE_EMOTION, "Chiếc hộp cảm xúc", "📦"),
+        ProfileBadge(GameUiCatalog.GAME_DETECTIVE, "Thám tử cảm xúc", "🕵️"),
+        ProfileBadge(GameUiCatalog.GAME_EMOTION_MATCH, "Cảm xúc đúng chỗ", "🎯"),
+        ProfileBadge(GameUiCatalog.GAME_FACE_ASSEMBLY, "Xưởng lắp ghép cảm xúc", "🧩"),
+        ProfileBadge(GameUiCatalog.GAME_CV_STORY, "Câu chuyện khuôn mặt", "🎭"),
+        ProfileBadge(GameUiCatalog.GAME_CV_REQUEST, "Thử thách cảm xúc", "📷"),
         ProfileBadge("all", "Siêu sao", "🌟")
     )
 }
@@ -1235,17 +1308,66 @@ private fun unlockedBadgeIds(sessions: List<SessionHistoryItemDto>, cvEmotionSco
         GameUiCatalog.GAME_CV_STORY
     )
     val unlocked = baseGameIds
-        .filter { gameId -> sessions.any { it.gameId == gameId && (it.score ?: 0) >= 80 } }
+        .filter { gameId -> hasCompletedAllGameLevels(gameId, sessions) }
         .toMutableSet()
 
-    val cvComplete = listOf("vui", "buồn", "ngạc nhiên", "tức giận", "sợ hãi", "ghê tởm")
-        .all { emotion -> (cvEmotionScores[emotion] ?: 0f) >= 100f }
+    val cvComplete = listOf("happy", "sad", "surprise", "angry", "fear", "disgust")
+        .all { emotion -> cvEmotionScore(cvEmotionScores, emotion) > 90f }
     if (cvComplete) unlocked += GameUiCatalog.GAME_CV_REQUEST
 
     if (profileBadges().filter { it.id != "all" }.all { it.id in unlocked }) {
         unlocked += "all"
     }
     return unlocked
+}
+
+private fun hasCompletedAllGameLevels(gameId: String, sessions: List<SessionHistoryItemDto>): Boolean {
+    val maxLevel = GameUiCatalog.gameById(gameId)?.maxLevel ?: return false
+    return (1..maxLevel).all { level ->
+        sessions.any { session ->
+            session.gameId == gameId &&
+                (session.level ?: 1) == level &&
+                (session.score ?: 0) >= badgePassThreshold(gameId, level)
+        }
+    }
+}
+
+private fun badgePassThreshold(gameId: String, level: Int): Int {
+    if (GameUiCatalog.isClickGame(gameId)) return 30
+    return when (level) {
+        1 -> 40
+        2 -> 50
+        3 -> 60
+        4 -> 70
+        5 -> 80
+        else -> 90
+    }
+}
+
+private fun cvEmotionScore(scores: Map<String, Float>, emotionId: String): Float {
+    val aliases = when (emotionId) {
+        "happy" -> listOf("happy", "vui", "vui vẻ")
+        "sad" -> listOf("sad", "buồn", "buồn bã")
+        "surprise" -> listOf("surprise", "surprised", "ngạc nhiên")
+        "angry" -> listOf("angry", "tức giận")
+        "fear" -> listOf("fear", "sợ hãi")
+        "disgust" -> listOf("disgust", "disgusted", "ghê tởm")
+        else -> listOf(emotionId)
+    }
+    return aliases.maxOf { alias -> scores[alias] ?: 0f }
+}
+
+private fun badgeUnlockCondition(badge: ProfileBadge): String {
+    return when (badge.id) {
+        GameUiCatalog.GAME_CV_REQUEST ->
+            "Mở khóa khi cả 6 cảm xúc trong Thử thách cảm xúc đều đạt trên 90%."
+        "all" ->
+            "Mở khóa khi tất cả huy hiệu game khác đã được mở."
+        else -> {
+            val gameName = GameUiCatalog.gameById(badge.id)?.title ?: badge.title
+            "Mở khóa khi bé vượt qua tất cả cấp độ của game $gameName."
+        }
+    }
 }
 
 private fun fallback(value: String?): String {
