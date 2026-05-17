@@ -54,6 +54,7 @@ import com.example.appmobile.ui.components.egEmotionDisplayName
 import com.example.appmobile.ui.components.egEmotionIcon
 import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.example.appmobile.ui.viewmodel.HomeEmotionUi
+import com.example.appmobile.ui.viewmodel.HomeMetricUi
 import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
 import com.example.appmobile.ui.viewmodel.HomeViewModel
 
@@ -86,6 +87,12 @@ fun HomePage(
     val learnedEmotionCount = vm.emotions.count { it.correct + it.incorrect > 0 }.coerceAtMost(6)
     val gamesPlayedCount = vm.recentGames.size
     val averageAccuracy = vm.emotions.takeIf { it.isNotEmpty() }?.map { it.accuracy }?.average()?.toInt()
+    val totalEmotionAttempts = vm.emotions.sumOf { it.correct + it.incorrect }
+    val strongestEmotion = vm.emotions
+        .filter { it.correct + it.incorrect > 0 }
+        .maxByOrNull { it.accuracy }
+        ?.name
+    val topGameRatio = vm.gameRatios.firstOrNull()
 
     DisposableEffect(lifecycleOwner, vm) {
         val observer = LifecycleEventObserver { _, event ->
@@ -134,6 +141,20 @@ fun HomePage(
             averageAccuracy = averageAccuracy,
             onPlay = { onNavigateToGame("all") }
         )
+
+        HomeInsightCard(
+            totalEmotionAttempts = totalEmotionAttempts,
+            strongestEmotion = strongestEmotion,
+            topGameRatio = topGameRatio
+        )
+
+        if (vm.improvements.isNotEmpty() || vm.gameRatios.isNotEmpty()) {
+            HomeAnalyticsCard(
+                improvements = vm.improvements,
+                gameRatios = vm.gameRatios,
+                onReport = onNavigateToReport
+            )
+        }
 
         RecommendationCard(
             emotionName = recommendedEmotion,
@@ -295,6 +316,68 @@ private fun ProgressSummaryCard(
 }
 
 @Composable
+private fun HomeInsightCard(
+    totalEmotionAttempts: Int,
+    strongestEmotion: String?,
+    topGameRatio: HomeMetricUi?
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(HomeRadiusCard),
+        colors = CardDefaults.cardColors(containerColor = HomeCard),
+        border = BorderStroke(1.dp, HomeCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SectionTitle("Chỉ số hôm nay")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProgressMiniStat(
+                    if (totalEmotionAttempts > 0) totalEmotionAttempts.toString() else "Chưa có",
+                    "Lượt cảm xúc",
+                    Modifier.weight(1f)
+                )
+                ProgressMiniStat(
+                    strongestEmotion?.let { egEmotionDisplayName(it) } ?: "Chưa có",
+                    "Cảm xúc mạnh",
+                    Modifier.weight(1f)
+                )
+                ProgressMiniStat(
+                    topGameRatio?.name?.let(::homeMetricDisplayName) ?: "Chưa có",
+                    "Game chơi nhiều",
+                    Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeAnalyticsCard(
+    improvements: List<HomeMetricUi>,
+    gameRatios: List<HomeMetricUi>,
+    onReport: () -> Unit
+) {
+    val bestImprovement = improvements.firstOrNull()
+    val topGame = gameRatios.firstOrNull()
+    HomeEmptyStateCard(
+        title = "Dữ liệu luyện tập",
+        subtitle = when {
+            bestImprovement != null && topGame != null ->
+                "Tiến bộ rõ nhất: ${egEmotionDisplayName(bestImprovement.name)}. Game chơi nhiều: ${homeMetricDisplayName(topGame.name)}."
+            bestImprovement != null ->
+                "Tiến bộ rõ nhất: ${egEmotionDisplayName(bestImprovement.name)}."
+            topGame != null ->
+                "Game bé chơi nhiều nhất gần đây: ${homeMetricDisplayName(topGame.name)}."
+            else ->
+                "Chơi thêm vài lượt để hệ thống có chỉ số luyện tập."
+        },
+        icon = "📈",
+        actionText = "Xem báo cáo",
+        onAction = onReport
+    )
+}
+
+@Composable
 private fun ProgressMiniStat(value: String, label: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.height(64.dp),
@@ -303,8 +386,22 @@ private fun ProgressMiniStat(value: String, label: String, modifier: Modifier = 
         border = BorderStroke(1.dp, Color(0xFFE3EEF8))
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text(value, color = HomeBlue, fontSize = 17.sp, fontWeight = FontWeight.Black, maxLines = 1)
-            Text(label, color = HomeTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(
+                value,
+                color = HomeBlue,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                label,
+                color = HomeTextSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -782,6 +879,20 @@ private fun gameImageRes(game: HomeRecentGameUi): Int {
 private fun gameCategory(game: HomeRecentGameUi): String {
     val key = normalizeGameKey("${game.gameType.orEmpty()} ${game.name}")
     return if (key.contains("cv") || key.contains("camera") || key.contains("bieucam")) "camera_game" else "click_game"
+}
+
+private fun homeMetricDisplayName(rawName: String): String {
+    GameUiCatalog.gameById(rawName)?.let { return it.title }
+    val key = normalizeGameKey(rawName)
+    return when {
+        key.contains("recognize") || key.contains("chiec") || key.contains("hop") -> "Chiếc hộp"
+        key.contains("click2") || key.contains("lap") || key.contains("xuong") -> "Lắp ghép"
+        key.contains("click3") || key.contains("dungcho") -> "Đúng chỗ"
+        key.contains("click4") || key.contains("tham") -> "Thám tử"
+        key.contains("cv2") || key.contains("thuthach") -> "Thử thách"
+        key.contains("cv") || key.contains("khuonmat") -> "Khuôn mặt"
+        else -> rawName.ifBlank { "Chưa có" }
+    }
 }
 
 private fun normalizeGameKey(value: String): String {
