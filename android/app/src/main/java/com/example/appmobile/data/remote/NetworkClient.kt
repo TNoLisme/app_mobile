@@ -72,4 +72,10 @@ object NetworkClient {
             .build()
             .create(ApiService::class.java)
     }
+
+    fun backendUrl(path: String): String {
+        val cleanPath = path.trimStart('/')
+        val host = preferredHost ?: "10.0.2.2"
+        return "http://$host:8000/$cleanPath"
+    }
 }

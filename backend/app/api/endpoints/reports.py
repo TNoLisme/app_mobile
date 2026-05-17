@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from email.message import EmailMessage
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -40,6 +40,10 @@ class BatchReportRequest(BaseModel):
 
 class TestEmailRequest(BaseModel):
     email: EmailStr
+
+
+class SendExistingReportRequest(BaseModel):
+    parent_email: EmailStr | None = None
 
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -628,6 +632,38 @@ def request_report(request: GenerateReportRequest, db: Session = Depends(get_db)
     }
 
 
+@router.post("/{report_id}/send")
+def send_existing_report(
+    report_id: str,
+    request: SendExistingReportRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    report = db.get(Report, report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    payload = _report_payload(report, db)
+    explicit_email = request.parent_email if request else None
+    recipient = _resolve_parent_email(db, report.child_id, explicit_email)
+    if not recipient:
+        return {
+            "status": "warning",
+            "message": "Chưa có email phụ huynh hợp lệ để gửi.",
+            "data": payload,
+            "email_sent": False,
+            "pdf_enabled": REPORTLAB_AVAILABLE,
+        }
+
+    sent, message = _send_report_email(recipient, payload)
+    return {
+        "status": "success" if sent else "error",
+        "message": message,
+        "data": payload,
+        "email_sent": sent,
+        "pdf_enabled": REPORTLAB_AVAILABLE,
+    }
+
+
 @router.get("/history")
 def report_history(child_user_id: str | None = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     query = db.query(Report)
@@ -666,6 +702,30 @@ def preview_report(
             "pdf_enabled": REPORTLAB_AVAILABLE,
         },
     }
+
+
+@router.get("/{report_id}/pdf")
+def report_pdf(report_id: str, db: Session = Depends(get_db)):
+    report = db.get(Report, report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    payload = _report_payload(report, db)
+    pdf_bytes = _build_pdf_bytes(payload)
+    if not pdf_bytes:
+        raise HTTPException(status_code=503, detail="PDF generation is not available")
+
+    child_name = _safe_filename(payload.get("child_name") or "child")
+    report_type = payload.get("report_type") or "weekly"
+    date_part = (payload.get("generated_at") or datetime.utcnow().isoformat()).split("T")[0]
+    filename = f"BaoCao_{child_name}_{report_type}_{date_part}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"inline; filename*=UTF-8''{quote(filename)}",
+        },
+    )
 
 
 @router.get("/all")

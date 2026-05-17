@@ -53,7 +53,8 @@ data class ReportHistoryResponseDto(
 
 data class ReportRequestDto(
     @SerializedName("child_user_id") val childUserId: String,
-    @SerializedName("report_type") val reportType: String = "weekly"
+    @SerializedName("report_type") val reportType: String = "weekly",
+    @SerializedName("send_email") val sendEmail: Boolean = true
 )
 
 data class ReportRequestResponseDto(

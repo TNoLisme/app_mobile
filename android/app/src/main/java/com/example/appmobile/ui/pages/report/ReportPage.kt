@@ -1,5 +1,7 @@
 package com.example.appmobile.ui.pages.report
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,7 +63,10 @@ fun ReportPage(onBack: () -> Unit) {
     }
     val preview = remember { mutableStateOf<ReportPreviewDataDto?>(null) }
     val history = remember { mutableStateOf<List<ReportPayloadDto>>(emptyList()) }
+    val pendingReport = remember { mutableStateOf<ReportPayloadDto?>(null) }
     val loading = remember { mutableStateOf(true) }
+    val creatingReport = remember { mutableStateOf(false) }
+    val sendingReport = remember { mutableStateOf(false) }
     val actionMessage = remember { mutableStateOf<String?>(null) }
 
     suspend fun loadData() {
@@ -78,6 +83,18 @@ fun ReportPage(onBack: () -> Unit) {
 
     fun refresh() {
         scope.launch { loadData() }
+    }
+
+    fun openReportPdf(reportId: String?) {
+        if (reportId.isNullOrBlank()) {
+            actionMessage.value = "Chưa có file PDF để xem trước."
+            return
+        }
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(NetworkClient.backendUrl("reports/$reportId/pdf")))
+        runCatching { context.startActivity(intent) }
+            .onFailure {
+                actionMessage.value = "Không mở được PDF. Vui lòng thử lại sau."
+            }
     }
 
     LaunchedEffect(userId) {
@@ -118,23 +135,56 @@ fun ReportPage(onBack: () -> Unit) {
                 Button(
                     onClick = {
                         scope.launch {
-                            actionMessage.value = "Đang tạo và gửi báo cáo PDF..."
-                            val created = runCatching { repository.requestReport(userId) }.getOrNull()
-                            actionMessage.value = if (created != null) {
-                                "Đã tạo báo cáo và gửi file PDF tới email phụ huynh (nếu đã cấu hình email)."
+                            creatingReport.value = true
+                            actionMessage.value = "Đang tạo PDF để xem trước..."
+                            val created = runCatching { repository.requestReport(userId, sendEmail = false) }.getOrNull()
+                            if (created != null) {
+                                pendingReport.value = created
+                                actionMessage.value = "Đã tạo bản xem trước PDF. Kiểm tra nội dung rồi bấm gửi."
                             } else {
-                                "Chưa tạo được báo cáo. Vui lòng thử lại."
+                                actionMessage.value = "Chưa tạo được báo cáo. Vui lòng thử lại."
                             }
+                            creatingReport.value = false
                             loadData()
                         }
                     },
+                    enabled = !creatingReport.value && !sendingReport.value,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Tạo & gửi PDF")
+                    Text(if (creatingReport.value) "Đang tạo..." else "Tạo PDF xem trước")
                 }
                 OutlinedButton(onClick = { refresh() }, modifier = Modifier.weight(1f)) {
                     Text("Tải lại")
                 }
+            }
+
+            pendingReport.value?.let { report ->
+                Spacer(modifier = Modifier.height(16.dp))
+                ReportPdfPreviewCard(
+                    report = report,
+                    sending = sendingReport.value,
+                    onOpenPdf = { openReportPdf(report.reportId) },
+                    onSend = {
+                        val reportId = report.reportId
+                        if (reportId.isNullOrBlank()) {
+                            actionMessage.value = "Chưa có mã báo cáo để gửi."
+                            return@ReportPdfPreviewCard
+                        }
+                        scope.launch {
+                            sendingReport.value = true
+                            actionMessage.value = "Đang gửi PDF tới email phụ huynh..."
+                            val sent = repository.sendReport(reportId)
+                            actionMessage.value = if (sent) {
+                                pendingReport.value = null
+                                "Đã gửi PDF tới email phụ huynh."
+                            } else {
+                                "Chưa gửi được PDF. Kiểm tra email phụ huynh hoặc cấu hình SMTP."
+                            }
+                            sendingReport.value = false
+                            loadData()
+                        }
+                    }
+                )
             }
 
             actionMessage.value?.let { message ->
@@ -187,6 +237,41 @@ private fun ReportSummaryCard(summary: String?, stats: ReportStatsDto?) {
 }
 
 @Composable
+private fun ReportPdfPreviewCard(
+    report: ReportPayloadDto,
+    sending: Boolean,
+    onOpenPdf: () -> Unit,
+    onSend: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(3.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Bản xem trước PDF", fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E4E8C))
+            Text(report.summary ?: "Không có nội dung báo cáo.", color = Color.DarkGray)
+            report.stats?.let { stats ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    StatBox("Phiên chơi", (stats.totalSessions ?: 0).toString(), Modifier.weight(1f))
+                    StatBox("Điểm TB", "%.1f".format(stats.avgScore ?: 0f), Modifier.weight(1f))
+                    StatBox("Tiến trình", (stats.progressCount ?: 0).toString(), Modifier.weight(1f))
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = onOpenPdf, modifier = Modifier.weight(1f)) {
+                    Text("Xem PDF")
+                }
+                Button(onClick = onSend, enabled = !sending, modifier = Modifier.weight(1f)) {
+                    Text(if (sending) "Đang gửi..." else "Gửi PDF")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun StatBox(label: String, value: String, modifier: Modifier = Modifier) {
     Surface(modifier = modifier, shape = MaterialTheme.shapes.large, color = Color(0xFFF1F8E9)) {
         Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -204,7 +289,7 @@ private fun EmptyHistoryCard() {
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Text(
-            "Chưa có báo cáo đã lưu. Bấm “Tạo & gửi PDF” để tạo báo cáo đầu tiên.",
+            "Chưa có báo cáo đã lưu. Bấm “Tạo PDF xem trước” để tạo báo cáo đầu tiên.",
             modifier = Modifier.padding(18.dp),
             color = Color.Gray
         )

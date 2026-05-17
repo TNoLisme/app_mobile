@@ -52,12 +52,26 @@ class AnalysisRepository(
         }
     }
 
-    suspend fun requestReport(childId: String): ReportPayloadDto? {
+    suspend fun requestReport(childId: String, sendEmail: Boolean = false): ReportPayloadDto? {
         return try {
-            val response = apiService.requestReport(ReportRequestDto(childUserId = childId))
+            val response = apiService.requestReport(
+                ReportRequestDto(
+                    childUserId = childId,
+                    sendEmail = sendEmail
+                )
+            )
             if (response.isSuccessful) response.body()?.data else null
         } catch (_: Exception) {
             null
+        }
+    }
+
+    suspend fun sendReport(reportId: String): Boolean {
+        return try {
+            val response = apiService.sendReport(reportId)
+            response.isSuccessful && response.body()?.status != "error"
+        } catch (_: Exception) {
+            false
         }
     }
 }

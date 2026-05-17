@@ -135,4 +135,7 @@ interface ApiService {
 
     @POST("reports/request-report")
     suspend fun requestReport(@Body request: ReportRequestDto): Response<ReportRequestResponseDto>
+
+    @POST("reports/{reportId}/send")
+    suspend fun sendReport(@Path("reportId") reportId: String): Response<ReportRequestResponseDto>
 }
