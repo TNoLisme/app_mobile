@@ -16,9 +16,10 @@ object NetworkClient {
     @Volatile private var preferredHost: String? = null
 
     private val fallbackHosts = listOf(
-        "192.168.1.37",
         "10.0.2.2",
         "127.0.0.1",
+        "192.168.1.51",
+        "192.168.1.37",
         "localhost",
         "192.168.1.27",
         "192.168.1.9",

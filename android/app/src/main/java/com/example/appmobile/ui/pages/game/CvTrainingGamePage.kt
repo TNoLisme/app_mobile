@@ -2,6 +2,7 @@ package com.example.appmobile.ui.pages.game
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
@@ -44,6 +45,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -81,6 +83,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -105,14 +108,19 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.roundToInt
 import kotlin.random.Random
+import org.json.JSONArray
+import org.json.JSONObject
 
 private const val CvRoundSeconds = 30
 private const val CvRequestRoundSeconds = 20
 private const val CvRequiredConfidence = 75f
-private const val CvRequiredHoldMs = 3_000L
+private const val CvRequiredHoldMs = 5_000L
 private const val CvStoryQuestionsPerLevel = 5
 private const val CvLogTag = "CvChallenge"
+private const val CvStoryCheckpointPref = "cv_story_checkpoint"
+private const val CvStoryCheckpointTtlMs = 24L * 60L * 60L * 1000L
 
 private enum class CvChallengeState {
     Idle,
@@ -148,6 +156,16 @@ private data class CvEmotionMeta(
     val hint: String
 )
 
+private data class CvStoryCheckpoint(
+    val sessionId: String?,
+    val score: Int,
+    val maxErrors: Int,
+    val currentIndex: Int,
+    val questions: List<CvQuestionUi>,
+    val results: List<AnswerResultDto>,
+    val savedAtMs: Long
+)
+
 @Composable
 fun CvTrainingGamePage(
     gameId: String,
@@ -166,7 +184,12 @@ fun CvTrainingGamePage(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
+    val userId = remember {
+        FirebaseAuth.getInstance().currentUser?.uid
+            ?: AppSession.getBackendUserId(context)
+            ?: AppSession.currentBackendUserId()
+            ?: "local-player"
+    }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
@@ -197,6 +220,7 @@ fun CvTrainingGamePage(
     val abandoningSession = remember(level, gameId) { mutableStateOf(false) }
     val results = remember(level, gameId) { mutableStateOf<List<AnswerResultDto>>(emptyList()) }
     val summary = remember(level, gameId) { mutableStateOf<String?>(null) }
+    val requestResultSummary = remember(level, gameId) { mutableStateOf<String?>(null) }
     val feedback = remember(level, gameId) { mutableStateOf<String?>(null) }
     val lastAttemptSuccess = remember(level, gameId) { mutableStateOf<Boolean?>(null) }
     val isSubmitting = remember(level, gameId) { mutableStateOf(false) }
@@ -221,6 +245,9 @@ fun CvTrainingGamePage(
     val detectedEmotion = remember(level, gameId) { mutableStateOf<String?>(null) }
     val faceDetected = remember(level, gameId) { mutableStateOf(false) }
     val holdProgressMs = remember(level, gameId) { mutableStateOf(0L) }
+    val holdConfidenceWeightedSum = remember(level, gameId) { mutableStateOf(0f) }
+    val roundConfidenceWeightedSum = remember(level, gameId) { mutableStateOf(0f) }
+    val roundConfidenceDurationMs = remember(level, gameId) { mutableStateOf(0L) }
     val lastDetectionAtMs = remember(level, gameId) { mutableStateOf<Long?>(null) }
     val lastStrongTargetAtMs = remember(level, gameId) { mutableStateOf<Long?>(null) }
     val playingStartedAtMs = remember(level, gameId) { mutableStateOf<Long?>(null) }
@@ -229,6 +256,10 @@ fun CvTrainingGamePage(
     val sustainedConfidenceDuringHold = remember(level, gameId) { mutableStateOf(0f) }
     val countdownRunId = remember(level, gameId) { mutableIntStateOf(0) }
     val showExitConfirm = remember(level, gameId) { mutableStateOf(false) }
+    val showStoryResumeDialog = remember(level, gameId, selectedEmotion) { mutableStateOf(false) }
+    val pendingStoryCheckpoint = remember(level, gameId, selectedEmotion) { mutableStateOf<CvStoryCheckpoint?>(null) }
+    val storyEntryDecisionResolved = remember(level, gameId, selectedEmotion) { mutableStateOf(!isStoryMode) }
+    val shouldLoadSessionFromBackend = remember(level, gameId, selectedEmotion) { mutableStateOf(!isStoryMode) }
     val searchingFaceLong = remember(level, gameId) { mutableStateOf(false) }
     val challengeSessionId = remember(level, gameId) { mutableStateOf(0L) }
     val challengeCompleted = remember(level, gameId) { mutableStateOf(false) }
@@ -237,6 +268,46 @@ fun CvTrainingGamePage(
     val hasCameraPermission = remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    fun persistStoryCheckpoint(force: Boolean = false) {
+        if (!isStoryMode || !storyEntryDecisionResolved.value) return
+        if (summary.value != null || backendSessionClosed.value) {
+            clearCvStoryCheckpoint(
+                context = context,
+                userId = userId,
+                gameId = gameId,
+                level = level
+            )
+            return
+        }
+        if (questions.value.isEmpty()) return
+        val hasProgress = results.value.isNotEmpty() ||
+            currentIndex.intValue > 0 ||
+            startRequested.value ||
+            challengeStarted.value ||
+            challengeState.value != CvChallengeState.Idle ||
+            force
+        if (!hasProgress) return
+        val checkpoint = CvStoryCheckpoint(
+            sessionId = sessionId.value?.takeIf { it.isNotBlank() },
+            score = score.intValue.coerceAtLeast(0),
+            maxErrors = maxErrors.intValue.coerceAtLeast(1),
+            currentIndex = currentIndex.intValue.coerceIn(
+                0,
+                (questions.value.size - 1).coerceAtLeast(0)
+            ),
+            questions = questions.value,
+            results = results.value,
+            savedAtMs = System.currentTimeMillis()
+        )
+        saveCvStoryCheckpoint(
+            context = context,
+            userId = userId,
+            gameId = gameId,
+            level = level,
+            checkpoint = checkpoint
         )
     }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -261,6 +332,9 @@ fun CvTrainingGamePage(
             detectedEmotion.value = null
             faceDetected.value = false
             holdProgressMs.value = 0L
+            holdConfidenceWeightedSum.value = 0f
+            roundConfidenceWeightedSum.value = 0f
+            roundConfidenceDurationMs.value = 0L
             lastDetectionAtMs.value = null
             lastStrongTargetAtMs.value = null
             playingStartedAtMs.value = null
@@ -303,6 +377,8 @@ fun CvTrainingGamePage(
             } else if (event == Lifecycle.Event.ON_STOP && !isStoryMode) {
                 detectionActive.value = false
                 Log.d(CvLogTag, "lifecycleStop pauseDetection sessionId=${challengeSessionId.value}")
+            } else if (event == Lifecycle.Event.ON_STOP && isStoryMode) {
+                persistStoryCheckpoint(force = true)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -312,6 +388,7 @@ fun CvTrainingGamePage(
     DisposableEffect(level, gameId) {
         screenDisposed.value = false
         onDispose {
+            persistStoryCheckpoint(force = true)
             screenDisposed.value = true
             detectionActive.value = false
             challengeCompleted.value = true
@@ -335,6 +412,9 @@ fun CvTrainingGamePage(
         detectedEmotion.value = null
         faceDetected.value = false
         holdProgressMs.value = 0L
+        holdConfidenceWeightedSum.value = 0f
+        roundConfidenceWeightedSum.value = 0f
+        roundConfidenceDurationMs.value = 0L
         lastDetectionAtMs.value = null
         lastStrongTargetAtMs.value = null
         playingStartedAtMs.value = null
@@ -358,6 +438,7 @@ fun CvTrainingGamePage(
 
     fun startCameraChallenge() {
         if (roundLoading.value) return
+        requestResultSummary.value = null
         feedback.value = null
         lastAttemptSuccess.value = null
         cameraMessage.value = null
@@ -371,6 +452,59 @@ fun CvTrainingGamePage(
             isRequestingCameraPermission.value = true
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
+    }
+
+    fun currentRequestRoundAverageConfidence(): Float {
+        val durationMs = roundConfidenceDurationMs.value
+        return if (durationMs > 0L) {
+            (roundConfidenceWeightedSum.value / durationMs.toFloat()).coerceIn(0f, 100f)
+        } else {
+            0f
+        }
+    }
+
+    fun applyStoryCheckpoint(checkpoint: CvStoryCheckpoint) {
+        val restoredQuestions = checkpoint.questions.ifEmpty { questions.value }
+        if (restoredQuestions.isEmpty()) return
+        questions.value = restoredQuestions
+        sessionId.value = checkpoint.sessionId
+        backendSessionClosed.value = false
+        abandoningSession.value = false
+        maxErrors.intValue = checkpoint.maxErrors.coerceAtLeast(1)
+        score.intValue = checkpoint.score.coerceAtLeast(0)
+        results.value = checkpoint.results
+        val answeredCount = checkpoint.results.size.coerceAtMost(restoredQuestions.size)
+        val restoredIndex = maxOf(answeredCount, checkpoint.currentIndex)
+            .coerceIn(0, (restoredQuestions.size - 1).coerceAtLeast(0))
+        currentIndex.intValue = restoredIndex
+        summary.value = null
+        requestResultSummary.value = null
+        feedback.value = null
+        lastAttemptSuccess.value = null
+        learningEmotionId.value = null
+        challengeCompleted.value = false
+        detectionActive.value = false
+        emotionErrors.clear()
+        learnedEmotions.clear()
+        val questionById = restoredQuestions.associateBy { it.questionId }
+        checkpoint.results
+            .filter { !it.isCorrect }
+            .forEach { result ->
+                val emotionId = questionById[result.questionId]
+                    ?.prompt
+                    ?.correctAnswer
+                    ?.let(::normalizeCvEmotion)
+                if (!emotionId.isNullOrBlank()) {
+                    emotionErrors[emotionId] = (emotionErrors[emotionId] ?: 0) + 1
+                }
+            }
+        emotionErrors.forEach { (emotionId, count) ->
+            if (count >= maxErrors.intValue && emotionId !in learnedEmotions) {
+                learnedEmotions.add(emotionId)
+            }
+        }
+        resetCurrentRound(start = false)
+        questionStartMs.value = System.currentTimeMillis()
     }
 
     fun abandonSessionIfNeeded(after: (() -> Unit)? = null) {
@@ -400,6 +534,14 @@ fun CvTrainingGamePage(
     }
 
     fun startNewBackendSession(after: (() -> Unit)? = null) {
+        if (isStoryMode) {
+            clearCvStoryCheckpoint(
+                context = context,
+                userId = userId,
+                gameId = gameId,
+                level = level
+            )
+        }
         sessionId.value = null
         backendSessionClosed.value = false
         abandoningSession.value = false
@@ -443,17 +585,52 @@ fun CvTrainingGamePage(
 
     fun finishLevel(finalResults: List<AnswerResultDto>) {
         if (isSubmitting.value || summary.value != null) return
+        if (isStoryMode) {
+            clearCvStoryCheckpoint(
+                context = context,
+                userId = userId,
+                gameId = gameId,
+                level = level
+            )
+        }
+        isSubmitting.value = true
         scope.launch {
             try {
-                isSubmitting.value = true
-                val response = sessionId.value?.let {
-                    repository.endLevel(it, finalResults, learnedEmotions.distinct())
+                var resultsToSubmit = finalResults
+                val activeSessionId = sessionId.value ?: run {
+                    repository.startGame(gameId, userId, level)?.also { started ->
+                        sessionId.value = started.sessionId
+                        backendSessionClosed.value = false
+                        abandoningSession.value = false
+                        val startedQuestionIds = started.questions.map { it.contentId }
+                        if (startedQuestionIds.isNotEmpty()) {
+                            resultsToSubmit = finalResults.mapIndexed { index, result ->
+                                startedQuestionIds.getOrNull(index)?.let { questionId ->
+                                    result.copy(questionId = questionId)
+                                } ?: result
+                            }
+                        }
+                    }?.sessionId
+                }
+                val response = activeSessionId?.let {
+                    repository.endLevel(it, resultsToSubmit, learnedEmotions.distinct())
                 }
                 if (response != null) {
                     backendSessionClosed.value = true
                 }
                 repository.getGameProgress(gameId = gameId, userId = userId, forceRefresh = true)
-                if (!isStoryMode) return@launch
+                if (!isStoryMode) {
+                    repository.getCvEmotionScores(userId = userId, forceRefresh = true)
+                    val roundScore = score.intValue.coerceIn(0, 100)
+                    val roundTimeSeconds = completedTimeSeconds.intValue.coerceAtLeast(0)
+                    requestResultSummary.value = if (response != null) {
+                        val status = if (response.passed) "Đã lưu tiến trình" else "Đã lưu lượt chơi"
+                        "$status. Điểm trung bình lượt này: ${roundScore}/100. Thời gian chơi: ${roundTimeSeconds} giây."
+                    } else {
+                        "Chưa lưu được tiến trình. Điểm trung bình lượt này: ${roundScore}/100. Thời gian chơi: ${roundTimeSeconds} giây."
+                    }
+                    return@launch
+                }
                 summary.value = if (isStoryMode) {
                     "Hoàn thành cấp độ!\nSố màn hoàn thành: ${finalResults.size}/${questions.value.size}.\nĐiểm: ${response?.score ?: score.intValue}."
                 } else if (response != null) {
@@ -463,7 +640,12 @@ fun CvTrainingGamePage(
                     "Hoàn thành. Điểm tạm tính: ${score.intValue}."
                 }
             } catch (_: Exception) {
-                if (!isStoryMode) return@launch
+                if (!isStoryMode) {
+                    val roundScore = score.intValue.coerceIn(0, 100)
+                    val roundTimeSeconds = completedTimeSeconds.intValue.coerceAtLeast(0)
+                    requestResultSummary.value = "Chưa lưu được tiến trình. Điểm trung bình lượt này: ${roundScore}/100. Thời gian chơi: ${roundTimeSeconds} giây."
+                    return@launch
+                }
                 summary.value = if (isStoryMode) {
                     "Hoàn thành cấp độ!\nSố màn hoàn thành: ${finalResults.size}/${questions.value.size}.\nĐiểm: ${score.intValue}."
                 } else {
@@ -487,7 +669,14 @@ fun CvTrainingGamePage(
         val question = questions.value[currentIndex.intValue]
         val reviewEmotion = normalizeCvEmotion(question.prompt.correctAnswer)
         val targetMeta = cvEmotionMeta(reviewEmotion)
-        if (success) score.intValue += 10
+        val normalizedScore = confidence.coerceIn(0f, 100f)
+        if (isStoryMode) {
+            if (success) {
+                score.intValue += 10
+            }
+        } else {
+            score.intValue = normalizedScore.roundToInt()
+        }
         if (!success) {
             val nextErrorCount = (emotionErrors[reviewEmotion] ?: 0) + 1
             emotionErrors[reviewEmotion] = nextErrorCount
@@ -501,12 +690,12 @@ fun CvTrainingGamePage(
             answer = if (success) question.prompt.correctAnswer else "not_matched",
             isCorrect = success,
             responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt(),
-            cvConfidence = confidence
+            cvConfidence = normalizedScore
         )
         results.value = updatedResults
-        currentConfidence.value = confidence
-        detectedConfidence.value = confidence
-        highestConfidence.value = maxOf(highestConfidence.value, confidence.coerceIn(0f, 100f))
+        currentConfidence.value = normalizedScore
+        detectedConfidence.value = normalizedScore
+        highestConfidence.value = maxOf(highestConfidence.value, normalizedScore)
         completedTimeSeconds.intValue = if (success) {
             ((System.currentTimeMillis() - questionStartMs.value) / 1000L).toInt().coerceAtLeast(1)
         } else {
@@ -520,6 +709,9 @@ fun CvTrainingGamePage(
         detectorReady.value = false
         correctHoldStartedAt.value = null
         holdProgressMs.value = 0L
+        holdConfidenceWeightedSum.value = 0f
+        roundConfidenceWeightedSum.value = 0f
+        roundConfidenceDurationMs.value = 0L
         lastDetectionAtMs.value = null
         lastStrongTargetAtMs.value = null
         playingStartedAtMs.value = null
@@ -561,6 +753,7 @@ fun CvTrainingGamePage(
         score.intValue = 0
         results.value = emptyList()
         summary.value = null
+        requestResultSummary.value = null
         emotionErrors.clear()
         learnedEmotions.clear()
         learningEmotionId.value = null
@@ -586,8 +779,45 @@ fun CvTrainingGamePage(
         resetCurrentRound(start = false)
     }
 
-    LaunchedEffect(gameId, level, userId, selectedEmotion) {
-        roundLoading.value = false
+    LaunchedEffect(gameId, level, userId, selectedEmotion, isStoryMode) {
+        if (!isStoryMode) {
+            showStoryResumeDialog.value = false
+            pendingStoryCheckpoint.value = null
+            storyEntryDecisionResolved.value = true
+            shouldLoadSessionFromBackend.value = true
+            return@LaunchedEffect
+        }
+        val checkpoint = loadCvStoryCheckpoint(
+            context = context,
+            userId = userId,
+            gameId = gameId,
+            level = level
+        )
+        if (checkpoint != null) {
+            pendingStoryCheckpoint.value = checkpoint
+            showStoryResumeDialog.value = true
+            storyEntryDecisionResolved.value = false
+            shouldLoadSessionFromBackend.value = false
+            roundLoading.value = false
+        } else {
+            showStoryResumeDialog.value = false
+            pendingStoryCheckpoint.value = null
+            storyEntryDecisionResolved.value = true
+            shouldLoadSessionFromBackend.value = true
+        }
+    }
+
+    LaunchedEffect(
+        gameId,
+        level,
+        userId,
+        selectedEmotion,
+        shouldLoadSessionFromBackend.value,
+        storyEntryDecisionResolved.value
+    ) {
+        if (!shouldLoadSessionFromBackend.value) return@LaunchedEffect
+        if (isStoryMode && !storyEntryDecisionResolved.value) return@LaunchedEffect
+        roundLoading.value = true
         try {
             val selectedEmotionKey = selectedEmotion?.takeIf { it.isNotBlank() }?.let(::normalizeCvEmotion)
             val started = repository.startGame(gameId, userId, level)
@@ -647,6 +877,63 @@ fun CvTrainingGamePage(
             }
         } finally {
             roundLoading.value = false
+            shouldLoadSessionFromBackend.value = false
+            storyEntryDecisionResolved.value = true
+        }
+    }
+
+    LaunchedEffect(
+        isStoryMode,
+        storyEntryDecisionResolved.value,
+        sessionId.value,
+        currentIndex.intValue,
+        score.intValue,
+        results.value,
+        questions.value,
+        maxErrors.intValue,
+        startRequested.value,
+        challengeStarted.value,
+        challengeState.value,
+        summary.value,
+        backendSessionClosed.value
+    ) {
+        persistStoryCheckpoint(force = false)
+    }
+
+    if (showStoryResumeDialog.value) {
+        val checkpoint = pendingStoryCheckpoint.value
+        if (isStoryMode && checkpoint != null) {
+            val answered = checkpoint.results.size.coerceAtMost(checkpoint.questions.size)
+            CvStoryResumeDialog(
+                answeredCount = answered,
+                totalCount = checkpoint.questions.size,
+                onContinue = {
+                    showStoryResumeDialog.value = false
+                    pendingStoryCheckpoint.value = null
+                    storyEntryDecisionResolved.value = true
+                    shouldLoadSessionFromBackend.value = false
+                    applyStoryCheckpoint(checkpoint)
+                },
+                onRestart = {
+                    showStoryResumeDialog.value = false
+                    pendingStoryCheckpoint.value = null
+                    storyEntryDecisionResolved.value = true
+                    shouldLoadSessionFromBackend.value = true
+                    clearCvStoryCheckpoint(
+                        context = context,
+                        userId = userId,
+                        gameId = gameId,
+                        level = level
+                    )
+                    scope.launch {
+                        checkpoint.sessionId
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { activeSessionId ->
+                                runCatching { repository.abandonSession(activeSessionId) }
+                            }
+                    }
+                }
+            )
         }
     }
 
@@ -694,8 +981,10 @@ fun CvTrainingGamePage(
         CvChallengeState.Playing
     ) && startRequested.value
 
-    BackHandler(enabled = isActiveRequestChallenge) {
-        showExitConfirm.value = true
+    BackHandler(enabled = isActiveRequestChallenge || (!isStoryMode && isSubmitting.value)) {
+        if (!isSubmitting.value) {
+            showExitConfirm.value = true
+        }
     }
 
     LaunchedEffect(roundLoading.value, currentQuestion.questionId, isStoryMode) {
@@ -956,7 +1245,14 @@ fun CvTrainingGamePage(
                 if (remainingSeconds.intValue <= 0) {
                     challengeState.value = CvChallengeState.Timeout
                     Log.d(CvLogTag, "timerTimeout sessionId=${challengeSessionId.value}")
-                    recordAttempt(success = false, confidence = highestConfidence.value)
+                    val timeoutAverage = currentRequestRoundAverageConfidence()
+                    val timeoutConfidence = maxOf(
+                        timeoutAverage,
+                        currentConfidence.value,
+                        detectedConfidence.value,
+                        highestConfidence.value
+                    ).coerceIn(0f, 100f)
+                    recordAttempt(success = false, confidence = timeoutConfidence)
                     break
                 }
             }
@@ -1010,7 +1306,7 @@ fun CvTrainingGamePage(
         } else {
             (previousScore * 0.88f) + (targetRawScore * 0.12f)
         }.coerceIn(0f, 100f)
-        val effectiveTargetScore = if (isTargetEmotion) maxOf(normalizedConfidence, smoothedScore) else smoothedScore
+        val effectiveTargetScore = smoothedScore
         val deltaMs = (now - (lastDetectionAtMs.value ?: now)).coerceIn(120L, 700L)
         val withinStrongGrace = lastStrongTargetAtMs.value?.let { now - it <= 500L } == true
 
@@ -1020,7 +1316,7 @@ fun CvTrainingGamePage(
         detectedConfidence.value = if (hasFaceInFrame) normalizedConfidence else 0f
         currentConfidence.value = if (hasFaceInFrame) effectiveTargetScore else 0f
         if (isTargetEmotion) {
-            highestConfidence.value = maxOf(highestConfidence.value, normalizedConfidence)
+            highestConfidence.value = maxOf(highestConfidence.value, effectiveTargetScore)
         }
         Log.d(
             CvLogTag,
@@ -1055,46 +1351,71 @@ fun CvTrainingGamePage(
 
         if (challengeState.value != CvChallengeState.Detecting) return
 
-        val isHoldingCorrectEmotion = isTargetEmotion && normalizedConfidence >= CvRequiredConfidence
+        val holdConfidenceScore = if (isTargetEmotion) effectiveTargetScore.coerceIn(0f, 100f) else 0f
+        if (isTargetEmotion) {
+            roundConfidenceWeightedSum.value += holdConfidenceScore * deltaMs.toFloat()
+            roundConfidenceDurationMs.value += deltaMs
+        }
+        val isHoldingCorrectEmotion = isTargetEmotion && holdConfidenceScore >= CvRequiredConfidence
         if (isHoldingCorrectEmotion) {
             lastStrongTargetAtMs.value = now
             if (correctHoldStartedAt.value == null) {
                 correctHoldStartedAt.value = now
-                sustainedConfidenceDuringHold.value = normalizedConfidence
+                sustainedConfidenceDuringHold.value = holdConfidenceScore
             } else {
                 sustainedConfidenceDuringHold.value = maxOf(
                     sustainedConfidenceDuringHold.value,
-                    normalizedConfidence
+                    holdConfidenceScore
                 )
             }
-            holdProgressMs.value = (holdProgressMs.value + deltaMs).coerceAtMost(CvRequiredHoldMs)
+            val previousHoldMs = holdProgressMs.value
+            val nextHoldMs = (previousHoldMs + deltaMs).coerceAtMost(CvRequiredHoldMs)
+            val gainedHoldMs = (nextHoldMs - previousHoldMs).coerceAtLeast(0L)
+            if (gainedHoldMs > 0L) {
+                holdConfidenceWeightedSum.value += holdConfidenceScore * gainedHoldMs.toFloat()
+            }
+            holdProgressMs.value = nextHoldMs
             if (holdProgressMs.value >= CvRequiredHoldMs) {
+                val averageConfidence = if (holdProgressMs.value > 0L) {
+                    (holdConfidenceWeightedSum.value / holdProgressMs.value.toFloat()).coerceIn(0f, 100f)
+                } else {
+                    holdConfidenceScore
+                }
                 recordAttempt(
                     success = true,
-                    confidence = maxOf(
-                        sustainedConfidenceDuringHold.value,
-                        highestConfidence.value,
-                        normalizedConfidence
-                    ).coerceIn(0f, 100f)
+                    confidence = averageConfidence
                 )
             }
         } else {
-            if (isTargetEmotion && normalizedConfidence >= 60f) {
+            if (isTargetEmotion && holdConfidenceScore >= 60f) {
+                val previousHoldMs = holdProgressMs.value
                 val partialHoldCap = (CvRequiredHoldMs * 0.6f).toLong()
-                holdProgressMs.value = (holdProgressMs.value + (deltaMs / 5)).coerceAtMost(partialHoldCap)
+                val nextHoldMs = (previousHoldMs + (deltaMs / 5)).coerceAtMost(partialHoldCap)
+                val gainedHoldMs = (nextHoldMs - previousHoldMs).coerceAtLeast(0L)
+                if (gainedHoldMs > 0L) {
+                    holdConfidenceWeightedSum.value += holdConfidenceScore * gainedHoldMs.toFloat()
+                }
+                holdProgressMs.value = nextHoldMs
                 return
             }
             val decay = if (withinStrongGrace && holdProgressMs.value > 0L) {
                 deltaMs / 8
-            } else if (isTargetEmotion && normalizedConfidence >= 50f) {
+            } else if (isTargetEmotion && holdConfidenceScore >= 50f) {
                 deltaMs / 4
             } else {
                 deltaMs / 2
             }
-            holdProgressMs.value = (holdProgressMs.value - decay).coerceAtLeast(0L)
+            val previousHoldMs = holdProgressMs.value
+            val nextHoldMs = (previousHoldMs - decay).coerceAtLeast(0L)
+            holdProgressMs.value = nextHoldMs
+            if (previousHoldMs > 0L && nextHoldMs > 0L) {
+                val retainRatio = nextHoldMs.toFloat() / previousHoldMs.toFloat()
+                holdConfidenceWeightedSum.value = (holdConfidenceWeightedSum.value * retainRatio).coerceAtLeast(0f)
+            }
             if (holdProgressMs.value == 0L) {
                 correctHoldStartedAt.value = null
                 sustainedConfidenceDuringHold.value = 0f
+                holdConfidenceWeightedSum.value = 0f
             }
         }
     }
@@ -1117,11 +1438,18 @@ fun CvTrainingGamePage(
                 title = displayCvTitle(title, gameId),
                 progressText = if (isStoryMode) "Câu ${currentIndex.intValue + 1}/${questions.value.size}" else null,
                 onBack = {
-                    if (isActiveRequestChallenge) {
-                        showExitConfirm.value = true
-                    } else {
-                        abandonSessionIfNeeded {
-                            onBack()
+                    when {
+                        !isStoryMode && isSubmitting.value -> Unit
+                        isActiveRequestChallenge -> showExitConfirm.value = true
+                        else -> {
+                            if (isStoryMode && summary.value == null) {
+                                persistStoryCheckpoint(force = true)
+                                onBack()
+                            } else {
+                                abandonSessionIfNeeded {
+                                    onBack()
+                                }
+                            }
                         }
                     }
                 }
@@ -1149,10 +1477,7 @@ fun CvTrainingGamePage(
                     )
                 }
                 Spacer(modifier = Modifier.height(80.dp))
-                return@Column
-            }
-
-            if (!isStoryMode) {
+            } else if (!isStoryMode) {
                 CvRequestChallengeScreen(
                     targetEmotion = targetEmotion,
                     challengeState = challengeState.value,
@@ -1160,7 +1485,6 @@ fun CvTrainingGamePage(
                     detectedEmotionId = detectedEmotion.value,
                     confidence = currentConfidence.value,
                     detectedConfidence = detectedConfidence.value,
-                    highestConfidence = highestConfidence.value,
                     faceDetected = faceDetected.value,
                     searchingFaceLong = searchingFaceLong.value,
                     holdProgress = holdProgressMs.value.toFloat() / CvRequiredHoldMs.toFloat(),
@@ -1176,7 +1500,8 @@ fun CvTrainingGamePage(
                         cameraMessage.value == null,
                     detectionActive = detectionActive.value && !challengeCompleted.value,
                     completedTimeSeconds = completedTimeSeconds.intValue,
-                    score = if (lastAttemptSuccess.value == true) 10 else 0,
+                    score = score.intValue.coerceIn(0, 100),
+                    resultSummary = requestResultSummary.value,
                     isSubmitting = isSubmitting.value,
                     onCameraReady = {
                         if (screenDisposed.value || challengeCompleted.value) return@CvRequestChallengeScreen
@@ -1208,28 +1533,25 @@ fun CvTrainingGamePage(
                         isRequestingCameraPermission.value = false
                     },
                     onRetry = {
-                        if (feedback.value != null) {
-                            startNewBackendSession {
-                                startCameraChallenge()
+                        when {
+                            isSubmitting.value -> Unit
+                            feedback.value != null -> {
+                                score.intValue = 0
+                                results.value = emptyList()
+                                requestResultSummary.value = null
+                                startNewBackendSession {
+                                    startCameraChallenge()
+                                }
                             }
-                        } else {
-                            startCameraChallenge()
+                            else -> startCameraChallenge()
                         }
                     },
                     onStop = { showExitConfirm.value = true },
                     onSelectAnother = {
-                        abandonSessionIfNeeded {
-                            onBack()
-                        }
-                    },
-                    onExit = {
-                        detectionActive.value = false
-                        challengeCompleted.value = true
-                        challengeSessionId.value += 1L
-                        Log.d(CvLogTag, "releaseCamera onExit sessionId=${challengeSessionId.value}")
-                        challengeState.value = CvChallengeState.Ended
-                        abandonSessionIfNeeded {
-                            onFinish()
+                        if (!isSubmitting.value) {
+                            abandonSessionIfNeeded {
+                                onBack()
+                            }
                         }
                     },
                     onOpenSettings = {
@@ -1355,17 +1677,18 @@ fun CvTrainingGamePage(
                         }
                     },
                 onStart = {
-                    if (roundLoading.value) return@CvCameraFeedbackCard
-                    startRequested.value = true
-                    cameraPreviewReady.value = false
-                    detectorReady.value = false
-                    if (hasCameraPermission.value) {
-                        cameraMessage.value = null
-                        resetCurrentRound(start = true)
-                    } else {
-                        challengeState.value = CvChallengeState.RequestingPermission
-                        isRequestingCameraPermission.value = true
-                        permissionLauncher.launch(Manifest.permission.CAMERA)
+                    if (!roundLoading.value) {
+                        startRequested.value = true
+                        cameraPreviewReady.value = false
+                        detectorReady.value = false
+                        if (hasCameraPermission.value) {
+                            cameraMessage.value = null
+                            resetCurrentRound(start = true)
+                        } else {
+                            challengeState.value = CvChallengeState.RequestingPermission
+                            isRequestingCameraPermission.value = true
+                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
                     }
                 },
                 onRetry = { resetCurrentRound(start = false) },
@@ -1383,8 +1706,13 @@ fun CvTrainingGamePage(
                 },
                 onExit = {
                     challengeState.value = CvChallengeState.Ended
-                    abandonSessionIfNeeded {
+                    if (isStoryMode && summary.value == null) {
+                        persistStoryCheckpoint(force = true)
                         onFinish()
+                    } else {
+                        abandonSessionIfNeeded {
+                            onFinish()
+                        }
                     }
                 }
                 )
@@ -1412,8 +1740,13 @@ fun CvTrainingGamePage(
                     challengeState.value = CvChallengeState.Ended
                     cameraPreviewReady.value = false
                     detectorReady.value = false
-                    abandonSessionIfNeeded {
+                    if (isStoryMode && summary.value == null) {
+                        persistStoryCheckpoint(force = true)
                         onBack()
+                    } else {
+                        abandonSessionIfNeeded {
+                            onBack()
+                        }
                     }
                 }
             )
@@ -1466,7 +1799,6 @@ private fun CvRequestChallengeScreen(
     detectedEmotionId: String?,
     confidence: Float,
     detectedConfidence: Float,
-    highestConfidence: Float,
     faceDetected: Boolean,
     searchingFaceLong: Boolean,
     holdProgress: Float,
@@ -1479,6 +1811,7 @@ private fun CvRequestChallengeScreen(
     detectionActive: Boolean,
     completedTimeSeconds: Int,
     score: Int,
+    resultSummary: String?,
     isSubmitting: Boolean,
     onCameraReady: () -> Unit,
     onDetectorReady: () -> Unit,
@@ -1487,7 +1820,6 @@ private fun CvRequestChallengeScreen(
     onRetry: () -> Unit,
     onStop: () -> Unit,
     onSelectAnother: () -> Unit,
-    onExit: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1497,26 +1829,21 @@ private fun CvRequestChallengeScreen(
                 success = challengeState == CvChallengeState.Success,
                 score = score,
                 timeUsedSeconds = completedTimeSeconds,
-                highestConfidence = highestConfidence,
+                resultSummary = resultSummary,
                 isSubmitting = isSubmitting,
                 onReplay = onRetry,
-                onSelectAnother = onSelectAnother,
-                onExit = onExit
+                onSelectAnother = onSelectAnother
             )
-            return@Column
-        }
-
-        CvRequestMissionCard(targetEmotion = targetEmotion)
+        } else {
+            CvRequestMissionCard(targetEmotion = targetEmotion)
 
         if (challengeState == CvChallengeState.PermissionDenied) {
             CameraPermissionContent(
                 onOpenSettings = onOpenSettings,
                 onBack = onSelectAnother
             )
-            return@Column
-        }
-
-        CvRequestCameraPreviewBox(
+        } else {
+            CvRequestCameraPreviewBox(
             targetEmotion = targetEmotion,
             challengeState = challengeState,
             shouldShowCamera = shouldShowCamera,
@@ -1563,6 +1890,8 @@ private fun CvRequestChallengeScreen(
             ) {
                 Text("Dừng", color = EgDesign.blue, fontWeight = FontWeight.Bold)
             }
+        }
+        }
         }
     }
 }
@@ -1958,11 +2287,10 @@ private fun ChallengeResultCard(
     success: Boolean,
     score: Int,
     timeUsedSeconds: Int,
-    highestConfidence: Float,
+    resultSummary: String?,
     isSubmitting: Boolean,
     onReplay: () -> Unit,
-    onSelectAnother: () -> Unit,
-    onExit: () -> Unit
+    onSelectAnother: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1986,7 +2314,9 @@ private fun ChallengeResultCard(
                 textAlign = TextAlign.Center
             )
             Text(
-                text = if (success) {
+                text = resultSummary ?: if (isSubmitting) {
+                    "Đang lưu tiến trình..."
+                } else if (success) {
                     "Bé đã thể hiện cảm xúc ${targetEmotion.label} rất tốt."
                 } else {
                     "Bé thử làm cảm xúc ${targetEmotion.label} rõ hơn một chút nhé."
@@ -1997,9 +2327,16 @@ private fun ChallengeResultCard(
                 textAlign = TextAlign.Center
             )
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ResultStat(label = "Điểm", value = if (success) "+$score" else "+0", modifier = Modifier.weight(1f))
-                ResultStat(label = "Thời gian", value = "${timeUsedSeconds.coerceAtLeast(0)} giây", modifier = Modifier.weight(1f))
-                ResultStat(label = "Cao nhất", value = "${highestConfidence.toInt()}%", modifier = Modifier.weight(1f))
+                ResultStat(
+                    label = "Điểm TB lượt này",
+                    value = if (success) "${score.coerceIn(0, 100)}/100" else "0/100",
+                    modifier = Modifier.weight(1f)
+                )
+                ResultStat(
+                    label = "Thời gian chơi",
+                    value = "${timeUsedSeconds.coerceAtLeast(0)} giây",
+                    modifier = Modifier.weight(1f)
+                )
             }
             Button(
                 onClick = onReplay,
@@ -2017,18 +2354,10 @@ private fun ChallengeResultCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp),
+                    enabled = !isSubmitting,
                     border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Text("Chọn cảm xúc khác", color = EgDesign.blue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                }
-                OutlinedButton(
-                    onClick = onExit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
-                    border = BorderStroke(1.dp, EgDesign.cardBorder)
-                ) {
-                    Text("Về trang game", color = EgDesign.blue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
         }
@@ -2176,6 +2505,70 @@ private fun ConfirmExitDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
         containerColor = Color.White,
         shape = RoundedCornerShape(22.dp)
     )
+}
+
+@Composable
+private fun CvStoryResumeDialog(
+    answeredCount: Int,
+    totalCount: Int,
+    onContinue: () -> Unit,
+    onRestart: () -> Unit
+) {
+    Dialog(onDismissRequest = {}) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 360.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, EgDesign.cardBorder),
+            shadowElevation = 10.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text("📚", fontSize = 28.sp)
+                Text(
+                    "Bé đang chơi dở",
+                    color = EgDesign.textPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 24.sp,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    "Bé đã làm ${answeredCount.coerceAtLeast(0)}/${totalCount.coerceAtLeast(1)} câu. Bé muốn chơi tiếp hay chơi lại từ đầu?",
+                    color = EgDesign.textSecondary,
+                    lineHeight = 20.sp,
+                    textAlign = TextAlign.Center
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onRestart,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        border = BorderStroke(1.dp, EgDesign.cardBorder)
+                    ) {
+                        Text("Chơi lại", color = EgDesign.blue, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = onContinue,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primary)
+                    ) {
+                        Text("Chơi tiếp", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -3335,7 +3728,6 @@ private fun CameraXFramePreview(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val mainExecutor: Executor = remember(context) { ContextCompat.getMainExecutor(context) }
-    val analyzerExecutor = remember { Executors.newSingleThreadExecutor() }
     val readyCallback = rememberUpdatedState(onCameraReady)
     val frameCallback = rememberUpdatedState(onFrame)
     val errorCallback = rememberUpdatedState(onCameraError)
@@ -3349,46 +3741,70 @@ private fun CameraXFramePreview(
     }
 
     DisposableEffect(lifecycleOwner) {
+        val analyzerExecutor = Executors.newSingleThreadExecutor()
+        val disposed = AtomicBoolean(false)
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener(
             {
-                runCatching {
-                    val cameraProvider = cameraProviderFuture.get()
-                    val preview = Preview.Builder().build().also {
-                        it.setSurfaceProvider(previewView.surfaceProvider)
-                    }
-                    val analysis = ImageAnalysis.Builder()
-                        .setTargetResolution(Size(320, 240))
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .build()
-                        .also { imageAnalysis ->
-                            analysisRef[0] = imageAnalysis
-                            imageAnalysis.setAnalyzer(
-                                analyzerExecutor,
-                                CvFrameAnalyzer(isActive = { activeState.value }) { base64Frame, rotationDegrees ->
-                                    frameCallback.value.invoke(base64Frame, rotationDegrees)
-                                }
-                            )
+                if (!disposed.get()) {
+                    runCatching {
+                        val cameraProvider = cameraProviderFuture.get()
+                        if (disposed.get()) {
+                            cameraProvider.unbindAll()
+                            return@runCatching
                         }
-                    val selector = if (cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
-                        CameraSelector.DEFAULT_FRONT_CAMERA
-                    } else {
-                        CameraSelector.DEFAULT_BACK_CAMERA
+                        val preview = Preview.Builder().build().also {
+                            it.setSurfaceProvider(previewView.surfaceProvider)
+                        }
+                        val analysis = ImageAnalysis.Builder()
+                            .setTargetResolution(Size(320, 240))
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .build()
+                            .also { imageAnalysis ->
+                                analysisRef[0] = imageAnalysis
+                                imageAnalysis.setAnalyzer(
+                                    analyzerExecutor,
+                                    CvFrameAnalyzer(isActive = { activeState.value }) { base64Frame, rotationDegrees ->
+                                        frameCallback.value.invoke(base64Frame, rotationDegrees)
+                                    }
+                                )
+                            }
+                        val selector = if (cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
+                            CameraSelector.DEFAULT_FRONT_CAMERA
+                        } else {
+                            CameraSelector.DEFAULT_BACK_CAMERA
+                        }
+                        cameraProvider.unbindAll()
+                        if (disposed.get()) {
+                            analysis.clearAnalyzer()
+                            analysisRef[0] = null
+                            return@runCatching
+                        }
+                        cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
+                        previewView.post {
+                            if (!disposed.get()) {
+                                readyCallback.value.invoke()
+                            }
+                        }
+                    }.onFailure { error ->
+                        if (!disposed.get()) {
+                            errorCallback.value.invoke(error)
+                        }
                     }
-                    cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
-                    previewView.post { readyCallback.value.invoke() }
-                }.onFailure { error ->
-                    errorCallback.value.invoke(error)
                 }
             },
             mainExecutor
         )
         onDispose {
+            disposed.set(true)
             Log.d(CvLogTag, "stopAnalyzer releaseCamera")
             runCatching { analysisRef[0]?.clearAnalyzer() }
             analysisRef[0] = null
-            runCatching { cameraProviderFuture.get().unbindAll() }
+            runCatching {
+                if (cameraProviderFuture.isDone) {
+                    cameraProviderFuture.get().unbindAll()
+                }
+            }
             analyzerExecutor.shutdown()
         }
     }
@@ -3637,14 +4053,15 @@ private fun cvChallengeInstruction(emotionId: String): String {
 }
 
 private fun cvShortChallengeInstruction(emotionId: String): String {
+    val holdSeconds = CvRequiredHoldMs / 1000
     return when (normalizeCvEmotion(emotionId)) {
-        "happy" -> "Cười thật tươi trong 3 giây."
-        "sad" -> "Làm khuôn mặt buồn trong 3 giây."
-        "angry" -> "Nhíu mày tức giận trong 3 giây."
-        "fear" -> "Mở mắt như đang sợ trong 3 giây."
-        "surprise" -> "Mở mắt to và há miệng nhẹ trong 3 giây."
-        "disgust" -> "Nhăn mũi như không thích mùi gì đó trong 3 giây."
-        else -> "Làm đúng biểu cảm trong 3 giây."
+        "happy" -> "Cười thật tươi trong ${holdSeconds} giây."
+        "sad" -> "Làm khuôn mặt buồn trong ${holdSeconds} giây."
+        "angry" -> "Nhíu mày tức giận trong ${holdSeconds} giây."
+        "fear" -> "Mở mắt như đang sợ trong ${holdSeconds} giây."
+        "surprise" -> "Mở mắt to và há miệng nhẹ trong ${holdSeconds} giây."
+        "disgust" -> "Nhăn mũi như không thích mùi gì đó trong ${holdSeconds} giây."
+        else -> "Làm đúng biểu cảm trong ${holdSeconds} giây."
     }
 }
 
@@ -3733,11 +4150,15 @@ private fun cvDetectionLine(
     faceDetected: Boolean,
     searchingFaceLong: Boolean
 ): String {
+    val percentText = "${confidence.coerceIn(0f, 100f).toInt()}%"
     return when {
-        state == CvChallengeState.Detecting && detectedMeta != null -> {
-            "Đang nhận diện: ${detectedMeta.label} ${confidence.toInt()}%"
+        (state == CvChallengeState.Detecting || state == CvChallengeState.Playing) && detectedMeta != null -> {
+            "Đang nhận diện: ${detectedMeta.label} $percentText"
         }
-        state == CvChallengeState.Detecting && faceDetected -> "Đang nhận diện biểu cảm..."
+        (state == CvChallengeState.Detecting || state == CvChallengeState.Playing) && confidence > 0f ->
+            "Đang nhận diện: $percentText"
+        (state == CvChallengeState.Detecting || state == CvChallengeState.Playing) && faceDetected ->
+            "Đang nhận diện: 0%"
         state == CvChallengeState.SearchingFace -> if (searchingFaceLong) {
             "App chưa thấy khuôn mặt"
         } else {
@@ -4084,6 +4505,153 @@ private fun CvActionRow(
             }
         }
     }
+}
+
+private fun cvStoryCheckpointKey(userId: String, gameId: String, level: Int): String {
+    return "$userId::$gameId::$level"
+}
+
+private fun saveCvStoryCheckpoint(
+    context: Context,
+    userId: String,
+    gameId: String,
+    level: Int,
+    checkpoint: CvStoryCheckpoint
+) {
+    val root = JSONObject().apply {
+        if (checkpoint.sessionId == null) {
+            put("session_id", JSONObject.NULL)
+        } else {
+            put("session_id", checkpoint.sessionId)
+        }
+        put("score", checkpoint.score)
+        put("max_errors", checkpoint.maxErrors)
+        put("current_index", checkpoint.currentIndex)
+        put("saved_at_ms", checkpoint.savedAtMs)
+        put(
+            "questions",
+            JSONArray().apply {
+                checkpoint.questions.forEach { question ->
+                    put(
+                        JSONObject().apply {
+                            put("question_id", question.questionId)
+                            put("question_text", question.prompt.questionText)
+                            put("correct_answer", question.prompt.correctAnswer)
+                        }
+                    )
+                }
+            }
+        )
+        put(
+            "results",
+            JSONArray().apply {
+                checkpoint.results.forEach { result ->
+                    put(
+                        JSONObject().apply {
+                            put("question_id", result.questionId)
+                            if (result.answer == null) put("answer", JSONObject.NULL) else put("answer", result.answer)
+                            put("is_correct", result.isCorrect)
+                            put("response_time_ms", result.responseTimeMs)
+                            put("used_hint", result.usedHint)
+                            if (result.cvConfidence == null) put("cv_confidence", JSONObject.NULL) else put("cv_confidence", result.cvConfidence)
+                        }
+                    )
+                }
+            }
+        )
+    }
+    val preferences = context.getSharedPreferences(CvStoryCheckpointPref, Context.MODE_PRIVATE)
+    preferences.edit()
+        .putString(cvStoryCheckpointKey(userId, gameId, level), root.toString())
+        .commit()
+}
+
+private fun loadCvStoryCheckpoint(
+    context: Context,
+    userId: String,
+    gameId: String,
+    level: Int
+): CvStoryCheckpoint? {
+    val preferences = context.getSharedPreferences(CvStoryCheckpointPref, Context.MODE_PRIVATE)
+    val key = cvStoryCheckpointKey(userId, gameId, level)
+    val raw = preferences.getString(key, null) ?: return null
+    return runCatching {
+        val root = JSONObject(raw)
+        val savedAtMs = root.optLong("saved_at_ms", 0L)
+        if (savedAtMs <= 0L || System.currentTimeMillis() - savedAtMs > CvStoryCheckpointTtlMs) {
+            preferences.edit().remove(key).apply()
+            return null
+        }
+        val sessionId = root
+            .optString("session_id")
+            .takeIf { it.isNotBlank() }
+        val maxErrors = root.optInt("max_errors", 2).coerceAtLeast(1)
+        val score = root.optInt("score", 0).coerceAtLeast(0)
+        val currentIndex = root.optInt("current_index", 0).coerceAtLeast(0)
+        val questionsArray = root.optJSONArray("questions") ?: return null
+        val questions = buildList {
+            for (index in 0 until questionsArray.length()) {
+                val item = questionsArray.optJSONObject(index) ?: continue
+                val questionId = item.optString("question_id")
+                val questionText = item.optString("question_text")
+                val correctAnswer = item.optString("correct_answer")
+                if (questionId.isBlank() || correctAnswer.isBlank()) continue
+                add(
+                    CvQuestionUi(
+                        questionId = questionId,
+                        prompt = CvPromptUiItem(
+                            questionText = questionText,
+                            correctAnswer = correctAnswer
+                        )
+                    )
+                )
+            }
+        }
+        if (questions.isEmpty()) return null
+        val resultsArray = root.optJSONArray("results") ?: JSONArray()
+        val results = buildList {
+            for (index in 0 until resultsArray.length()) {
+                val item = resultsArray.optJSONObject(index) ?: continue
+                val questionId = item.optString("question_id")
+                if (questionId.isBlank()) continue
+                val answer = if (item.isNull("answer")) null else item.optString("answer")
+                val cvConfidence = if (item.isNull("cv_confidence")) null else item.optDouble("cv_confidence", 0.0).toFloat()
+                add(
+                    AnswerResultDto(
+                        questionId = questionId,
+                        answer = answer,
+                        isCorrect = item.optBoolean("is_correct", false),
+                        responseTimeMs = item.optInt("response_time_ms", 0),
+                        usedHint = item.optBoolean("used_hint", false),
+                        cvConfidence = cvConfidence
+                    )
+                )
+            }
+        }
+        if (results.size >= questions.size) {
+            preferences.edit().remove(key).apply()
+            return null
+        }
+        CvStoryCheckpoint(
+            sessionId = sessionId,
+            score = score,
+            maxErrors = maxErrors,
+            currentIndex = currentIndex.coerceIn(0, (questions.size - 1).coerceAtLeast(0)),
+            questions = questions,
+            results = results,
+            savedAtMs = savedAtMs
+        )
+    }.getOrNull()
+}
+
+private fun clearCvStoryCheckpoint(
+    context: Context,
+    userId: String,
+    gameId: String,
+    level: Int
+) {
+    val preferences = context.getSharedPreferences(CvStoryCheckpointPref, Context.MODE_PRIVATE)
+    preferences.edit().remove(cvStoryCheckpointKey(userId, gameId, level)).commit()
 }
 
 private fun cvEmotionMeta(rawEmotion: String): CvEmotionMeta {

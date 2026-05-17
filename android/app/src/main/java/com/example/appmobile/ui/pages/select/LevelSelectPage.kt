@@ -62,13 +62,20 @@ import com.google.firebase.auth.FirebaseAuth
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+
+private const val CvRequestHoldSeconds = 5
+private const val CvStoryCheckpointPref = "cv_story_checkpoint"
+private const val CvStoryCheckpointTtlMs = 24L * 60L * 60L * 1000L
 
 private data class LevelProgressUi(
     val level: LevelUiItem,
     val unlocked: Boolean,
     val completed: Boolean,
     val score: Int?,
-    val available: Boolean = true
+    val available: Boolean = true,
+    val resumable: Boolean = false,
+    val resumeProgressText: String? = null
 )
 
 private val LevelCardMinHeight = 126.dp
@@ -81,6 +88,11 @@ private data class CvEmotionChoiceUi(
     val progress: Float
 )
 
+private data class CvStoryResumePreview(
+    val answeredCount: Int,
+    val totalCount: Int
+)
+
 @Composable
 fun LevelSelectPage(
     gameId: String,
@@ -91,7 +103,12 @@ fun LevelSelectPage(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
+    val userId = remember {
+        FirebaseAuth.getInstance().currentUser?.uid
+            ?: AppSession.getBackendUserId(context)
+            ?: AppSession.currentBackendUserId()
+            ?: "local-player"
+    }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
@@ -139,10 +156,19 @@ fun LevelSelectPage(
             val completedLevels = repository.getCvCompletedLevels(userId = userId, forceRefresh = forceRefresh)
             val backendLevelsById = completedLevels?.levels.orEmpty().associateBy { it.level }
             val backendCurrentLevel = completedLevels?.currentLevel?.coerceIn(1, levels.size.coerceAtLeast(1)) ?: 1
+            val resumeByLevel = levels.associate { level ->
+                level.id to loadCvStoryResumePreview(
+                    context = context,
+                    userId = userId,
+                    gameId = gameId,
+                    level = level.id
+                )
+            }
 
             levelStates = levels.map { level ->
                 val backendLevel = backendLevelsById[level.id]
-                val unlocked = backendLevel?.unlocked ?: (level.id <= backendCurrentLevel)
+                val resume = resumeByLevel[level.id]
+                val unlocked = (backendLevel?.unlocked ?: (level.id <= backendCurrentLevel)) || resume != null
                 val completed = backendLevel?.completed ?: (level.id < backendCurrentLevel)
                 val score = backendLevel?.score
                 LevelProgressUi(
@@ -150,7 +176,11 @@ fun LevelSelectPage(
                     unlocked = unlocked,
                     completed = completed,
                     score = score,
-                    available = true
+                    available = true,
+                    resumable = resume != null,
+                    resumeProgressText = resume?.let {
+                        "${it.answeredCount.coerceAtLeast(0)}/${it.totalCount.coerceAtLeast(1)} màn"
+                    }
                 )
             }
             progressText = "Mỗi cấp độ có 5 tình huống cảm xúc."
@@ -453,7 +483,7 @@ private fun CvEmotionSelectHeader(onBack: () -> Unit) {
             AppBackButton(onClick = onBack)
         }
         Text(
-            text = "Bé muốn luyện cảm xúc nào?",
+            text = "Thử thách cảm xúc",
             modifier = Modifier.fillMaxWidth(),
             color = EgDesign.textPrimary,
             fontSize = 23.sp,
@@ -629,25 +659,25 @@ private fun cvChallengeEmotionLabel(id: String): String {
 
 private fun cvChallengeEmotionMission(id: String): String {
     return when (egEmotionKey(id)) {
-        "happy" -> "Hãy cười thật tươi trước camera trong 3 giây."
-        "sad" -> "Hãy làm khuôn mặt buồn trước camera trong 3 giây."
-        "surprise" -> "Hãy mở mắt to và làm vẻ ngạc nhiên trong 3 giây."
-        "angry" -> "Hãy nhíu mày như đang tức giận trong 3 giây."
-        "fear" -> "Hãy làm khuôn mặt sợ hãi trước camera trong 3 giây."
-        "disgust" -> "Hãy nhăn mũi như không thích mùi gì đó trong 3 giây."
-        else -> "Hãy làm đúng biểu cảm trước camera trong 3 giây."
+        "happy" -> "Hãy cười thật tươi trước camera trong ${CvRequestHoldSeconds} giây."
+        "sad" -> "Hãy làm khuôn mặt buồn trước camera trong ${CvRequestHoldSeconds} giây."
+        "surprise" -> "Hãy mở mắt to và làm vẻ ngạc nhiên trong ${CvRequestHoldSeconds} giây."
+        "angry" -> "Hãy nhíu mày như đang tức giận trong ${CvRequestHoldSeconds} giây."
+        "fear" -> "Hãy làm khuôn mặt sợ hãi trước camera trong ${CvRequestHoldSeconds} giây."
+        "disgust" -> "Hãy nhăn mũi như không thích mùi gì đó trong ${CvRequestHoldSeconds} giây."
+        else -> "Hãy làm đúng biểu cảm trước camera trong ${CvRequestHoldSeconds} giây."
     }
 }
 
 private fun cvChallengeEmotionMissionCompact(id: String, emoji: String): String {
     return when (egEmotionKey(id)) {
-        "happy" -> "Hãy làm khuôn mặt vui vẻ trong 3 giây $emoji"
-        "sad" -> "Hãy làm khuôn mặt buồn trong 3 giây $emoji"
-        "surprise" -> "Hãy làm khuôn mặt ngạc nhiên trong 3 giây $emoji"
-        "angry" -> "Hãy làm khuôn mặt tức giận trong 3 giây $emoji"
-        "fear" -> "Hãy làm khuôn mặt sợ hãi trong 3 giây $emoji"
-        "disgust" -> "Hãy làm khuôn mặt ghê tởm trong 3 giây $emoji"
-        else -> "Hãy làm khuôn mặt giống cảm xúc đã chọn trong 3 giây $emoji"
+        "happy" -> "Hãy làm khuôn mặt vui vẻ trong ${CvRequestHoldSeconds} giây $emoji"
+        "sad" -> "Hãy làm khuôn mặt buồn trong ${CvRequestHoldSeconds} giây $emoji"
+        "surprise" -> "Hãy làm khuôn mặt ngạc nhiên trong ${CvRequestHoldSeconds} giây $emoji"
+        "angry" -> "Hãy làm khuôn mặt tức giận trong ${CvRequestHoldSeconds} giây $emoji"
+        "fear" -> "Hãy làm khuôn mặt sợ hãi trong ${CvRequestHoldSeconds} giây $emoji"
+        "disgust" -> "Hãy làm khuôn mặt ghê tởm trong ${CvRequestHoldSeconds} giây $emoji"
+        else -> "Hãy làm khuôn mặt giống cảm xúc đã chọn trong ${CvRequestHoldSeconds} giây $emoji"
     }
 }
 
@@ -741,12 +771,14 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
     val titleColor = if (state.unlocked) EgDesign.textPrimary else Color(0xFF94A3B8)
     val statusText = when {
         !state.available -> "Đang cập nhật"
+        state.resumable -> "Đang chơi dở"
         state.completed -> "Đã hoàn thành"
         state.unlocked -> "Có thể chơi"
         else -> "Đã khóa"
     }
     val statusColor = when {
         !state.available -> Color(0xFFB7791F)
+        state.resumable -> Color(0xFF0369A1)
         state.completed -> Color(0xFF2E7D32)
         state.unlocked -> EgDesign.blue
         else -> Color(0xFF94A3B8)
@@ -787,23 +819,26 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = EgDesign.textSecondary
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = MaterialTheme.shapes.medium, color = statusColor.copy(alpha = 0.12f)) {
-                        Text(
-                            statusText,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = statusColor,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    state.score?.let { score ->
-                        Text(
-                            "Điểm gần nhất: $score/100",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = EgDesign.textSecondary
-                        )
-                    }
+                Surface(shape = MaterialTheme.shapes.medium, color = statusColor.copy(alpha = 0.12f)) {
+                    Text(
+                        statusText,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                val progressText = when {
+                    state.resumable && !state.resumeProgressText.isNullOrBlank() -> "Tiến trình: ${state.resumeProgressText}"
+                    state.score != null -> "Điểm gần nhất: ${state.score}/100"
+                    else -> null
+                }
+                progressText?.let { text ->
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = EgDesign.textSecondary
+                    )
                 }
                 if (!state.unlocked && state.available) {
                     Text(
@@ -819,7 +854,11 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
                     color = EgDesign.primary.copy(alpha = 0.16f)
                 ) {
                     Text(
-                        text = if (state.completed) "Chơi lại" else "Bắt đầu",
+                        text = when {
+                            state.resumable -> "Chơi tiếp"
+                            state.completed -> "Chơi lại"
+                            else -> "Bắt đầu"
+                        },
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                         color = EgDesign.blue,
                         style = MaterialTheme.typography.labelMedium,
@@ -831,6 +870,39 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
             }
         }
     }
+}
+
+private fun cvStoryCheckpointKey(userId: String, gameId: String, level: Int): String {
+    return "$userId::$gameId::$level"
+}
+
+private fun loadCvStoryResumePreview(
+    context: android.content.Context,
+    userId: String,
+    gameId: String,
+    level: Int
+): CvStoryResumePreview? {
+    val preferences = context.getSharedPreferences(CvStoryCheckpointPref, android.content.Context.MODE_PRIVATE)
+    val key = cvStoryCheckpointKey(userId, gameId, level)
+    val raw = preferences.getString(key, null) ?: return null
+    return runCatching {
+        val root = JSONObject(raw)
+        val savedAtMs = root.optLong("saved_at_ms", 0L)
+        if (savedAtMs <= 0L || System.currentTimeMillis() - savedAtMs > CvStoryCheckpointTtlMs) {
+            preferences.edit().remove(key).apply()
+            return null
+        }
+        val questions = root.optJSONArray("questions")?.length() ?: 0
+        val results = root.optJSONArray("results")?.length() ?: 0
+        if (questions <= 0 || results >= questions) {
+            preferences.edit().remove(key).apply()
+            return null
+        }
+        CvStoryResumePreview(
+            answeredCount = results.coerceAtLeast(0),
+            totalCount = questions.coerceAtLeast(1)
+        )
+    }.getOrNull()
 }
 
 private fun passThreshold(gameId: String, level: Int): Int {
