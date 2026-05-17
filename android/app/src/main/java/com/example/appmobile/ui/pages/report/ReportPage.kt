@@ -118,10 +118,10 @@ fun ReportPage(onBack: () -> Unit) {
                 Button(
                     onClick = {
                         scope.launch {
-                            actionMessage.value = "Đang tạo báo cáo..."
+                            actionMessage.value = "Đang tạo và gửi báo cáo PDF..."
                             val created = runCatching { repository.requestReport(userId) }.getOrNull()
                             actionMessage.value = if (created != null) {
-                                "Đã tạo báo cáo mới."
+                                "Đã tạo báo cáo và gửi file PDF tới email phụ huynh (nếu đã cấu hình email)."
                             } else {
                                 "Chưa tạo được báo cáo. Vui lòng thử lại."
                             }
@@ -130,7 +130,7 @@ fun ReportPage(onBack: () -> Unit) {
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Tạo báo cáo")
+                    Text("Tạo & gửi PDF")
                 }
                 OutlinedButton(onClick = { refresh() }, modifier = Modifier.weight(1f)) {
                     Text("Tải lại")
@@ -204,7 +204,7 @@ private fun EmptyHistoryCard() {
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Text(
-            "Chưa có báo cáo đã lưu. Bấm “Tạo báo cáo” để lưu báo cáo đầu tiên.",
+            "Chưa có báo cáo đã lưu. Bấm “Tạo & gửi PDF” để tạo báo cáo đầu tiên.",
             modifier = Modifier.padding(18.dp),
             color = Color.Gray
         )

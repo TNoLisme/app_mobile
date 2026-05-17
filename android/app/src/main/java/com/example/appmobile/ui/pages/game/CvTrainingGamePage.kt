@@ -89,13 +89,13 @@ import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
+import com.example.appmobile.data.remote.dto.GameContentDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.CvPromptUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.egEmotionPastelColor
-import com.example.appmobile.ui.state.CvEmotionScoreState
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -178,13 +178,23 @@ fun CvTrainingGamePage(
     val questions = remember(level, gameId) {
         mutableStateOf(
             if (isStoryMode) {
-                selectCvStoryQuestions(level = level, backendQuestions = emptyList(), gameId = gameId)
+                listOf(
+                    CvQuestionUi(
+                        questionId = "loading-$gameId",
+                        prompt = CvPromptUiItem(
+                            questionText = "Đang tải tình huống...",
+                            correctAnswer = defaultPrompt.correctAnswer
+                        )
+                    )
+                )
             } else {
                 listOf(CvQuestionUi("fallback-$gameId", defaultPrompt))
             }
         )
     }
     val sessionId = remember(level, gameId) { mutableStateOf<String?>(null) }
+    val backendSessionClosed = remember(level, gameId) { mutableStateOf(false) }
+    val abandoningSession = remember(level, gameId) { mutableStateOf(false) }
     val results = remember(level, gameId) { mutableStateOf<List<AnswerResultDto>>(emptyList()) }
     val summary = remember(level, gameId) { mutableStateOf<String?>(null) }
     val feedback = remember(level, gameId) { mutableStateOf<String?>(null) }
@@ -363,6 +373,74 @@ fun CvTrainingGamePage(
         }
     }
 
+    fun abandonSessionIfNeeded(after: (() -> Unit)? = null) {
+        val activeSessionId = sessionId.value
+        if (
+            activeSessionId.isNullOrBlank() ||
+            backendSessionClosed.value ||
+            abandoningSession.value
+        ) {
+            after?.invoke()
+            return
+        }
+        abandoningSession.value = true
+        scope.launch {
+            runCatching { repository.abandonSession(activeSessionId) }
+                .onSuccess { closed ->
+                    if (closed) {
+                        backendSessionClosed.value = true
+                    }
+                }
+                .onFailure {
+                    Log.w(CvLogTag, "abandonSession failed sessionId=$activeSessionId", it)
+                }
+            abandoningSession.value = false
+            after?.invoke()
+        }
+    }
+
+    fun startNewBackendSession(after: (() -> Unit)? = null) {
+        sessionId.value = null
+        backendSessionClosed.value = false
+        abandoningSession.value = false
+        scope.launch {
+            runCatching { repository.startGame(gameId, userId, level) }
+                .onSuccess { started ->
+                    started?.sessionId?.let { newSessionId ->
+                        sessionId.value = newSessionId
+                        backendSessionClosed.value = false
+                        abandoningSession.value = false
+                    }
+                    val backendQuestions = started
+                        ?.questions
+                        .orEmpty()
+                        .toCvQuestionUiList(defaultPrompt = defaultPrompt)
+                    if (backendQuestions.isNotEmpty()) {
+                        questions.value = if (isStoryMode) {
+                            selectCvStoryQuestions(
+                                level = level,
+                                backendQuestions = backendQuestions,
+                                gameId = "${gameId}-session-${started?.sessionId.orEmpty()}"
+                            )
+                        } else {
+                            val selectedEmotionKey = selectedEmotion
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let(::normalizeCvEmotion)
+                            selectedEmotionKey?.let { key ->
+                                backendQuestions.filter { normalizeCvEmotion(it.prompt.correctAnswer) == key }
+                            }?.ifEmpty {
+                                listOf(backendQuestions.first())
+                            } ?: listOf(backendQuestions.first())
+                        }
+                    }
+                }
+                .onFailure {
+                    Log.w(CvLogTag, "startNewBackendSession failed gameId=$gameId level=$level", it)
+                }
+            after?.invoke()
+        }
+    }
+
     fun finishLevel(finalResults: List<AnswerResultDto>) {
         if (isSubmitting.value || summary.value != null) return
         scope.launch {
@@ -370,6 +448,9 @@ fun CvTrainingGamePage(
                 isSubmitting.value = true
                 val response = sessionId.value?.let {
                     repository.endLevel(it, finalResults, learnedEmotions.distinct())
+                }
+                if (response != null) {
+                    backendSessionClosed.value = true
                 }
                 repository.getGameProgress(gameId = gameId, userId = userId, forceRefresh = true)
                 if (!isStoryMode) return@launch
@@ -461,14 +542,6 @@ fun CvTrainingGamePage(
             "Con làm tốt rồi, mình thử thêm lần nữa nhé."
         }
         if (!isStoryMode) {
-            if (success) {
-                CvEmotionScoreState.saveBestScore(
-                    context = context,
-                    userId = userId,
-                    emotionId = reviewEmotion,
-                    score = confidence
-                )
-            }
             finishLevel(updatedResults)
         }
     }
@@ -483,15 +556,7 @@ fun CvTrainingGamePage(
     }
 
     fun replayCurrentLevel() {
-        questions.value = if (isStoryMode) {
-            selectCvStoryQuestions(
-                level = level,
-                backendQuestions = emptyList(),
-                gameId = "$gameId-replay-${System.currentTimeMillis()}"
-            )
-        } else {
-            questions.value
-        }
+        startNewBackendSession()
         currentIndex.intValue = 0
         score.intValue = 0
         results.value = emptyList()
@@ -527,17 +592,13 @@ fun CvTrainingGamePage(
             val selectedEmotionKey = selectedEmotion?.takeIf { it.isNotBlank() }?.let(::normalizeCvEmotion)
             val started = repository.startGame(gameId, userId, level)
             sessionId.value = started?.sessionId
+            backendSessionClosed.value = false
+            abandoningSession.value = false
             maxErrors.intValue = started?.maxErrors ?: 2
-            val backendQuestions = started?.questions
-                ?.mapNotNull { content ->
-                    val emotion = (content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null }
-                    val text = content.questionText?.ifBlank { defaultPrompt.questionText } ?: defaultPrompt.questionText
-                    CvQuestionUi(
-                        questionId = content.contentId,
-                        prompt = CvPromptUiItem(questionText = text, correctAnswer = emotion)
-                    )
-                }
+            val backendQuestions = started
+                ?.questions
                 .orEmpty()
+                .toCvQuestionUiList(defaultPrompt = defaultPrompt)
 
             val filteredQuestions = if (isStoryMode) {
                 selectCvStoryQuestions(
@@ -555,12 +616,16 @@ fun CvTrainingGamePage(
             } ?: defaultPrompt
 
             val loadedQuestions = filteredQuestions.ifEmpty {
-                val fallbackQuestionId = if (!isStoryMode && selectedEmotionKey != null) {
-                    cvRequestFallbackQuestionId(selectedEmotionKey)
+                if (backendQuestions.isNotEmpty()) {
+                    if (isStoryMode) backendQuestions else listOf(backendQuestions.first())
                 } else {
-                    "fallback-$gameId-${selectedEmotionKey ?: "default"}"
+                    val fallbackQuestionId = if (!isStoryMode && selectedEmotionKey != null) {
+                        cvRequestFallbackQuestionId(selectedEmotionKey)
+                    } else {
+                        "fallback-$gameId-${selectedEmotionKey ?: "default"}"
+                    }
+                    listOf(CvQuestionUi(fallbackQuestionId, fallbackPrompt))
                 }
-                listOf(CvQuestionUi(fallbackQuestionId, fallbackPrompt))
             }
             val canApplyLoadedQuestions =
                 !startRequested.value &&
@@ -1055,7 +1120,9 @@ fun CvTrainingGamePage(
                     if (isActiveRequestChallenge) {
                         showExitConfirm.value = true
                     } else {
-                        onBack()
+                        abandonSessionIfNeeded {
+                            onBack()
+                        }
                     }
                 }
             )
@@ -1065,10 +1132,21 @@ fun CvTrainingGamePage(
                     CvStoryLevelSummaryCard(
                         summary = summary.value.orEmpty(),
                         onReplay = { replayCurrentLevel() },
-                        onBack = onBack
+                        onBack = {
+                            abandonSessionIfNeeded {
+                                onBack()
+                            }
+                        }
                     )
                 } else {
-                    GameLevelSummaryCard(summary = summary.value.orEmpty(), onBack = onBack)
+                    GameLevelSummaryCard(
+                        summary = summary.value.orEmpty(),
+                        onBack = {
+                            abandonSessionIfNeeded {
+                                onBack()
+                            }
+                        }
+                    )
                 }
                 Spacer(modifier = Modifier.height(80.dp))
                 return@Column
@@ -1129,16 +1207,30 @@ fun CvTrainingGamePage(
                         detectorReady.value = false
                         isRequestingCameraPermission.value = false
                     },
-                    onRetry = { startCameraChallenge() },
+                    onRetry = {
+                        if (feedback.value != null) {
+                            startNewBackendSession {
+                                startCameraChallenge()
+                            }
+                        } else {
+                            startCameraChallenge()
+                        }
+                    },
                     onStop = { showExitConfirm.value = true },
-                    onSelectAnother = onBack,
+                    onSelectAnother = {
+                        abandonSessionIfNeeded {
+                            onBack()
+                        }
+                    },
                     onExit = {
                         detectionActive.value = false
                         challengeCompleted.value = true
                         challengeSessionId.value += 1L
                         Log.d(CvLogTag, "releaseCamera onExit sessionId=${challengeSessionId.value}")
                         challengeState.value = CvChallengeState.Ended
-                        onFinish()
+                        abandonSessionIfNeeded {
+                            onFinish()
+                        }
                     },
                     onOpenSettings = {
                         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -1291,7 +1383,9 @@ fun CvTrainingGamePage(
                 },
                 onExit = {
                     challengeState.value = CvChallengeState.Ended
-                    onFinish()
+                    abandonSessionIfNeeded {
+                        onFinish()
+                    }
                 }
                 )
             }
@@ -1318,7 +1412,9 @@ fun CvTrainingGamePage(
                     challengeState.value = CvChallengeState.Ended
                     cameraPreviewReady.value = false
                     detectorReady.value = false
-                    onBack()
+                    abandonSessionIfNeeded {
+                        onBack()
+                    }
                 }
             )
         }
@@ -2289,27 +2385,32 @@ private fun cvRequestFallbackQuestionId(emotionId: String): String {
     }
 }
 
+private fun List<GameContentDto>.toCvQuestionUiList(defaultPrompt: CvPromptUiItem): List<CvQuestionUi> {
+    return mapNotNull { content ->
+        val emotion = (content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null }
+        val text = content.questionText?.ifBlank { defaultPrompt.questionText } ?: defaultPrompt.questionText
+        CvQuestionUi(
+            questionId = content.contentId,
+            prompt = CvPromptUiItem(questionText = text, correctAnswer = emotion)
+        )
+    }
+}
+
 private fun selectCvStoryQuestions(
     level: Int,
     backendQuestions: List<CvQuestionUi>,
     gameId: String
 ): List<CvQuestionUi> {
-    val backendPool = backendQuestions.distinctBy(::cvStoryQuestionKey)
-    val localPool = cvStoryLocalQuestionPool(level)
-    val source = if (backendPool.size >= CvStoryQuestionsPerLevel) {
-        backendPool
-    } else {
-        (backendPool + localPool).distinctBy(::cvStoryQuestionKey)
+    val backendPool = backendQuestions.distinctBy { it.questionId }
+    if (backendPool.isNotEmpty()) {
+        return backendPool.take(CvStoryQuestionsPerLevel)
     }
+    val localPool = cvStoryLocalQuestionPool(level)
     val seed = System.currentTimeMillis() xor gameId.hashCode().toLong() xor (level * 31L)
-    return source
+    return localPool
         .shuffled(Random(seed))
         .take(CvStoryQuestionsPerLevel)
         .ifEmpty { localPool.take(CvStoryQuestionsPerLevel) }
-}
-
-private fun cvStoryQuestionKey(question: CvQuestionUi): String {
-    return "${normalizeCvEmotion(question.prompt.correctAnswer)}:${question.prompt.questionText.trim().lowercase()}"
 }
 
 private fun cvStoryLocalQuestionPool(level: Int): List<CvQuestionUi> {

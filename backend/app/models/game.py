@@ -59,7 +59,9 @@ class GameDataQuestion(Base):
     __tablename__ = "game_data_question"
 
     data_id = Column(String(64), ForeignKey("game_data.data_id", ondelete="CASCADE"), primary_key=True)
-    question_id = Column(String(64), ForeignKey("game_content.content_id", ondelete="CASCADE"), primary_key=True)
+    # SQL Server does not allow multiple cascade paths from games -> game_data_question.
+    # Keep cascade from game_data side and use NO ACTION on game_content side.
+    question_id = Column(String(64), ForeignKey("game_content.content_id"), primary_key=True)
 
 
 class PlaySession(Base):

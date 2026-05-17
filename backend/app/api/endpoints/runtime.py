@@ -113,6 +113,7 @@ def get_user_session_history(user_id: str, skip: int = 0, limit: int = 100, db: 
     rows = (
         db.query(PlaySession)
         .filter(PlaySession.user_id == user_id)
+        .filter(PlaySession.end_time.isnot(None))
         .order_by(PlaySession.start_time.desc())
         .offset(skip)
         .limit(limit)

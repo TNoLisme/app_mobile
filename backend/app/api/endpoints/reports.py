@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import re
 import smtplib
@@ -6,6 +8,7 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
 from email.message import EmailMessage
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, EmailStr
@@ -17,8 +20,10 @@ from app.db.session import get_db
 from app.models.analytics import ChildProgress, Report
 from app.models.game import Game, GameContent, PlaySession, SessionQuestion
 from app.models.user import Child, User
+from app.services.report_pdf import REPORTLAB_AVAILABLE, ReportPdfService
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
+pdf_service = ReportPdfService()
 
 
 class GenerateReportRequest(BaseModel):
@@ -52,10 +57,10 @@ EMOTION_DISPLAY = {
 EMOTION_ALIASES = {
     "happy": {"happy", "joy", "smile", "vui", "vui ve", "vui vẻ"},
     "sad": {"sad", "sadness", "buon", "buon ba", "buồn", "buồn bã"},
-    "angry": {"angry", "anger", "tuc gian", "gian", "tức giận"},
+    "angry": {"angry", "anger", "tuc gian", "giận", "tức giận"},
     "fear": {"fear", "fearful", "so", "so hai", "sợ", "sợ hãi"},
-    "surprised": {"surprised", "surprise", "ngac nhien", "ngac", "ngạc nhiên"},
-    "disgusted": {"disgusted", "disgust", "ghe tom", "ghe", "ghê tởm"},
+    "surprised": {"surprised", "surprise", "ngac nhien", "ngạc nhiên"},
+    "disgusted": {"disgusted", "disgust", "ghe tom", "ghê tởm"},
 }
 
 DAY_LABELS = {0: "T2", 1: "T3", 2: "T4", 3: "T5", 4: "T6", 5: "T7", 6: "CN"}
@@ -236,9 +241,7 @@ def _build_achievements(total_sessions: int, avg_score: float, games_stats: list
     if games_stats:
         top_game = games_stats[0]
         if top_game["sessions"] >= 3:
-            achievements.append(
-                f"Chơi nhiều nhất: {top_game['game_name']} ({top_game['sessions']} lượt)."
-            )
+            achievements.append(f"Chơi nhiều nhất: {top_game['game_name']} ({top_game['sessions']} lượt).")
 
     strong_emotions = [name for name, values in emotion_stats.items() if values.get("accuracy", 0) >= 80]
     if strong_emotions:
@@ -362,13 +365,16 @@ def _report_payload(report: Report, db: Session) -> dict:
 def _extract_email_from_preferences(raw_value: str | None) -> str | None:
     if not raw_value:
         return None
+
     value = raw_value.strip()
     if EMAIL_REGEX.match(value):
         return value
+
     try:
         parsed = json.loads(value)
     except json.JSONDecodeError:
         return None
+
     if isinstance(parsed, dict):
         for key in ("parent_email", "email", "receiver_email"):
             candidate = parsed.get(key)
@@ -420,6 +426,12 @@ def _build_report_email_body(payload: dict) -> str:
     achievements = report_data.get("achievements", [])[:3]
     achievements_text = "\n".join(f"- {item}" for item in achievements) or "- Chưa có thành tựu nổi bật."
 
+    reportlab_note = (
+        ""
+        if REPORTLAB_AVAILABLE
+        else "\n\nLưu ý: hệ thống chưa có thư viện tạo PDF, email này chưa kèm tệp đính kèm."
+    )
+
     return (
         f"EmoGarden - Báo cáo tiến độ ({report_type})\n\n"
         f"Người học: {child_name}\n"
@@ -431,7 +443,39 @@ def _build_report_email_body(payload: dict) -> str:
         f"- Số bản ghi tiến trình: {progress_count}\n\n"
         f"Trò chơi luyện nhiều:\n{top_games_text}\n\n"
         f"Thành tựu nổi bật:\n{achievements_text}\n\n"
+        "Phụ huynh vui lòng xem file PDF đính kèm để xem báo cáo đầy đủ."
+        f"{reportlab_note}\n\n"
         "Email này được tạo tự động từ EmoGarden."
+    )
+
+
+def _sanitize_filename(filename: str) -> str:
+    normalized = _strip_accents(filename)
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", normalized)
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
+    return cleaned or "BaoCao"
+
+
+def _build_pdf_bytes(payload: dict) -> bytes | None:
+    if not REPORTLAB_AVAILABLE:
+        return None
+    child_name = payload.get("child_name") or "Be"
+    report_type = payload.get("report_type") or "weekly"
+    summary = payload.get("summary") or "Chưa có dữ liệu."
+    generated_at = None
+    generated_at_raw = payload.get("generated_at")
+    if generated_at_raw:
+        try:
+            generated_at = datetime.fromisoformat(generated_at_raw.replace("Z", "+00:00"))
+        except Exception:
+            generated_at = None
+
+    return pdf_service.generate_pdf(
+        child_name=child_name,
+        report_type=report_type,
+        summary=summary,
+        report_data_json=payload.get("data"),
+        generated_at=generated_at,
     )
 
 
@@ -448,6 +492,22 @@ def _send_report_email(recipient: str, payload: dict) -> tuple[bool, str]:
     message["To"] = recipient
     message.set_content(_build_report_email_body(payload))
 
+    pdf_bytes = _build_pdf_bytes(payload)
+    if pdf_bytes:
+        child_name = payload.get("child_name") or "Be"
+        report_type = payload.get("report_type") or "weekly"
+        date_part = datetime.utcnow().strftime("%Y%m%d")
+        filename_utf8 = f"BaoCao_{child_name}_{report_type}_{date_part}.pdf"
+        filename_ascii = _sanitize_filename(filename_utf8)
+        message.add_attachment(
+            pdf_bytes,
+            maintype="application",
+            subtype="pdf",
+            filename=filename_ascii,
+            disposition="attachment",
+            params={"filename*": f"UTF-8''{quote(filename_utf8)}"},
+        )
+
     try:
         with smtplib.SMTP(smtp_host, settings.SMTP_PORT, timeout=20) as server:
             if settings.SMTP_USE_TLS:
@@ -455,7 +515,9 @@ def _send_report_email(recipient: str, payload: dict) -> tuple[bool, str]:
             if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
                 server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
             server.send_message(message)
-        return True, f"Đã gửi báo cáo tới {recipient}."
+        if pdf_bytes:
+            return True, f"Đã gửi báo cáo PDF tới {recipient}."
+        return True, f"Đã gửi báo cáo tới {recipient} (không có tệp PDF đính kèm)."
     except Exception as exc:  # pragma: no cover - external service
         return False, f"Gửi email thất bại: {exc}"
 
@@ -488,7 +550,6 @@ def get_report_statistics(db: Session = Depends(get_db)):
     weekly = db.query(func.count(Report.report_id)).filter(Report.report_type == "weekly").scalar() or 0
     monthly = db.query(func.count(Report.report_id)).filter(Report.report_type == "monthly").scalar() or 0
     latest = db.query(Report).order_by(Report.generated_at.desc()).limit(10).all()
-
     return {
         "status": "success",
         "data": {
@@ -514,6 +575,7 @@ def generate_and_send_report(request: GenerateReportRequest, db: Session = Depen
         "message": message,
         "data": payload,
         "email_sent": sent,
+        "pdf_enabled": REPORTLAB_AVAILABLE,
     }
 
 
@@ -544,6 +606,7 @@ def send_batch_reports(request: BatchReportRequest, db: Session = Depends(get_db
         "status": "success",
         "message": f"Đã tạo {len(reports)} báo cáo",
         "data": reports,
+        "pdf_enabled": REPORTLAB_AVAILABLE,
     }
 
 
@@ -561,6 +624,7 @@ def request_report(request: GenerateReportRequest, db: Session = Depends(get_db)
         "message": message,
         "data": payload,
         "email_sent": sent,
+        "pdf_enabled": REPORTLAB_AVAILABLE,
     }
 
 
@@ -599,6 +663,7 @@ def preview_report(
                 "emotion_stats": data.get("emotion_stats", {}),
                 "achievements": data.get("achievements", []),
             },
+            "pdf_enabled": REPORTLAB_AVAILABLE,
         },
     }
 
@@ -624,6 +689,7 @@ def test_email(request: TestEmailRequest):
         "status": "success" if sent else "warning",
         "message": message,
         "email_sent": sent,
+        "pdf_enabled": REPORTLAB_AVAILABLE,
     }
 
 

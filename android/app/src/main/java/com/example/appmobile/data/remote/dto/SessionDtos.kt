@@ -53,6 +53,16 @@ data class EndLevelRequestDto(
     @SerializedName("reset_review_emotions") val resetReviewEmotions: List<String> = emptyList()
 )
 
+data class AbandonSessionRequestDto(
+    @SerializedName("session_id") val sessionId: String
+)
+
+data class AbandonSessionResponseDto(
+    @SerializedName("session_id") val sessionId: String,
+    @SerializedName("state") val state: String?,
+    @SerializedName("end_time") val endTime: String?
+)
+
 data class EndLevelResponseDto(
     @SerializedName("session_id") val sessionId: String,
     @SerializedName("score") val score: Int,
