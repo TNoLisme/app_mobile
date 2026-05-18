@@ -1,4 +1,10 @@
-from pydantic_settings import BaseSettings
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+TTNM_GAME_ENV = BACKEND_DIR.parent.parent / "TTNM-Game" / "be" / ".env"
 
 class Settings(BaseSettings):
     DATABASE_URL: str
@@ -10,8 +16,12 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = True
     SMTP_FROM_EMAIL: str | None = None
     SMTP_FROM_NAME: str = "EmoGarden"
+    EMAIL_USER: str | None = None
+    EMAIL_PASS: str | None = None
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(
+        env_file=(TTNM_GAME_ENV, BACKEND_DIR / ".env"),
+        extra="ignore",
+    )
 
 settings = Settings()

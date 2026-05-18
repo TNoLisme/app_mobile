@@ -20,7 +20,9 @@ data class ReportDto(
 data class ReportStatsDto(
     @SerializedName("total_sessions") val totalSessions: Int? = null,
     @SerializedName("avg_score") val avgScore: Float? = null,
-    @SerializedName("progress_count") val progressCount: Int? = null
+    @SerializedName("progress_count") val progressCount: Int? = null,
+    @SerializedName("total_games") val totalGames: Int? = null,
+    @SerializedName("total_playtime_minutes") val totalPlaytimeMinutes: Int? = null
 )
 
 data class ReportPreviewDataDto(
@@ -60,7 +62,9 @@ data class ReportRequestDto(
 data class ReportRequestResponseDto(
     @SerializedName("status") val status: String? = null,
     @SerializedName("message") val message: String? = null,
-    @SerializedName("data") val data: ReportPayloadDto? = null
+    @SerializedName("data") val data: ReportPayloadDto? = null,
+    @SerializedName("email_sent") val emailSent: Boolean? = null,
+    @SerializedName("pdf_enabled") val pdfEnabled: Boolean? = null
 )
 
 data class SessionHistoryItemDto(

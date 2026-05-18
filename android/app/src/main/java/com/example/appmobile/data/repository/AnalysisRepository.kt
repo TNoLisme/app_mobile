@@ -7,6 +7,7 @@ import com.example.appmobile.data.remote.api.ApiService
 import com.example.appmobile.data.remote.dto.ReportPayloadDto
 import com.example.appmobile.data.remote.dto.ReportPreviewDataDto
 import com.example.appmobile.data.remote.dto.ReportRequestDto
+import com.example.appmobile.data.remote.dto.ReportRequestResponseDto
 import com.example.appmobile.domain.model.Statistics
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -66,12 +67,21 @@ class AnalysisRepository(
         }
     }
 
-    suspend fun sendReport(reportId: String): Boolean {
+    suspend fun sendReport(reportId: String): ReportRequestResponseDto? {
         return try {
             val response = apiService.sendReport(reportId)
-            response.isSuccessful && response.body()?.status != "error"
+            if (response.isSuccessful) response.body() else null
         } catch (_: Exception) {
-            false
+            null
+        }
+    }
+
+    suspend fun downloadReportPdf(reportId: String): ByteArray? {
+        return try {
+            val response = apiService.downloadReportPdf(reportId)
+            if (response.isSuccessful) response.body()?.bytes() else null
+        } catch (_: Exception) {
+            null
         }
     }
 }

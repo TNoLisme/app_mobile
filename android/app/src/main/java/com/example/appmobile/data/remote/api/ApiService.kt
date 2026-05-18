@@ -1,6 +1,7 @@
 package com.example.appmobile.data.remote.api
 
 import com.example.appmobile.data.remote.dto.*
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -138,4 +139,7 @@ interface ApiService {
 
     @POST("reports/{reportId}/send")
     suspend fun sendReport(@Path("reportId") reportId: String): Response<ReportRequestResponseDto>
+
+    @GET("reports/{reportId}/pdf")
+    suspend fun downloadReportPdf(@Path("reportId") reportId: String): Response<ResponseBody>
 }

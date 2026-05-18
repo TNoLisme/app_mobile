@@ -351,6 +351,8 @@ def _report_payload(report: Report, db: Session) -> dict:
         "total_sessions": _safe_int(parsed_data.get("total_sessions"), 0),
         "avg_score": round(_safe_float(parsed_data.get("avg_score"), 0.0), 1),
         "progress_count": _safe_int(parsed_data.get("progress_count"), 0),
+        "total_games": _safe_int(parsed_data.get("total_games"), 0),
+        "total_playtime_minutes": _safe_int(parsed_data.get("total_playtime_minutes"), 0),
     }
 
     return {
@@ -413,7 +415,8 @@ def _build_report_email_body(payload: dict) -> str:
 
     total_sessions = stats.get("total_sessions", 0)
     avg_score = stats.get("avg_score", 0)
-    progress_count = stats.get("progress_count", 0)
+    total_games = stats.get("total_games", 0)
+    total_playtime_minutes = stats.get("total_playtime_minutes", 0)
 
     report_data = {}
     try:
@@ -444,7 +447,8 @@ def _build_report_email_body(payload: dict) -> str:
         f"Thống kê chính:\n"
         f"- Tổng số phiên: {total_sessions}\n"
         f"- Điểm trung bình: {avg_score}\n"
-        f"- Số bản ghi tiến trình: {progress_count}\n\n"
+        f"- Trò chơi đã luyện: {total_games}\n"
+        f"- Thời gian chơi: {total_playtime_minutes} phút\n\n"
         f"Trò chơi luyện nhiều:\n{top_games_text}\n\n"
         f"Thành tựu nổi bật:\n{achievements_text}\n\n"
         "Phụ huynh vui lòng xem file PDF đính kèm để xem báo cáo đầy đủ."
@@ -484,8 +488,10 @@ def _build_pdf_bytes(payload: dict) -> bytes | None:
 
 
 def _send_report_email(recipient: str, payload: dict) -> tuple[bool, str]:
-    smtp_host = (settings.SMTP_HOST or "").strip()
-    smtp_from = (settings.SMTP_FROM_EMAIL or settings.SMTP_USERNAME or "").strip()
+    smtp_username = (settings.SMTP_USERNAME or settings.EMAIL_USER or "").strip()
+    smtp_password = settings.SMTP_PASSWORD or settings.EMAIL_PASS
+    smtp_host = (settings.SMTP_HOST or ("smtp.gmail.com" if smtp_username else "")).strip()
+    smtp_from = (settings.SMTP_FROM_EMAIL or smtp_username).strip()
 
     if not smtp_host or not smtp_from:
         return False, "SMTP chưa được cấu hình đầy đủ."
@@ -516,8 +522,8 @@ def _send_report_email(recipient: str, payload: dict) -> tuple[bool, str]:
         with smtplib.SMTP(smtp_host, settings.SMTP_PORT, timeout=20) as server:
             if settings.SMTP_USE_TLS:
                 server.starttls()
-            if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
-                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            if smtp_username and smtp_password:
+                server.login(smtp_username, smtp_password)
             server.send_message(message)
         if pdf_bytes:
             return True, f"Đã gửi báo cáo PDF tới {recipient}."
@@ -691,6 +697,8 @@ def preview_report(
                 "total_sessions": _safe_int(data.get("total_sessions"), 0),
                 "avg_score": round(_safe_float(data.get("avg_score"), 0.0), 1),
                 "progress_count": _safe_int(data.get("progress_count"), 0),
+                "total_games": _safe_int(data.get("total_games"), 0),
+                "total_playtime_minutes": _safe_int(data.get("total_playtime_minutes"), 0),
             },
             "insights": {
                 "total_playtime_minutes": data.get("total_playtime_minutes", 0),
@@ -715,7 +723,7 @@ def report_pdf(report_id: str, db: Session = Depends(get_db)):
     if not pdf_bytes:
         raise HTTPException(status_code=503, detail="PDF generation is not available")
 
-    child_name = _safe_filename(payload.get("child_name") or "child")
+    child_name = _sanitize_filename(payload.get("child_name") or "child")
     report_type = payload.get("report_type") or "weekly"
     date_part = (payload.get("generated_at") or datetime.utcnow().isoformat()).split("T")[0]
     filename = f"BaoCao_{child_name}_{report_type}_{date_part}.pdf"

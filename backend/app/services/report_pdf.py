@@ -182,8 +182,8 @@ class ReportPdfService:
         elements = [
             Paragraph(title, styles["title"]),
             Paragraph(subtitle, styles["subtitle"]),
-            Paragraph("Tổng quan", styles["section"]),
-            Paragraph(summary or "Chưa có dữ liệu tổng quan.", styles["body"]),
+            Paragraph("Kết quả tuần này", styles["section"]),
+            Paragraph(summary or "Chưa có dữ liệu báo cáo.", styles["body"]),
             Spacer(1, 8),
             self._build_stats_table(styles, report_data),
             Spacer(1, 12),
