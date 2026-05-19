@@ -117,13 +117,17 @@ class ReportPdfService:
             return {}
 
     def _build_stats_table(self, styles: dict, report_data: dict) -> Table:
+        avg_score = report_data.get("avg_score")
+        avg_score_text = f"{round(float(avg_score))}/100" if avg_score is not None else "Chưa có"
+        total_sessions = int(report_data.get("total_sessions", 0) or 0)
+        total_minutes = int(report_data.get("total_playtime_minutes", 0) or 0)
+        playtime_text = "Chưa đo" if total_sessions > 0 and total_minutes == 0 else f"{total_minutes} phút"
         data = [
             ["Chỉ số", "Giá trị"],
-            ["Tổng phiên chơi", str(report_data.get("total_sessions", 0))],
-            ["Điểm trung bình", str(report_data.get("avg_score", 0))],
-            ["Thời gian luyện (phút)", str(report_data.get("total_playtime_minutes", 0))],
+            ["Lượt chơi", str(total_sessions)],
+            ["Điểm TB", avg_score_text],
+            ["Thời gian học", playtime_text],
             ["Số trò đã chơi", str(report_data.get("total_games", 0))],
-            ["Số bản ghi tiến trình", str(report_data.get("progress_count", 0))],
         ]
         table = Table(data, colWidths=[2.4 * inch, 3.7 * inch])
         table.setStyle(
@@ -204,9 +208,10 @@ class ReportPdfService:
             for game in games_stats[:5]:
                 name = game.get("game_name", "Trò chơi")
                 sessions = game.get("sessions", 0)
-                avg_score = game.get("avg_score", 0)
+                avg_score = game.get("avg_score")
+                score_text = f"{round(float(avg_score))}/100" if avg_score is not None else "Chưa có"
                 elements.append(
-                    Paragraph(f"• {name}: {sessions} lượt, điểm TB {avg_score}", styles["bullet"])
+                    Paragraph(f"• {name}: {sessions} lượt, điểm TB {score_text}", styles["bullet"])
                 )
         else:
             elements.append(Paragraph("• Chưa có dữ liệu trò chơi.", styles["bullet"]))

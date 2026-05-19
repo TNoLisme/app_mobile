@@ -225,22 +225,23 @@ def _build_emotion_stats(db: Session, child_user_id: str, start_at: datetime) ->
     return stats
 
 
-def _build_achievements(total_sessions: int, avg_score: float, games_stats: list[dict], emotion_stats: dict[str, dict]) -> list[str]:
+def _build_achievements(total_sessions: int, avg_score: float | None, games_stats: list[dict], emotion_stats: dict[str, dict]) -> list[str]:
     achievements: list[str] = []
 
     if total_sessions >= 20:
-        achievements.append(f"Hoàn thành {total_sessions} phiên học trong kỳ.")
+        achievements.append(f"Hoàn thành {total_sessions} lượt chơi trong kỳ.")
     elif total_sessions >= 10:
-        achievements.append(f"Duy trì luyện tập đều với {total_sessions} phiên học.")
+        achievements.append(f"Duy trì luyện tập đều với {total_sessions} lượt chơi.")
     elif total_sessions >= 5:
-        achievements.append(f"Bé đã bắt đầu hình thành thói quen học với {total_sessions} phiên.")
+        achievements.append(f"Bé đã bắt đầu hình thành thói quen học với {total_sessions} lượt chơi.")
 
-    if avg_score >= 8:
-        achievements.append("Điểm trung bình đạt mức xuất sắc.")
-    elif avg_score >= 7:
-        achievements.append("Điểm trung bình đạt mức tốt.")
-    elif avg_score >= 6:
-        achievements.append("Điểm trung bình đạt mức khá.")
+    if avg_score is not None:
+        if avg_score >= 80:
+            achievements.append("Điểm trung bình đạt mức xuất sắc.")
+        elif avg_score >= 60:
+            achievements.append("Điểm trung bình đạt mức tốt.")
+        elif avg_score >= 40:
+            achievements.append("Bé đang làm quen và cần luyện thêm một số cảm xúc.")
 
     if games_stats:
         top_game = games_stats[0]
@@ -255,6 +256,23 @@ def _build_achievements(total_sessions: int, avg_score: float, games_stats: list
         achievements.append("Chưa đủ dữ liệu nổi bật trong kỳ này.")
 
     return achievements
+
+
+def _previous_period_average(db: Session, child_user_id: str, start_at: datetime, end_at: datetime) -> float | None:
+    window = end_at - start_at
+    previous_start = start_at - window
+    previous_end = start_at
+    rows = (
+        db.query(PlaySession.score)
+        .filter(PlaySession.user_id == child_user_id)
+        .filter(PlaySession.start_time >= previous_start)
+        .filter(PlaySession.start_time < previous_end)
+        .filter(PlaySession.end_time.isnot(None))
+        .filter(PlaySession.score.isnot(None))
+        .all()
+    )
+    values = [_safe_float(row[0]) for row in rows if row[0] is not None]
+    return round(sum(values) / len(values), 1) if values else None
 
 
 def _build_report_summary(db: Session, child_user_id: str, report_type: str) -> tuple[str, dict]:
@@ -289,7 +307,8 @@ def _build_report_summary(db: Session, child_user_id: str, report_type: str) -> 
         if session.game_id:
             game_ids.add(session.game_id)
 
-    avg_score = round((sum(score_values) / len(score_values)), 1) if score_values else 0.0
+    avg_score = round((sum(score_values) / len(score_values)), 1) if score_values else None
+    previous_avg_score = _previous_period_average(db, child_user_id, start_at, end_at)
     total_games = len(game_ids)
     daily_sessions = _build_daily_sessions(sessions, start_at, end_at)
     games_stats = _build_games_stats(db, sessions)
@@ -297,13 +316,17 @@ def _build_report_summary(db: Session, child_user_id: str, report_type: str) -> 
     achievements = _build_achievements(total_sessions, avg_score, games_stats, emotion_stats)
 
     if total_sessions == 0:
-        summary = "Kỳ này bé chưa có phiên chơi nào. Hãy thử chơi thêm để tạo báo cáo chi tiết."
-    elif avg_score >= 8:
-        summary = f"Bé đã chơi {total_sessions} phiên, điểm trung bình {avg_score}. Bé tiến bộ rất tốt."
-    elif avg_score >= 6:
-        summary = f"Bé đã chơi {total_sessions} phiên, điểm trung bình {avg_score}. Bé đang tiến bộ ổn định."
+        summary = "Bé chưa có lượt chơi trong tuần này. Hãy bắt đầu với một trò chơi cảm xúc nhé."
+    elif avg_score is None:
+        summary = f"Bé đã có {total_sessions} lượt chơi. Hãy chơi thêm để app tính điểm trung bình nhé."
+    elif avg_score >= 80:
+        summary = f"Bé đã chơi {total_sessions} lượt trong tuần này. Điểm trung bình là {round(avg_score)}/100. Bé tiến bộ rất tốt."
+    elif avg_score >= 60:
+        summary = f"Bé đã chơi {total_sessions} lượt trong tuần này. Điểm trung bình là {round(avg_score)}/100. Bé đang tiến bộ ổn."
+    elif avg_score >= 40:
+        summary = f"Bé đã chơi {total_sessions} lượt trong tuần này. Điểm trung bình là {round(avg_score)}/100. Bé cần luyện thêm một số cảm xúc."
     else:
-        summary = f"Bé đã chơi {total_sessions} phiên, điểm trung bình {avg_score}. Nên luyện thêm để cải thiện."
+        summary = f"Bé đã chơi {total_sessions} lượt trong tuần này. Điểm trung bình là {round(avg_score)}/100. Bé nên ôn lại các cảm xúc cơ bản."
 
     data = {
         "period": report_type,
@@ -312,6 +335,7 @@ def _build_report_summary(db: Session, child_user_id: str, report_type: str) -> 
         "total_sessions": total_sessions,
         "total_playtime_minutes": total_playtime_minutes,
         "avg_score": avg_score,
+        "previous_avg_score": previous_avg_score,
         "total_games": total_games,
         "progress_count": _safe_int(progress_count),
         "daily_sessions": daily_sessions,
@@ -325,6 +349,29 @@ def _build_report_summary(db: Session, child_user_id: str, report_type: str) -> 
 def _create_report(db: Session, child_user_id: str, report_type: str) -> Report:
     normalized_type = _normalize_report_type(report_type)
     summary, data = _build_report_summary(db, child_user_id, normalized_type)
+    start_date = data.get("start_date")
+    end_date = data.get("end_date")
+
+    existing_reports = (
+        db.query(Report)
+        .filter(Report.child_id == child_user_id)
+        .filter(Report.report_type == normalized_type)
+        .order_by(Report.generated_at.desc())
+        .all()
+    )
+    for existing in existing_reports:
+        try:
+            existing_data = json.loads(existing.data or "{}")
+        except json.JSONDecodeError:
+            existing_data = {}
+        if existing_data.get("start_date") == start_date and existing_data.get("end_date") == end_date:
+            existing.summary = summary
+            existing.data = json.dumps(data, ensure_ascii=False)
+            existing.generated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
+            return existing
+
     report = Report(
         report_id=str(uuid.uuid4()),
         child_id=child_user_id,
@@ -347,12 +394,15 @@ def _report_payload(report: Report, db: Session) -> dict:
     except json.JSONDecodeError:
         parsed_data = {}
 
+    raw_avg_score = parsed_data.get("avg_score")
+    raw_previous_avg_score = parsed_data.get("previous_avg_score")
     stats = {
         "total_sessions": _safe_int(parsed_data.get("total_sessions"), 0),
-        "avg_score": round(_safe_float(parsed_data.get("avg_score"), 0.0), 1),
+        "avg_score": None if raw_avg_score is None else round(_safe_float(raw_avg_score), 1),
         "progress_count": _safe_int(parsed_data.get("progress_count"), 0),
         "total_games": _safe_int(parsed_data.get("total_games"), 0),
         "total_playtime_minutes": _safe_int(parsed_data.get("total_playtime_minutes"), 0),
+        "previous_avg_score": None if raw_previous_avg_score is None else round(_safe_float(raw_previous_avg_score), 1),
     }
 
     return {
@@ -366,6 +416,28 @@ def _report_payload(report: Report, db: Session) -> dict:
         "stats": stats,
         "data": report.data,
     }
+
+
+def _report_period_key(report: Report) -> str:
+    try:
+        parsed_data = json.loads(report.data or "{}")
+    except json.JSONDecodeError:
+        parsed_data = {}
+    start_date = parsed_data.get("start_date")
+    end_date = parsed_data.get("end_date")
+    if start_date and end_date:
+        return f"{report.child_id}:{report.report_type}:{start_date}:{end_date}"
+    return report.report_id
+
+
+def _dedupe_report_rows(rows: list[Report]) -> list[Report]:
+    selected: dict[str, Report] = {}
+    for row in rows:
+        key = _report_period_key(row)
+        current = selected.get(key)
+        if current is None or (row.generated_at or datetime.min) > (current.generated_at or datetime.min):
+            selected[key] = row
+    return sorted(selected.values(), key=lambda item: item.generated_at or datetime.min, reverse=True)
 
 
 def _extract_email_from_preferences(raw_value: str | None) -> str | None:
@@ -414,9 +486,15 @@ def _build_report_email_body(payload: dict) -> str:
     generated_at = payload.get("generated_at") or datetime.utcnow().isoformat()
 
     total_sessions = stats.get("total_sessions", 0)
-    avg_score = stats.get("avg_score", 0)
+    avg_score = stats.get("avg_score")
     total_games = stats.get("total_games", 0)
     total_playtime_minutes = stats.get("total_playtime_minutes", 0)
+    avg_score_text = f"{round(avg_score)}/100" if avg_score is not None else "Chưa có"
+    playtime_text = (
+        "Chưa đo"
+        if _safe_int(total_sessions) > 0 and _safe_int(total_playtime_minutes) == 0
+        else f"{total_playtime_minutes} phút"
+    )
 
     report_data = {}
     try:
@@ -436,7 +514,7 @@ def _build_report_email_body(payload: dict) -> str:
     reportlab_note = (
         ""
         if REPORTLAB_AVAILABLE
-        else "\n\nLưu ý: hệ thống chưa có thư viện tạo PDF, email này chưa kèm tệp đính kèm."
+        else "\n\nLưu ý: email này hiện chưa kèm tệp PDF."
     )
 
     return (
@@ -445,10 +523,10 @@ def _build_report_email_body(payload: dict) -> str:
         f"Thời điểm tạo: {generated_at}\n\n"
         f"Tóm tắt:\n{summary}\n\n"
         f"Thống kê chính:\n"
-        f"- Tổng số phiên: {total_sessions}\n"
-        f"- Điểm trung bình: {avg_score}\n"
+        f"- Tổng số lượt chơi: {total_sessions}\n"
+        f"- Điểm trung bình: {avg_score_text}\n"
         f"- Trò chơi đã luyện: {total_games}\n"
-        f"- Thời gian chơi: {total_playtime_minutes} phút\n\n"
+        f"- Thời gian chơi: {playtime_text}\n\n"
         f"Trò chơi luyện nhiều:\n{top_games_text}\n\n"
         f"Thành tựu nổi bật:\n{achievements_text}\n\n"
         "Phụ huynh vui lòng xem file PDF đính kèm để xem báo cáo đầy đủ."
@@ -675,8 +753,9 @@ def report_history(child_user_id: str | None = None, skip: int = 0, limit: int =
     query = db.query(Report)
     if child_user_id:
         query = query.filter(Report.child_id == child_user_id)
-    rows = query.order_by(Report.generated_at.desc()).offset(skip).limit(limit).all()
-    return {"status": "success", "data": [_report_payload(report, db) for report in rows]}
+    rows = query.order_by(Report.generated_at.desc()).all()
+    deduped = _dedupe_report_rows(rows)[skip : skip + limit]
+    return {"status": "success", "data": [_report_payload(report, db) for report in deduped]}
 
 
 @router.get("/preview/{child_user_id}")
@@ -687,6 +766,8 @@ def preview_report(
 ):
     normalized_type = _normalize_report_type(report_type)
     summary, data = _build_report_summary(db, child_user_id, normalized_type)
+    raw_avg_score = data.get("avg_score")
+    raw_previous_avg_score = data.get("previous_avg_score")
     return {
         "status": "success",
         "data": {
@@ -695,10 +776,11 @@ def preview_report(
             "summary": summary,
             "stats": {
                 "total_sessions": _safe_int(data.get("total_sessions"), 0),
-                "avg_score": round(_safe_float(data.get("avg_score"), 0.0), 1),
+                "avg_score": None if raw_avg_score is None else round(_safe_float(raw_avg_score), 1),
                 "progress_count": _safe_int(data.get("progress_count"), 0),
                 "total_games": _safe_int(data.get("total_games"), 0),
                 "total_playtime_minutes": _safe_int(data.get("total_playtime_minutes"), 0),
+                "previous_avg_score": None if raw_previous_avg_score is None else round(_safe_float(raw_previous_avg_score), 1),
             },
             "insights": {
                 "total_playtime_minutes": data.get("total_playtime_minutes", 0),
@@ -706,6 +788,7 @@ def preview_report(
                 "games_stats": data.get("games_stats", []),
                 "emotion_stats": data.get("emotion_stats", {}),
                 "achievements": data.get("achievements", []),
+                "previous_avg_score": None if raw_previous_avg_score is None else round(_safe_float(raw_previous_avg_score), 1),
             },
             "pdf_enabled": REPORTLAB_AVAILABLE,
         },
@@ -738,8 +821,9 @@ def report_pdf(report_id: str, db: Session = Depends(get_db)):
 
 @router.get("/all")
 def list_all_reports(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    rows = db.query(Report).order_by(Report.generated_at.desc()).offset(skip).limit(limit).all()
-    return {"status": "success", "data": [_report_payload(report, db) for report in rows]}
+    rows = db.query(Report).order_by(Report.generated_at.desc()).all()
+    deduped = _dedupe_report_rows(rows)[skip : skip + limit]
+    return {"status": "success", "data": [_report_payload(report, db) for report in deduped]}
 
 
 @router.post("/test-email")

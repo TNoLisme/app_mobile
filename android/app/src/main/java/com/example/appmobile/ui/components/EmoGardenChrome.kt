@@ -53,9 +53,11 @@ enum class EmoGardenNavItem(val title: String) {
     Games("Chơi game")
 }
 
-val EmoGardenBackground = SolidColor(Color(0xFFEAF7FF))
+val EmoGardenBackground: SolidColor
+    get() = SolidColor(EgDesign.background)
 
-val EmoGardenButtonGradient = SolidColor(Color(0xFF62B5FF))
+val EmoGardenButtonGradient: SolidColor
+    get() = SolidColor(EgDesign.primary)
 
 @Composable
 fun EmoGardenTopNav(
@@ -69,7 +71,7 @@ fun EmoGardenTopNav(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = Color.White.copy(alpha = 0.98f),
+        color = EgDesign.card.copy(alpha = 0.98f),
         shadowElevation = 2.dp
     ) {
         Column(
@@ -125,7 +127,7 @@ private fun RoundNavAction(text: String, onClick: () -> Unit) {
             .size(40.dp)
             .clickable(onClick = onClick),
         shape = CircleShape,
-        color = Color(0xFFEAF7FF),
+        color = EgDesign.cardSoft,
         shadowElevation = 1.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -142,7 +144,7 @@ private fun NavPill(
     modifier: Modifier = Modifier
 ) {
     val active = item == activeItem
-    val background = if (active) Color(0xFF62B5FF) else Color(0xFFF8FCFF)
+    val background = if (active) EgDesign.primary else EgDesign.cardSoft
     Surface(
         modifier = modifier.clickable(onClick = onClick),
         shape = CircleShape,
@@ -157,7 +159,7 @@ private fun NavPill(
         ) {
             Text(
                 text = item.title,
-                color = if (active) Color.White else Color(0xFF0B3C7D),
+                color = if (active) Color.White else EgDesign.blue,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 13.sp,
                 maxLines = 1,

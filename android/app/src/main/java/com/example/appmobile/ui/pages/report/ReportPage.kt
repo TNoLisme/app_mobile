@@ -1,9 +1,6 @@
 package com.example.appmobile.ui.pages.report
 
 import android.graphics.Bitmap
-import android.graphics.Color as AndroidColor
-import android.graphics.pdf.PdfRenderer
-import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,10 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -35,17 +31,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,346 +50,593 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.appmobile.data.local.AppSession
-import com.example.appmobile.data.remote.NetworkClient
-import com.example.appmobile.data.remote.dto.ReportPayloadDto
-import com.example.appmobile.data.remote.dto.ReportPreviewDataDto
-import com.example.appmobile.data.remote.dto.ReportStatsDto
-import com.example.appmobile.data.repository.AnalysisRepository
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appmobile.ui.components.AppBackButton
-import com.example.appmobile.ui.theme.SoftWhite
-import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.util.Locale
-import kotlin.math.roundToInt
+import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.viewmodel.GeneratedReportUi
+import com.example.appmobile.ui.viewmodel.PdfState
+import com.example.appmobile.ui.viewmodel.ProgressReportUiState
+import com.example.appmobile.ui.viewmodel.ReportEmotionUi
+import com.example.appmobile.ui.viewmodel.ReportViewModel
+import com.example.appmobile.ui.viewmodel.WeeklySummary
+import com.example.appmobile.ui.viewmodel.buildWeeklySummaryText
+import com.example.appmobile.ui.viewmodel.formatReportScore
 
-private val ReportBlue = Color(0xFF57AEF2)
-private val ReportNavy = Color(0xFF0B3F75)
-private val ReportInk = Color(0xFF26384D)
-private val ReportLine = Color(0xFFD7E5F0)
+private val ReportBlue: Color get() = EgDesign.primary
+private val ReportNavy: Color get() = EgDesign.textPrimary
+private val ReportInk: Color get() = EgDesign.textPrimary
+private val ReportMuted: Color get() = EgDesign.textSecondary
+private val ReportLine: Color get() = EgDesign.cardBorder
+private val ReportSoftBlue: Color get() = EgDesign.cardSoft
+private val ReportSoftGreen: Color get() = EgDesign.cardSoft
+private val ReportSoftYellow: Color get() = EgDesign.cardSoft
 
 @Composable
-fun ReportPage(onBack: () -> Unit) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val userId = remember(context) {
-        runCatching { FirebaseAuth.getInstance().currentUser?.uid }.getOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?: AppSession.currentBackendUserId()?.takeIf { it.isNotBlank() }
-            ?: AppSession.getBackendUserId(context)?.takeIf { it.isNotBlank() }
-            ?: "local-player"
+fun ReportPage(
+    onBack: () -> Unit,
+    onPlayNow: () -> Unit = {},
+    onUpdateEmail: () -> Unit = {},
+    viewModel: ReportViewModel = viewModel()
+) {
+    val state by viewModel.state.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var pendingEmailReportId by remember { mutableStateOf<String?>(null) }
+    var showRegenerateConfirm by remember { mutableStateOf(false) }
+    var showAddEmailGate by remember { mutableStateOf(false) }
+    var showParentDetailsGate by remember { mutableStateOf(false) }
+    var showParentDetails by remember { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.onRefreshReports(showFullLoading = false)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    val repository = remember {
-        AnalysisRepository(
-            reportDao = null,
-            apiService = NetworkClient.apiService
+
+    fun requestGenerateReport() {
+        if (state.currentWeekReport != null) {
+            showRegenerateConfirm = true
+        } else {
+            viewModel.onGeneratePdf()
+        }
+    }
+
+    fun requestSendEmail(reportId: String?) {
+        if (state.hasRecipientEmail) {
+            pendingEmailReportId = reportId ?: ""
+        } else {
+            showAddEmailGate = true
+        }
+    }
+
+    if (state.isPreviewVisible) {
+        PdfPreviewDialog(
+            pages = state.pdfPreviewPages,
+            onDismiss = viewModel::onDismissPreview
         )
     }
-    val preview = remember { mutableStateOf<ReportPreviewDataDto?>(null) }
-    val history = remember { mutableStateOf<List<ReportPayloadDto>>(emptyList()) }
-    val pendingReport = remember { mutableStateOf<ReportPayloadDto?>(null) }
-    val pdfPages = remember { mutableStateOf<List<Bitmap>>(emptyList()) }
-    val showPdfPreview = remember { mutableStateOf(false) }
-    val pdfViewed = remember { mutableStateOf(false) }
-    val loading = remember { mutableStateOf(true) }
-    val creatingReport = remember { mutableStateOf(false) }
-    val loadingPdf = remember { mutableStateOf(false) }
-    val sendingReport = remember { mutableStateOf(false) }
-    val actionMessage = remember { mutableStateOf<String?>(null) }
 
-    DisposableEffect(Unit) {
-        onDispose { pdfPages.value.forEach { it.recycle() } }
-    }
-
-    suspend fun loadData() {
-        loading.value = true
-        try {
-            preview.value = repository.previewReport(userId)
-            history.value = repository.getReportHistory(userId)
-        } catch (_: Exception) {
-            actionMessage.value = "Không tải được báo cáo. Vui lòng thử lại."
-        } finally {
-            loading.value = false
-        }
-    }
-
-    suspend fun renderReportPdf(reportId: String): List<Bitmap> = withContext(Dispatchers.IO) {
-        val bytes = repository.downloadReportPdf(reportId) ?: return@withContext emptyList()
-        val file = File(context.cacheDir, "emogarden-report-$reportId.pdf")
-        file.writeBytes(bytes)
-
-        val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-        val renderer = PdfRenderer(descriptor)
-        try {
-            List(renderer.pageCount) { index ->
-                val page = renderer.openPage(index)
-                try {
-                    val scale = 2f
-                    val width = (page.width * scale).roundToInt().coerceAtLeast(1)
-                    val height = (page.height * scale).roundToInt().coerceAtLeast(1)
-                    Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { bitmap ->
-                        bitmap.eraseColor(AndroidColor.WHITE)
-                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                    }
-                } finally {
-                    page.close()
-                }
+    pendingEmailReportId?.let { reportId ->
+        ConfirmSendReportDialog(
+            email = state.parentEmail.orEmpty(),
+            onDismiss = { pendingEmailReportId = null },
+            onConfirm = {
+                pendingEmailReportId = null
+                viewModel.onSendReportToParent(reportId.takeIf { it.isNotBlank() })
             }
-        } finally {
-            renderer.close()
-            descriptor.close()
-        }
+        )
     }
 
-    fun openPdfPreview(report: ReportPayloadDto) {
-        val reportId = report.reportId
-        if (reportId.isNullOrBlank()) {
-            actionMessage.value = "Chưa có mã báo cáo để xem PDF."
-            return
-        }
-        scope.launch {
-            loadingPdf.value = true
-            actionMessage.value = "Đang mở bản PDF xem trước..."
-            val pages = runCatching { renderReportPdf(reportId) }.getOrDefault(emptyList())
-            loadingPdf.value = false
-            if (pages.isEmpty()) {
-                actionMessage.value = "Chưa mở được PDF. Kiểm tra backend hoặc thư viện tạo PDF."
-                return@launch
+    if (showAddEmailGate) {
+        ParentGateDialog(
+            title = "Khu vực phụ huynh",
+            message = "Phần này dành cho phụ huynh để thêm email nhận báo cáo.",
+            confirmText = "Tiếp tục",
+            onDismiss = { showAddEmailGate = false },
+            onConfirm = {
+                showAddEmailGate = false
+                onUpdateEmail()
             }
-            pdfPages.value.forEach { it.recycle() }
-            pdfPages.value = pages
-            pdfViewed.value = true
-            showPdfPreview.value = true
-            actionMessage.value = null
-        }
+        )
     }
 
-    LaunchedEffect(userId) {
-        loadData()
+    if (showParentDetailsGate) {
+        ParentGateDialog(
+            title = "Khu vực phụ huynh",
+            message = "Phần này dành cho phụ huynh xem báo cáo chi tiết, tải xuống hoặc gửi lại báo cáo.",
+            confirmText = "Xem chi tiết",
+            onDismiss = { showParentDetailsGate = false },
+            onConfirm = {
+                showParentDetailsGate = false
+                showParentDetails = true
+            }
+        )
     }
 
-    if (showPdfPreview.value) {
-        PdfPreviewDialog(
-            pages = pdfPages.value,
-            onDismiss = { showPdfPreview.value = false }
+    if (showRegenerateConfirm) {
+        ConfirmRegenerateReportDialog(
+            onDismiss = { showRegenerateConfirm = false },
+            onConfirm = {
+                showRegenerateConfirm = false
+                viewModel.onGeneratePdf()
+            }
         )
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SoftWhite)
+            .background(EgDesign.background)
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 18.dp)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            AppBackButton(
-                onClick = onBack,
-                modifier = Modifier.align(Alignment.CenterStart)
-            )
-            Text(
-                "Báo cáo tiến bộ",
-                fontWeight = FontWeight.ExtraBold,
-                color = ReportNavy,
-                fontSize = 22.sp,
-                textAlign = TextAlign.Center
-            )
-        }
+        ReportHeader(onBack = onBack)
 
-        Spacer(modifier = Modifier.height(18.dp))
-
-        if (loading.value) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = ReportBlue)
-            }
+        if (state.isLoading && state.weeklySummary == null) {
+            LoadingCard()
         } else {
-            WeeklyReportCard(preview.value)
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Button(
-                onClick = {
-                    scope.launch {
-                        creatingReport.value = true
-                        pdfViewed.value = false
-                        actionMessage.value = "Đang tạo file PDF..."
-                        val created = runCatching { repository.requestReport(userId, sendEmail = false) }.getOrNull()
-                        creatingReport.value = false
-                        if (created == null) {
-                            actionMessage.value = "Chưa tạo được báo cáo. Vui lòng thử lại."
-                            return@launch
-                        }
-                        pendingReport.value = created
-                        openPdfPreview(created)
-                        loadData()
-                    }
-                },
-                enabled = !creatingReport.value && !loadingPdf.value && !sendingReport.value,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = ReportBlue)
-            ) {
-                Text(
-                    if (creatingReport.value) "Đang tạo..." else "Tạo bản xem trước PDF",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+            state.errorMessage?.let { message ->
+                ErrorCard(message = message, onRetry = viewModel::onRetryLoad)
             }
 
-            pendingReport.value?.let { report ->
-                Spacer(modifier = Modifier.height(14.dp))
-                ReadyPdfCard(
-                    report = report,
-                    pdfViewed = pdfViewed.value,
-                    loadingPdf = loadingPdf.value,
-                    sending = sendingReport.value,
-                    onPreview = { openPdfPreview(report) },
-                    onSend = {
-                        val reportId = report.reportId
-                        if (reportId.isNullOrBlank()) {
-                            actionMessage.value = "Chưa có mã báo cáo để gửi."
-                            return@ReadyPdfCard
-                        }
-                        scope.launch {
-                            sendingReport.value = true
-                            actionMessage.value = "Đang gửi PDF tới email phụ huynh..."
-                            val result = repository.sendReport(reportId)
-                            val sent = result?.emailSent == true
-                            actionMessage.value = if (sent) {
-                                pendingReport.value = null
-                                "Đã gửi PDF tới email phụ huynh."
-                            } else {
-                                result?.message ?: "Chưa gửi được PDF. Kiểm tra email phụ huynh hoặc SMTP."
-                            }
-                            sendingReport.value = false
-                            loadData()
+            ChildWeeklySummaryCard(summary = state.weeklySummary)
+            ChildPracticeCard(emotions = state.emotionStats, onPlayNow = onPlayNow)
+
+            if (state.hasRecipientEmail) {
+                ChildSendReportCard(
+                    state = state,
+                    onSend = { requestSendEmail(state.currentWeekReport?.id) },
+                    onViewReport = {
+                        val reportId = state.currentWeekReport?.id ?: state.currentReport?.id
+                        if (!reportId.isNullOrBlank()) {
+                            viewModel.onPreviewPdf(reportId)
+                        } else {
+                            requestGenerateReport()
                         }
                     }
                 )
-            }
-
-            actionMessage.value?.let { message ->
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFE9F5FF)) {
-                    Text(
-                        message,
-                        modifier = Modifier.padding(14.dp),
-                        color = ReportNavy,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Báo cáo đã tạo", fontWeight = FontWeight.ExtraBold, color = ReportInk, fontSize = 18.sp)
-                Spacer(modifier = Modifier.weight(1f))
-                OutlinedButton(
-                    onClick = { scope.launch { loadData() } },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ReportNavy)
-                ) {
-                    Text("Tải lại")
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (history.value.isEmpty()) {
-                EmptyHistoryCard()
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    history.value.forEach { report ->
-                        ReportHistoryCard(report)
+                MissingParentEmailCard(onAddEmail = { showAddEmailGate = true })
+            }
+
+            state.statusMessage?.let { message ->
+                StatusMessageCard(message = message)
+            }
+
+            ParentDetailsLink(
+                expanded = showParentDetails,
+                onClick = {
+                    if (showParentDetails) {
+                        showParentDetails = false
+                    } else {
+                        showParentDetailsGate = true
                     }
                 }
+            )
+
+            if (showParentDetails) {
+                ParentSuggestionCard(text = state.parentSuggestion)
+                GeneratedReportsSection(
+                    reports = state.generatedReports,
+                    isRefreshing = state.isRefreshing,
+                    hasRecipientEmail = state.hasRecipientEmail,
+                    parentEmail = state.parentEmail,
+                    onRefresh = { viewModel.onRefreshReports(showFullLoading = false) },
+                    onGenerate = ::requestGenerateReport,
+                    onOpen = viewModel::onOpenReport,
+                    onDownload = viewModel::onDownloadPdf,
+                    onSend = { reportId -> requestSendEmail(reportId) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun WeeklyReportCard(preview: ReportPreviewDataDto?) {
+private fun ReportHeader(onBack: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        AppBackButton(onClick = onBack)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                "Báo cáo của bé",
+                fontWeight = FontWeight.ExtraBold,
+                color = ReportNavy,
+                fontSize = 26.sp,
+                lineHeight = 30.sp
+            )
+            Text(
+                "Xem thành tích tuần này và gửi cho bố mẹ.",
+                color = ReportMuted,
+                fontSize = 15.sp,
+                lineHeight = 20.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun LoadingCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = ReportBlue)
+        }
+    }
+}
+
+@Composable
+private fun ChildWeeklySummaryCard(summary: WeeklySummary?) {
+    val sessions = summary?.sessionsCount ?: 0
+    val score = formatReportScore(summary?.averageScore)
+    val emotionCount = formatEmotionMetric(summary)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("Tuần này con đã học thế nào?", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 20.sp)
+            Text(
+                text = if (sessions > 0) {
+                    "Tuần này con đã chơi $sessions lượt 🎉"
+                } else {
+                    "Tuần này con chưa có lượt chơi nào. Mình bắt đầu luyện cảm xúc nhé."
+                },
+                color = ReportInk,
+                fontSize = 15.sp,
+                lineHeight = 21.sp
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                ChildMetricBox("🎮", sessions.toString(), "Lượt chơi", Modifier.weight(1f))
+                ChildMetricBox("⭐", score, "Điểm TB", Modifier.weight(1f))
+                ChildMetricBox("🌈", emotionCount, "Cảm xúc", Modifier.weight(1f))
+            }
+            Text(
+                text = childProgressLine(summary),
+                color = ReportNavy,
+                fontWeight = FontWeight.Bold,
+                lineHeight = 21.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChildPracticeCard(emotions: List<ReportEmotionUi>, onPlayNow: () -> Unit) {
+    val weak = weakEmotionItems(emotions)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Con nên luyện thêm", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 19.sp)
+            if (weak.isEmpty()) {
+                Text("Con chơi thêm vài màn để app gợi ý cảm xúc cần luyện nhé.", color = ReportInk, lineHeight = 21.sp)
+                Button(
+                    onClick = onPlayNow,
+                    colors = ButtonDefaults.buttonColors(containerColor = ReportBlue),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Chơi ngay", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            } else {
+                weak.forEach { emotion ->
+                    Surface(shape = RoundedCornerShape(16.dp), color = ReportSoftBlue) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(emotion.emoji, fontSize = 28.sp)
+                            Text(emotion.name, color = ReportNavy, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                        }
+                    }
+                }
+                Text("Cùng bố mẹ luyện thêm các tình huống này nhé.", color = ReportMuted, lineHeight = 20.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChildSendReportCard(
+    state: ProgressReportUiState,
+    onSend: () -> Unit,
+    onViewReport: () -> Unit
+) {
+    val busy = state.pdfState == PdfState.Generating || state.pdfState == PdfState.EmailSending
+    val buttonText = when (state.pdfState) {
+        PdfState.Generating -> "Đang chuẩn bị báo cáo..."
+        PdfState.EmailSending -> "Đang gửi báo cáo..."
+        PdfState.EmailSent -> "Gửi lại cho bố mẹ"
+        else -> if (state.currentWeekReport == null) "Tạo và gửi báo cáo" else "Gửi báo cáo cho bố mẹ"
+    }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color(0xFFBFE2FF), RoundedCornerShape(24.dp)),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Gửi báo cáo cho bố mẹ", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 19.sp)
+            state.parentEmail?.let { email ->
+                Text("Báo cáo tuần này sẽ gửi đến: $email", color = ReportInk, lineHeight = 21.sp)
+            }
+            Button(
+                onClick = onSend,
+                enabled = !busy,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ReportBlue, disabledContainerColor = EgDesign.cardBorder)
+            ) {
+                Text(buttonText, color = Color.White, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            }
+            OutlinedButton(
+                onClick = onViewReport,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Xem báo cáo", color = ReportNavy, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MissingParentEmailCard(onAddEmail: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Chưa có email của bố mẹ", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 19.sp)
+            Text("Nhờ bố mẹ thêm email để nhận báo cáo hằng tuần nhé.", color = ReportInk, lineHeight = 21.sp)
+            PrimaryReportButton(text = "Thêm email phụ huynh", onClick = onAddEmail)
+        }
+    }
+}
+
+@Composable
+private fun ParentDetailsLink(expanded: Boolean, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = ReportNavy)
+    ) {
+        Text(
+            if (expanded) "Ẩn báo cáo chi tiết" else "Phụ huynh xem báo cáo chi tiết >",
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun WeeklySummaryCard(summary: WeeklySummary?) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("Tuần này", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
             Text(
-                preview?.summary ?: "Chưa có dữ liệu chơi game để tạo báo cáo.",
+                buildWeeklySummaryText(summary),
                 color = ReportInk,
-                lineHeight = 21.sp
+                lineHeight = 22.sp
             )
-            ReportStatsRow(preview?.stats)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                MetricBox((summary?.sessionsCount ?: 0).toString(), "Lượt chơi", Modifier.weight(1f))
+                MetricBox(formatReportScore(summary?.averageScore), "Điểm TB", Modifier.weight(1f))
+                MetricBox(formatEmotionMetric(summary), "Cảm xúc đã luyện", Modifier.weight(1f))
+            }
         }
     }
 }
 
 @Composable
-private fun ReadyPdfCard(
-    report: ReportPayloadDto,
-    pdfViewed: Boolean,
-    loadingPdf: Boolean,
-    sending: Boolean,
+private fun EmotionInsightCard(emotions: List<ReportEmotionUi>, onPlayNow: () -> Unit) {
+    val practiced = emotions.filter { it.attempts > 0 }
+    val best = practiced
+        .filter { it.attempts >= 3 }
+        .maxByOrNull { it.accuracy }
+    val weak = practiced.sortedBy { it.accuracy }.take(2)
+    val mostPracticed = practiced.maxByOrNull { it.attempts }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (practiced.isEmpty()) {
+                Text("Chưa đủ dữ liệu cảm xúc", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+                Text(
+                    "Bé chơi thêm vài màn để app gợi ý cảm xúc cần ôn nhé.",
+                    color = ReportInk,
+                    lineHeight = 21.sp
+                )
+                Button(
+                    onClick = onPlayNow,
+                    colors = ButtonDefaults.buttonColors(containerColor = ReportBlue),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Chơi ngay", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            } else {
+                Text("Cảm xúc nổi bật", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+                if (best == null) {
+                    Text(
+                        "Bé cần chơi thêm vài màn để app đánh giá cảm xúc làm tốt chính xác hơn.",
+                        color = ReportInk,
+                        lineHeight = 20.sp
+                    )
+                }
+                best?.let {
+                    EmotionInsightRow("Làm tốt", it, value = emotionAccuracyText(it))
+                }
+                weak.forEach { emotion ->
+                    EmotionInsightRow("Cần luyện thêm", emotion, value = emotionAccuracyText(emotion))
+                }
+                mostPracticed?.let {
+                    EmotionInsightRow("Luyện nhiều nhất", it, value = "${it.attempts} lượt")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmotionInsightRow(label: String, emotion: ReportEmotionUi, value: String) {
+    Surface(shape = RoundedCornerShape(14.dp), color = ReportSoftBlue) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text("$label:", color = ReportMuted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${emotion.name} ${emotion.emoji}",
+                    color = ReportNavy,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(value, color = ReportInk, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParentSuggestionCard(text: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Gợi ý cho phụ huynh", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+            Text(text, color = ReportInk, lineHeight = 22.sp)
+        }
+    }
+}
+
+@Composable
+private fun PdfStateCard(
+    state: ProgressReportUiState,
+    onGenerate: () -> Unit,
     onPreview: () -> Unit,
-    onSend: () -> Unit
+    onDownload: () -> Unit,
+    onSend: () -> Unit,
+    onRetry: () -> Unit,
+    onUpdateEmail: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, Color(0xFFBFE2FF), RoundedCornerShape(22.dp)),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FCFF)),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("PDF đã sẵn sàng", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
-            Text(
-                report.summary ?: "Báo cáo đã được tạo. Mở bản xem trước trước khi gửi email.",
-                color = ReportInk,
-                lineHeight = 21.sp
-            )
-            ReportStatsRow(report.stats)
-            if (!pdfViewed) {
-                Text(
-                    "Cần xem trước PDF rồi mới gửi email.",
-                    color = Color(0xFF6B7C93),
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = onPreview,
-                    enabled = !loadingPdf && !sending,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ReportNavy)
-                ) {
-                    Text(if (loadingPdf) "Đang mở..." else "Xem trước PDF", fontWeight = FontWeight.Bold)
+            when (val pdfState = state.pdfState) {
+                PdfState.NotGenerated -> {
+                    Text("Gửi báo cáo cho bố mẹ", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+                    Text("Tạo bản báo cáo tuần này để xem, tải xuống hoặc gửi qua email cho bố mẹ.", color = ReportInk, lineHeight = 21.sp)
+                    PrimaryReportButton(text = "Tạo báo cáo", onClick = onGenerate)
+                    Text("Bố mẹ có thể xem hoặc tải xuống trong phần báo cáo chi tiết.", color = ReportMuted, style = MaterialTheme.typography.labelMedium)
                 }
-                Button(
-                    onClick = onSend,
-                    enabled = pdfViewed && !sending && !loadingPdf,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ReportBlue,
-                        disabledContainerColor = Color(0xFFCFDDEA)
+                PdfState.Generating -> {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        CircularProgressIndicator(color = ReportBlue, modifier = Modifier.height(24.dp))
+                        Text("Đang tạo báo cáo...", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+                    }
+                    Text("App đang chuẩn bị báo cáo tiến bộ của bé.", color = ReportInk)
+                }
+                is PdfState.Generated -> {
+                    Text("Báo cáo đã sẵn sàng", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+                    Text("Bạn có thể xem báo cáo, tải xuống hoặc gửi qua email cho bố mẹ.", color = ReportInk, lineHeight = 21.sp)
+                    PdfActionButtons(
+                        hasRecipientEmail = state.hasRecipientEmail,
+                        parentEmail = state.parentEmail,
+                        onPreview = onPreview,
+                        onDownload = onDownload,
+                        onSend = onSend,
+                        onUpdateEmail = onUpdateEmail
                     )
-                ) {
-                    Text(if (sending) "Đang gửi..." else "Gửi email", fontWeight = FontWeight.Bold)
+                }
+                is PdfState.PreviewError -> {
+                    Text("Chưa mở được báo cáo", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+                    Text("Không thể mở bản xem trước lúc này. Vui lòng thử lại.", color = ReportInk, lineHeight = 21.sp)
+                    SecondaryReportButton(text = "Thử mở lại", onClick = onRetry)
+                    PrimaryReportButton(text = "Tạo lại báo cáo", onClick = onGenerate)
+                }
+                is PdfState.GenerateError -> {
+                    Text("Không tạo được báo cáo", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+                    Text(pdfState.message, color = ReportInk, lineHeight = 21.sp)
+                    PrimaryReportButton(text = "Thử lại", onClick = onGenerate)
+                }
+                PdfState.EmailSending -> {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        CircularProgressIndicator(color = ReportBlue, modifier = Modifier.height(24.dp))
+                        Text("Đang gửi báo cáo...", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+                    }
+                }
+                PdfState.EmailSent -> {
+                    Text("Đã gửi báo cáo cho phụ huynh", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+                    Text("Phụ huynh có thể kiểm tra hộp thư để xem báo cáo.", color = ReportInk, lineHeight = 21.sp)
+                    PdfActionButtons(
+                        hasRecipientEmail = state.hasRecipientEmail,
+                        parentEmail = state.parentEmail,
+                        onPreview = onPreview,
+                        onDownload = onDownload,
+                        onSend = onSend,
+                        onUpdateEmail = onUpdateEmail
+                    )
+                }
+                is PdfState.EmailError -> {
+                    Text("Chưa gửi được báo cáo", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+                    Text(pdfState.message, color = ReportInk, lineHeight = 21.sp)
+                    if (!state.hasRecipientEmail) {
+                        SecondaryReportButton(text = "Thêm email phụ huynh", onClick = onUpdateEmail)
+                    } else {
+                        PrimaryReportButton(text = "Thử gửi lại", onClick = onSend)
+                    }
                 }
             }
         }
@@ -400,20 +644,152 @@ private fun ReadyPdfCard(
 }
 
 @Composable
-private fun ReportStatsRow(stats: ReportStatsDto?) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        StatBox("Lượt chơi", (stats?.totalSessions ?: 0).toString(), Modifier.weight(1f))
-        StatBox("Điểm TB", formatScore(stats?.avgScore), Modifier.weight(1f))
-        StatBox("Thời gian", formatMinutes(stats?.totalPlaytimeMinutes ?: 0), Modifier.weight(1f))
+private fun PdfActionButtons(
+    hasRecipientEmail: Boolean,
+    parentEmail: String?,
+    onPreview: () -> Unit,
+    onDownload: () -> Unit,
+    onSend: () -> Unit,
+    onUpdateEmail: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        PrimaryReportButton(text = "Xem báo cáo", onClick = onPreview)
+        SecondaryReportButton(text = "Tải xuống", onClick = onDownload)
+        parentEmail?.let { email ->
+            Text("Sẽ gửi đến: $email", color = ReportMuted, style = MaterialTheme.typography.labelMedium)
+        }
+        Button(
+            onClick = onSend,
+            enabled = hasRecipientEmail,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(46.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ReportBlue,
+                disabledContainerColor = EgDesign.cardBorder
+            )
+        ) {
+            Text("Gửi email", fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+        }
+        if (!hasRecipientEmail) {
+            Text("Chưa có email phụ huynh.", color = ReportMuted, style = MaterialTheme.typography.labelMedium)
+            Text("Thêm email phụ huynh để gửi báo cáo hằng tuần.", color = ReportMuted, style = MaterialTheme.typography.labelSmall)
+            OutlinedButton(onClick = onUpdateEmail, modifier = Modifier.fillMaxWidth()) {
+                Text("Thêm email phụ huynh", maxLines = 1)
+            }
+        }
     }
 }
 
 @Composable
-private fun StatBox(label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, shape = RoundedCornerShape(14.dp), color = Color(0xFFEFF8EC)) {
+private fun GeneratedReportsSection(
+    reports: List<GeneratedReportUi>,
+    isRefreshing: Boolean,
+    hasRecipientEmail: Boolean,
+    parentEmail: String?,
+    onRefresh: () -> Unit,
+    onGenerate: () -> Unit,
+    onOpen: (String) -> Unit,
+    onDownload: (String) -> Unit,
+    onSend: (String) -> Unit
+) {
+    val visibleReports = reports.distinctBy { report -> report.reportKey.ifBlank { report.id } }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Báo cáo đã tạo", fontWeight = FontWeight.ExtraBold, color = ReportInk, fontSize = 18.sp)
+            Spacer(modifier = Modifier.weight(1f))
+            OutlinedButton(
+                onClick = onRefresh,
+                enabled = !isRefreshing,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = ReportNavy)
+            ) {
+                Text(if (isRefreshing) "Đang tải" else "Tải lại", maxLines = 1)
+            }
+        }
+
+        if (visibleReports.isEmpty()) {
+            EmptyReportsCard(onGenerate = onGenerate)
+        } else {
+            visibleReports.forEach { report ->
+                GeneratedReportCard(
+                    report = report,
+                    hasRecipientEmail = hasRecipientEmail,
+                    parentEmail = parentEmail,
+                    onOpen = { onOpen(report.id) },
+                    onDownload = { onDownload(report.id) },
+                    onSend = { onSend(report.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GeneratedReportCard(
+    report: GeneratedReportUi,
+    hasRecipientEmail: Boolean,
+    parentEmail: String?,
+    onOpen: () -> Unit,
+    onDownload: () -> Unit,
+    onSend: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(report.title, fontWeight = FontWeight.ExtraBold, color = ReportNavy)
+                    Text(report.weekRange, color = ReportMuted, style = MaterialTheme.typography.labelMedium)
+                }
+                Text("Tạo ngày ${report.createdAtText}", color = ReportMuted, style = MaterialTheme.typography.labelSmall)
+            }
+            Text(
+                "${report.summary.sessionsCount} lượt chơi · ${formatReportScore(report.summary.averageScore)} · ${formatEmotionMetric(report.summary)} cảm xúc đã luyện",
+                color = ReportInk,
+                fontWeight = FontWeight.SemiBold
+            )
+            parentEmail?.let { email ->
+                Text("Email phụ huynh: $email", color = ReportMuted, style = MaterialTheme.typography.labelSmall)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                SmallReportButton("Xem", onOpen, Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    SmallReportButton("Tải", onDownload, Modifier.weight(1f))
+                    SmallReportButton("Gửi", onSend, Modifier.weight(1f), enabled = hasRecipientEmail)
+                }
+                if (!hasRecipientEmail) {
+                    Text("Chưa có email phụ huynh.", color = ReportMuted, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyReportsCard(onGenerate: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Chưa có báo cáo nào", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+            Text("Tạo báo cáo tuần đầu tiên để theo dõi tiến bộ của bé.", color = ReportInk, lineHeight = 21.sp)
+            PrimaryReportButton(text = "Tạo báo cáo", onClick = onGenerate)
+        }
+    }
+}
+
+@Composable
+private fun MetricBox(value: String, label: String, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(14.dp), color = ReportSoftGreen) {
         Column(
             modifier = Modifier
-                .heightIn(min = 68.dp)
+                .heightIn(min = 70.dp)
                 .padding(horizontal = 8.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -429,7 +805,7 @@ private fun StatBox(label: String, value: String, modifier: Modifier = Modifier)
             Text(
                 label,
                 style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF6F7E8E),
+                color = ReportMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -438,48 +814,295 @@ private fun StatBox(label: String, value: String, modifier: Modifier = Modifier)
 }
 
 @Composable
-private fun EmptyHistoryCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+private fun ChildMetricBox(icon: String, value: String, label: String, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(16.dp), color = EgDesign.cardSoft) {
+        Column(
+            modifier = Modifier
+                .heightIn(min = 86.dp)
+                .padding(horizontal = 7.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(icon, fontSize = 22.sp)
+            Text(
+                value,
+                fontWeight = FontWeight.ExtraBold,
+                color = ReportBlue,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = ReportMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+private fun formatEmotionMetric(summary: WeeklySummary?): String {
+    val count = summary?.learnedEmotionCount
+    return if (count != null) "${count.coerceIn(0, 6)}/6" else "0/6"
+}
+
+private fun childProgressLine(summary: WeeklySummary?): String {
+    val avg = summary?.averageScore
+    return when {
+        summary == null || summary.sessionsCount == 0 -> "Con hãy chơi vài màn để có thành tích tuần này nhé."
+        avg == null -> "Con chơi thêm một chút để app tính điểm trung bình nhé."
+        avg >= 80 -> "Con đang tiến bộ rất tốt."
+        avg >= 60 -> "Con đang tiến bộ ổn."
+        avg >= 40 -> "Con cần luyện thêm một số cảm xúc."
+        else -> "Con nên ôn lại các cảm xúc cơ bản."
+    }
+}
+
+private fun weakEmotionItems(emotions: List<ReportEmotionUi>): List<ReportEmotionUi> {
+    return emotions
+        .filter { it.attempts > 0 }
+        .sortedWith(compareBy<ReportEmotionUi> { it.accuracy }.thenByDescending { it.attempts })
+        .take(2)
+}
+
+private fun emotionAccuracyText(emotion: ReportEmotionUi): String {
+    return if (emotion.attempts >= 3) {
+        "${emotion.accuracy}% · ${emotion.attempts} lượt"
+    } else {
+        "${emotion.accuracy}% · dữ liệu còn ít"
+    }
+}
+
+@Composable
+private fun PrimaryReportButton(text: String, onClick: () -> Unit, enabled: Boolean = true) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = ReportBlue)
     ) {
+        Text(text, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+    }
+}
+
+@Composable
+private fun SecondaryReportButton(text: String, onClick: () -> Unit, enabled: Boolean = true) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = ReportNavy)
+    ) {
+        Text(text, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun SmallReportButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(40.dp),
+        contentPadding = ButtonDefaults.ContentPadding,
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = ReportNavy)
+    ) {
+        Text(text, maxLines = 1, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun StatusMessageCard(message: String) {
+    Surface(shape = RoundedCornerShape(16.dp), color = ReportSoftBlue) {
         Text(
-            "Chưa có báo cáo đã lưu. Bấm “Tạo bản xem trước PDF” để tạo báo cáo đầu tiên.",
-            modifier = Modifier.padding(18.dp),
-            color = Color(0xFF6F7E8E),
-            lineHeight = 21.sp
+            message,
+            modifier = Modifier.padding(14.dp),
+            color = ReportNavy,
+            fontWeight = FontWeight.SemiBold,
+            lineHeight = 20.sp
         )
     }
 }
 
 @Composable
-private fun ReportHistoryCard(report: ReportPayloadDto) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(1.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(formatReportType(report.reportType), fontWeight = FontWeight.ExtraBold, color = ReportNavy)
-                Spacer(modifier = Modifier.weight(1f))
-                Text(formatDate(report.generatedAt), style = MaterialTheme.typography.labelSmall, color = Color(0xFF6F7E8E))
-            }
-            Text(
-                report.summary ?: "Không có nội dung báo cáo.",
-                color = ReportInk,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = 20.sp
-            )
-            report.stats?.let { stats ->
+private fun ErrorCard(message: String, onRetry: () -> Unit) {
+    Surface(shape = RoundedCornerShape(18.dp), color = ReportSoftYellow) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(message, color = ReportInk, fontWeight = FontWeight.SemiBold, lineHeight = 20.sp)
+            SecondaryReportButton(text = "Thử lại", onClick = onRetry)
+        }
+    }
+}
+
+@Composable
+private fun ConfirmSendReportDialog(
+    email: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = EgDesign.card,
+            shadowElevation = 10.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text("👨‍👩‍👧", fontSize = 30.sp)
                 Text(
-                    "${stats.totalSessions ?: 0} lượt chơi • ${formatScore(stats.avgScore)} • ${formatMinutes(stats.totalPlaytimeMinutes ?: 0)}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color(0xFF6F7E8E)
+                    "Gửi báo cáo cho bố mẹ?",
+                    color = ReportNavy,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 21.sp,
+                    textAlign = TextAlign.Center
                 )
+                Text(
+                    "Báo cáo tuần này sẽ được gửi đến: $email",
+                    color = ReportInk,
+                    lineHeight = 21.sp,
+                    textAlign = TextAlign.Center
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                    ) {
+                        Text("Hủy", color = ReportNavy, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ReportBlue)
+                    ) {
+                        Text("Gửi", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParentGateDialog(
+    title: String,
+    message: String,
+    confirmText: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = EgDesign.card,
+            shadowElevation = 10.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text("🔐", fontSize = 30.sp)
+                Text(
+                    title,
+                    color = ReportNavy,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 21.sp,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    message,
+                    color = ReportInk,
+                    lineHeight = 21.sp,
+                    textAlign = TextAlign.Center
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                    ) {
+                        Text("Hủy", color = ReportNavy, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ReportBlue)
+                    ) {
+                        Text(confirmText, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConfirmRegenerateReportDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = EgDesign.card,
+            shadowElevation = 10.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text("📝", fontSize = 30.sp)
+                Text(
+                    "Báo cáo tuần này đã tồn tại",
+                    color = ReportNavy,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 21.sp,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    "Bạn muốn tạo lại báo cáo tuần này không? Báo cáo cũ sẽ được cập nhật bằng dữ liệu mới nhất.",
+                    color = ReportInk,
+                    lineHeight = 21.sp,
+                    textAlign = TextAlign.Center
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                    ) {
+                        Text("Hủy", color = ReportNavy, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ReportBlue)
+                    ) {
+                        Text("Tạo lại", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }
@@ -493,38 +1116,39 @@ private fun PdfPreviewDialog(pages: List<Bitmap>, onDismiss: () -> Unit) {
                 .fillMaxWidth(0.94f)
                 .fillMaxHeight(0.9f),
             shape = RoundedCornerShape(18.dp),
-            color = Color.White
+            color = EgDesign.card
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Xem trước PDF", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
+                    Text("Xem báo cáo", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 18.sp)
                     Spacer(modifier = Modifier.weight(1f))
                     OutlinedButton(
                         onClick = onDismiss,
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = ReportNavy)
                     ) {
-                        Text("Đóng")
+                        Text("Đóng", maxLines = 1)
                     }
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                LazyColumn(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color(0xFFE9EEF4), RoundedCornerShape(12.dp))
+                        .verticalScroll(rememberScrollState())
+                        .background(EgDesign.cardSoft, RoundedCornerShape(12.dp))
                         .padding(10.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    itemsIndexed(pages) { index, bitmap ->
+                    pages.forEachIndexed { index, bitmap ->
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 "Trang ${index + 1}/${pages.size}",
-                                color = Color(0xFF607086),
+                                color = ReportMuted,
                                 style = MaterialTheme.typography.labelMedium
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Image(
                                 bitmap = bitmap.asImageBitmap(),
-                                contentDescription = "Trang PDF ${index + 1}",
+                                contentDescription = "Trang báo cáo ${index + 1}",
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
@@ -537,27 +1161,4 @@ private fun PdfPreviewDialog(pages: List<Bitmap>, onDismiss: () -> Unit) {
             }
         }
     }
-}
-
-private fun formatScore(value: Float?): String {
-    val score = (value ?: 0f).roundToInt().coerceIn(0, 100)
-    return "$score/100"
-}
-
-private fun formatMinutes(value: Int): String {
-    if (value < 60) return "$value phút"
-    return String.format(Locale.US, "%.1f giờ", value / 60f)
-}
-
-private fun formatReportType(value: String?): String {
-    return when (value?.lowercase(Locale.US)) {
-        "daily" -> "Báo cáo ngày"
-        "monthly" -> "Báo cáo tháng"
-        else -> "Báo cáo tuần"
-    }
-}
-
-private fun formatDate(value: String?): String {
-    if (value.isNullOrBlank()) return ""
-    return value.substringBefore("T")
 }

@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.appmobile.ui.components.EgDesign
 
 @Composable
 fun EmotionCard(
@@ -23,7 +24,7 @@ fun EmotionCard(
     Card(
         modifier = modifier.width(180.dp).height(120.dp),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -36,7 +37,7 @@ fun EmotionCard(
                 text = name, 
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E4E8C)
+                color = EgDesign.textPrimary
             )
             Spacer(modifier = Modifier.height(6.dp))
 

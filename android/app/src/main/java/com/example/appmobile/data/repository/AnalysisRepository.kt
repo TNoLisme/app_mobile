@@ -8,6 +8,7 @@ import com.example.appmobile.data.remote.dto.ReportPayloadDto
 import com.example.appmobile.data.remote.dto.ReportPreviewDataDto
 import com.example.appmobile.data.remote.dto.ReportRequestDto
 import com.example.appmobile.data.remote.dto.ReportRequestResponseDto
+import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.domain.model.Statistics
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -80,6 +81,15 @@ class AnalysisRepository(
         return try {
             val response = apiService.downloadReportPdf(reportId)
             if (response.isSuccessful) response.body()?.bytes() else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    suspend fun getUserProfile(userId: String): UserProfileDto? {
+        return try {
+            val response = apiService.getUserProfile(userId)
+            if (response.isSuccessful) response.body() else null
         } catch (_: Exception) {
             null
         }

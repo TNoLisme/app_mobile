@@ -145,6 +145,7 @@ fun LevelSelectPage(
             }
         )
     }
+    var lockedLevelMessage by remember(gameId) { mutableStateOf<String?>(null) }
 
     suspend fun loadLevelProgress(forceRefresh: Boolean, showLoading: Boolean) {
         if (showLoading) {
@@ -247,6 +248,13 @@ fun LevelSelectPage(
         loadLevelProgress(forceRefresh = false, showLoading = !hasCachedProgress)
     }
 
+    LaunchedEffect(lockedLevelMessage) {
+        if (lockedLevelMessage != null) {
+            kotlinx.coroutines.delay(2500L)
+            lockedLevelMessage = null
+        }
+    }
+
     DisposableEffect(lifecycleOwner, gameId, userId) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -285,10 +293,25 @@ fun LevelSelectPage(
             Spacer(modifier = Modifier.height(20.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                lockedLevelMessage?.let { message ->
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = EgDesign.cardSoft,
+                        border = BorderStroke(1.dp, EgDesign.cardBorder)
+                    ) {
+                        Text(
+                            text = message,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                            color = EgDesign.textPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
                 if (isLoading) {
                     Surface(
                         shape = RoundedCornerShape(999.dp),
-                        color = Color(0xFFEAF7FF),
+                        color = EgDesign.cardSoft,
                         border = BorderStroke(1.dp, EgDesign.cardBorder)
                     ) {
                         Row(
@@ -311,7 +334,13 @@ fun LevelSelectPage(
                     }
                 }
                 levelStates.forEach { state ->
-                    LevelCard(state = state, onStartGame = onStartGame)
+                    LevelCard(
+                        state = state,
+                        onStartGame = onStartGame,
+                        onLockedClick = {
+                            lockedLevelMessage = "Hãy hoàn thành cấp độ trước để mở khóa nhé."
+                        }
+                    )
                 }
             }
         }
@@ -400,7 +429,7 @@ private fun CvEmotionSelectPage(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(999.dp),
-                            color = Color(0xFFEAF7FF),
+                            color = EgDesign.cardSoft,
                             border = BorderStroke(1.dp, EgDesign.cardBorder)
                         ) {
                             Text(
@@ -443,7 +472,7 @@ private fun CvEmotionSelectPage(
                         enabled = selectedChoice != null,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Transparent,
-                            disabledContainerColor = Color(0xFFE2E8F0)
+                            disabledContainerColor = EgDesign.cardBorder
                         ),
                         shape = RoundedCornerShape(999.dp),
                         contentPadding = ButtonDefaults.ContentPadding
@@ -452,14 +481,14 @@ private fun CvEmotionSelectPage(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(
-                                    if (selectedChoice != null) EgDesign.primary else Color(0xFFE2E8F0),
+                                    if (selectedChoice != null) EgDesign.primary else EgDesign.cardBorder,
                                     RoundedCornerShape(999.dp)
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = startButtonText,
-                                color = if (selectedChoice != null) Color.White else Color(0xFF94A3B8),
+                                color = if (selectedChoice != null) Color.White else EgDesign.textSecondary,
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 14.sp,
                                 maxLines = 1,
@@ -549,7 +578,7 @@ private fun SelectedEmotionMissionCard(choice: CvEmotionChoiceUi?) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        color = Color.White.copy(alpha = 0.88f),
+        color = EgDesign.cardSoft,
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
         Column(
@@ -588,15 +617,15 @@ private fun CvEmotionChoiceCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) Color(0xFFEAF7FF) else Color.White
+            containerColor = if (selected) EgDesign.cardSoft else EgDesign.card
         ),
-        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) EgDesign.primaryDark else Color(0xFFDCEBFA)),
+        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 3.dp else 1.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(if (selected) Color(0xFFEAF7FF) else Color.White)
+                .background(if (selected) EgDesign.cardSoft else EgDesign.card)
                 .padding(8.dp)
         ) {
             if (selected) {
@@ -690,7 +719,7 @@ private fun LevelLoadingCard() {
                     .fillMaxWidth()
                     .heightIn(min = LevelCardMinHeight),
                 shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = EgDesign.card),
                 border = BorderStroke(1.dp, EgDesign.cardBorder),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
@@ -701,7 +730,7 @@ private fun LevelLoadingCard() {
                     Box(
                         modifier = Modifier
                             .size(12.dp)
-                            .background(Color(0xFFD9E6F2), MaterialTheme.shapes.small)
+                            .background(EgDesign.cardBorder, MaterialTheme.shapes.small)
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(
@@ -712,13 +741,13 @@ private fun LevelLoadingCard() {
                             modifier = Modifier
                                 .height(18.dp)
                                 .fillMaxWidth(0.35f)
-                                .background(Color(0xFFEAF2F9), RoundedCornerShape(8.dp))
+                                .background(EgDesign.cardSoft, RoundedCornerShape(8.dp))
                         )
                         Box(
                             modifier = Modifier
                                 .height(14.dp)
                                 .fillMaxWidth(0.22f)
-                                .background(Color(0xFFF1F6FB), RoundedCornerShape(7.dp))
+                                .background(EgDesign.cardSoft, RoundedCornerShape(7.dp))
                         )
                         if (index == 0) {
                             Row(
@@ -741,13 +770,13 @@ private fun LevelLoadingCard() {
                                 modifier = Modifier
                                     .height(22.dp)
                                     .fillMaxWidth(0.28f)
-                                    .background(Color(0xFFF1F6FB), RoundedCornerShape(11.dp))
+                                    .background(EgDesign.cardSoft, RoundedCornerShape(11.dp))
                             )
                             Box(
                                 modifier = Modifier
                                     .height(14.dp)
                                     .fillMaxWidth(0.62f)
-                                    .background(Color(0xFFF1F6FB), RoundedCornerShape(7.dp))
+                                    .background(EgDesign.cardSoft, RoundedCornerShape(7.dp))
                             )
                         }
                     }
@@ -756,7 +785,7 @@ private fun LevelLoadingCard() {
                         modifier = Modifier
                             .height(34.dp)
                             .width(86.dp)
-                            .background(Color(0xFFEAF2F9), RoundedCornerShape(18.dp))
+                            .background(EgDesign.cardSoft, RoundedCornerShape(18.dp))
                     )
                 }
             }
@@ -765,15 +794,19 @@ private fun LevelLoadingCard() {
 }
 
 @Composable
-private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
+private fun LevelCard(
+    state: LevelProgressUi,
+    onStartGame: (String) -> Unit,
+    onLockedClick: () -> Unit
+) {
     val level = state.level
-    val containerColor = if (state.unlocked) EgDesign.card else Color(0xFFF1F7FC)
-    val titleColor = if (state.unlocked) EgDesign.textPrimary else Color(0xFF94A3B8)
+    val containerColor = if (state.unlocked) EgDesign.card else EgDesign.cardSoft
+    val titleColor = if (state.unlocked) EgDesign.textPrimary else EgDesign.textSecondary
     val statusText = when {
         !state.available -> "Đang cập nhật"
         state.resumable -> "Đang chơi dở"
         state.completed -> "Đã hoàn thành"
-        state.unlocked -> "Có thể chơi"
+        state.unlocked -> "Đã mở khóa"
         else -> "Đã khóa"
     }
     val statusColor = when {
@@ -781,14 +814,20 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
         state.resumable -> Color(0xFF0369A1)
         state.completed -> Color(0xFF2E7D32)
         state.unlocked -> EgDesign.blue
-        else -> Color(0xFF94A3B8)
+        else -> EgDesign.textSecondary
     }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = LevelCardMinHeight)
-            .clickable(enabled = state.unlocked) { onStartGame(level.id.toString()) },
+            .clickable {
+                if (state.unlocked) {
+                    onStartGame(level.id.toString())
+                } else {
+                    onLockedClick()
+                }
+            },
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = containerColor),
         border = BorderStroke(1.dp, EgDesign.cardBorder),
@@ -802,7 +841,7 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
                 modifier = Modifier
                     .size(12.dp)
                     .background(
-                        if (state.unlocked) Color(level.colorHex) else Color(0xFFCBD5E1),
+                        if (state.unlocked) Color(level.colorHex) else EgDesign.cardBorder,
                         MaterialTheme.shapes.small
                     )
             )
@@ -815,7 +854,15 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
                     color = titleColor
                 )
                 Text(
-                    text = level.description,
+                    text = when {
+                        state.resumable && !state.resumeProgressText.isNullOrBlank() -> "Đang chơi dở · ${state.resumeProgressText}"
+                        !state.unlocked && state.available -> "Hoàn thành cấp độ ${level.id - 1} để mở khóa."
+                        state.completed && state.score != null -> "Đã hoàn thành · Điểm gần nhất ${state.score}/100"
+                        state.completed -> "Đã hoàn thành"
+                        state.unlocked && state.score != null -> "Đã mở khóa · Điểm gần nhất ${state.score}/100"
+                        state.unlocked -> "Đã mở khóa"
+                        else -> level.description
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = EgDesign.textSecondary
                 )
@@ -828,21 +875,10 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-                val progressText = when {
-                    state.resumable && !state.resumeProgressText.isNullOrBlank() -> "Tiến trình: ${state.resumeProgressText}"
-                    state.score != null -> "Điểm gần nhất: ${state.score}/100"
-                    else -> null
-                }
+                val progressText: String? = null
                 progressText?.let { text ->
                     Text(
                         text = text,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = EgDesign.textSecondary
-                    )
-                }
-                if (!state.unlocked && state.available) {
-                    Text(
-                        text = "Hoàn thành cấp độ ${level.id - 1} để mở khóa.",
                         style = MaterialTheme.typography.labelSmall,
                         color = EgDesign.textSecondary
                     )
@@ -866,7 +902,7 @@ private fun LevelCard(state: LevelProgressUi, onStartGame: (String) -> Unit) {
                     )
                 }
             } else {
-                Text("🔒", color = Color(0xFFCBD5E1))
+                Text("🔒", color = EgDesign.textSecondary)
             }
         }
     }

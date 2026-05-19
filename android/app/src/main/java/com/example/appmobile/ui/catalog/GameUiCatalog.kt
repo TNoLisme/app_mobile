@@ -74,7 +74,7 @@ object GameUiCatalog {
         GameUiItem(
             GAME_CV_STORY,
             "Câu chuyện khuôn mặt",
-            "Bắt chước biểu cảm của nhân vật",
+            "Đọc tình huống và thể hiện cảm xúc phù hợp.",
             "camera_game",
             R.drawable.game_cv,
             5
@@ -99,7 +99,7 @@ object GameUiCatalog {
     )
 
     val cvStoryPrompt = CvPromptUiItem(
-        questionText = "Nhân vật vừa nhận được lời khen. Hãy thể hiện khuôn mặt vui.",
+        questionText = "Bạn nhỏ vừa nhận được lời khen từ cô giáo.",
         correctAnswer = "happy"
     )
 

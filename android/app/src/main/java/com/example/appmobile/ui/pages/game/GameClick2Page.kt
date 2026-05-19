@@ -48,6 +48,7 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -207,7 +208,7 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("â† Quay láº¡i") }
                 Spacer(modifier = Modifier.weight(1f))
-                Text("XÆ°á»Ÿng láº¯p ghÃ©p", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("XÆ°á»Ÿng láº¯p ghÃ©p", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -304,17 +305,17 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
 private fun PreviewCard(selectedEyebrow: Int, selectedEyes: Int, selectedMouth: Int) {
     Card(
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("KhuÃ´n máº·t Ä‘ang ghÃ©p", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
+            Text("KhuÃ´n máº·t Ä‘ang ghÃ©p", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
             Spacer(modifier = Modifier.height(12.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                colors = CardDefaults.cardColors(containerColor = EgDesign.cardSoft),
+                border = BorderStroke(1.dp, EgDesign.cardBorder)
             ) {
                 Column(modifier = Modifier.fillMaxWidth().height(270.dp)) {
                     FacePartBand(selectedEyebrow, partIndex = 0, label = "LÃ´ng mÃ y")
@@ -323,7 +324,7 @@ private fun PreviewCard(selectedEyebrow: Int, selectedEyes: Int, selectedMouth: 
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text("Chá»n cÃ¹ng má»™t cáº£m xÃºc cho cáº£ 3 pháº§n Ä‘á»ƒ táº¡o khuÃ´n máº·t Ä‘Ãºng.", color = Color.Gray)
+            Text("Chá»n cÃ¹ng má»™t cáº£m xÃºc cho cáº£ 3 pháº§n Ä‘á»ƒ táº¡o khuÃ´n máº·t Ä‘Ãºng.", color = EgDesign.textSecondary)
         }
     }
 }
@@ -334,11 +335,11 @@ private fun FacePartBand(emotionIndex: Int, partIndex: Int, label: String) {
         modifier = Modifier
             .fillMaxWidth()
             .height(90.dp)
-            .background(Color.White),
+            .background(EgDesign.card),
         contentAlignment = Alignment.Center
     ) {
         if (emotionIndex < 0 || emotionIndex >= faceEmotions.size) {
-            Text(label, color = Color.LightGray, fontWeight = FontWeight.SemiBold)
+            Text(label, color = EgDesign.textSecondary, fontWeight = FontWeight.SemiBold)
             return@Box
         }
 
@@ -354,7 +355,7 @@ private fun FacePartBand(emotionIndex: Int, partIndex: Int, label: String) {
             )
             if (partIndex < 2) {
                 drawLine(
-                    color = Color(0xFFE2E8F0),
+                    color = EgDesign.cardBorder,
                     start = Offset(0f, size.height),
                     end = Offset(size.width, size.height),
                     strokeWidth = 1.dp.toPx()
@@ -385,16 +386,17 @@ private fun AssemblyControls(
 
     Card(
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("YÃªu cáº§u", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
-            Text(question.text, style = MaterialTheme.typography.bodyLarge)
-            Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFF0F7FF)) {
+            Text("YÃªu cáº§u", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
+            Text(question.text, style = MaterialTheme.typography.bodyLarge, color = EgDesign.textSecondary)
+            Surface(shape = MaterialTheme.shapes.large, color = EgDesign.cardSoft) {
                 Text(
                     "${target.emoji} GhÃ©p khuÃ´n máº·t: ${target.label}",
                     modifier = Modifier.padding(12.dp),
+                    color = EgDesign.textPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -438,8 +440,12 @@ private fun ControlItem(title: String, selectedIndex: Int, onClick: () -> Unit, 
     val selected = faceEmotions.getOrNull(selectedIndex)
     OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth(), enabled = enabled) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(title)
-            Text(selected?.let { "${it.emoji} ${it.label}" } ?: "ChÆ°a chá»n", fontWeight = FontWeight.Bold)
+            Text(title, color = EgDesign.textPrimary)
+            Text(
+                selected?.let { "${it.emoji} ${it.label}" } ?: "ChÆ°a chá»n",
+                color = EgDesign.blue,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

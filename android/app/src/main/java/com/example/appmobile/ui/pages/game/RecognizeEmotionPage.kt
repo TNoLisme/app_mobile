@@ -44,7 +44,9 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.GameScreenShell
+import com.example.appmobile.ui.state.AppSettingsState
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
@@ -141,8 +143,8 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                 Spacer(modifier = Modifier.weight(1f))
                 Surface(
                     shape = MaterialTheme.shapes.large,
-                    color = Color(0xFFE7F1FF),
-                    border = BorderStroke(1.dp, Color(0xFFBFD7FF))
+                    color = EgDesign.cardSoft,
+                    border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -154,7 +156,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                             color = Color(0xFF3B82F6)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("CÃ¢u ${currentIndex.intValue + 1}/${questions.value.size}")
+                        Text("CÃ¢u ${currentIndex.intValue + 1}/${questions.value.size}", color = EgDesign.textPrimary)
                     }
                 }
             }
@@ -164,12 +166,12 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                 "Chiáº¿c há»™p cáº£m xÃºc",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E4E8C)
+                color = EgDesign.textPrimary
             )
             Text(
                 "BÃ© hÃ£y nhÃ¬n hÃ¬nh vÃ  chá»n cáº£m xÃºc Ä‘Ãºng nháº¥t nhÃ©",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray
+                color = EgDesign.textSecondary
             )
 
             if (summary.value != null) {
@@ -194,7 +196,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = EgDesign.card),
                 elevation = CardDefaults.cardElevation(2.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -208,7 +210,8 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                     Text(
                         currentQuestion.questionText,
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = EgDesign.textPrimary
                     )
                 }
             }
@@ -248,7 +251,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                                 ) {
                                     Text(item.emoji, fontSize = 24.sp)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(item.name, fontWeight = FontWeight.SemiBold)
+                                    Text(item.name, color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold)
                                 }
                             }
                         }
@@ -325,14 +328,23 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
 @Composable
 private fun FeedbackCard(message: String) {
     val isCorrect = message.startsWith("ÄÃºng")
+    val isDark = AppSettingsState.activeDarkTheme.value
     Surface(
         shape = MaterialTheme.shapes.large,
-        color = if (isCorrect) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
+        color = if (isCorrect) {
+            if (isDark) Color(0xFF153E2A) else Color(0xFFE8F5E9)
+        } else {
+            if (isDark) Color(0xFF4A2D12) else Color(0xFFFFF3E0)
+        }
     ) {
         Text(
             text = message,
             modifier = Modifier.padding(12.dp),
-            color = if (isCorrect) Color(0xFF2E7D32) else Color(0xFFE65100),
+            color = if (isCorrect) {
+                if (isDark) Color(0xFF86EFAC) else Color(0xFF2E7D32)
+            } else {
+                if (isDark) Color(0xFFFBBF24) else Color(0xFFE65100)
+            },
             fontWeight = FontWeight.SemiBold
         )
     }
@@ -343,12 +355,12 @@ private fun LevelSummaryCard(summary: String, onBack: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Káº¿t thÃºc level", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
-            Text(summary)
+            Text("Káº¿t thÃºc level", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
+            Text(summary, color = EgDesign.textSecondary)
             Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
                 Text("Quay láº¡i chá»n level")
             }

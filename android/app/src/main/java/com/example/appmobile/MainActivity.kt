@@ -147,6 +147,10 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         navController.navigate("settings") { launchSingleTop = true }
     }
 
+    fun goParentEmailSettings() {
+        navController.navigate("settings_parent_email") { launchSingleTop = true }
+    }
+
     fun goLogin() {
         navController.navigate("login") {
             launchSingleTop = true
@@ -266,7 +270,13 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         composable("learn_detail/{emotionId}") { backStackEntry ->
             EmotionDetailPage(emotionId = backStackEntry.arguments?.getString("emotionId") ?: "", onBack = { navController.popBackStack() })
         }
-        composable("report") { ReportPage(onBack = { navController.popBackStack() }) }
+        composable("report") {
+            ReportPage(
+                onBack = { navController.popBackStack() },
+                onPlayNow = ::goGames,
+                onUpdateEmail = ::goParentEmailSettings
+            )
+        }
         composable("assistant") { AssistantPage(onBack = { navController.popBackStack() }) }
         composable(
             route = "assistant/{gameId}?level={level}",
@@ -298,6 +308,15 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 onLogin = ::goLogin
             )
         }
+        composable("settings_parent_email") {
+            SettingsPage(
+                onBack = { navController.popBackStack() },
+                onLogout = ::logout,
+                onLogin = ::goLogin,
+                openParentArea = true,
+                openReportEmailEditor = true
+            )
+        }
     }
 
         if (assistantBubbleEnabled && shouldShowAssistantBubble(currentRoute, auth.currentUser != null)) {
@@ -315,6 +334,7 @@ private fun shouldShowAssistantBubble(route: String?, loggedIn: Boolean): Boolea
     return route != "login" &&
         route != "register" &&
         route != "report" &&
+        route != "settings_parent_email" &&
         !route.startsWith("assistant") &&
         !route.startsWith("game/") &&
         !route.startsWith("level_select")

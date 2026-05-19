@@ -58,13 +58,14 @@ import com.example.appmobile.ui.viewmodel.HomeMetricUi
 import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
 import com.example.appmobile.ui.viewmodel.HomeViewModel
 
-private val HomeBackgroundGradient = Color(0xFFEAF7FF)
-private val HomePrimaryGradient = Color(0xFF62B5FF)
-private val HomeCard = Color.White
-private val HomeCardBorder = Color(0xFFD9E8F5)
-private val HomeTextPrimary = Color(0xFF0B3A6E)
-private val HomeTextSecondary = Color(0xFF6B7280)
-private val HomeBlue = Color(0xFF0B5DAE)
+private val HomeBackgroundGradient: Color get() = EgDesign.background
+private val HomePrimaryGradient: Color get() = EgDesign.primary
+private val HomeCard: Color get() = EgDesign.card
+private val HomeCardSoft: Color get() = EgDesign.cardSoft
+private val HomeCardBorder: Color get() = EgDesign.cardBorder
+private val HomeTextPrimary: Color get() = EgDesign.textPrimary
+private val HomeTextSecondary: Color get() = EgDesign.textSecondary
+private val HomeBlue: Color get() = EgDesign.blue
 private val HomeRadiusCard = 18.dp
 private val HomeRadiusPill = 999.dp
 private val HomeScreenPadding = 16.dp
@@ -210,8 +211,8 @@ private fun TodayLearningCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7FF)),
-        border = BorderStroke(1.dp, Color(0xFFCDE7FA)),
+        colors = CardDefaults.cardColors(containerColor = HomeCardSoft),
+        border = BorderStroke(1.dp, HomeCardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -382,8 +383,8 @@ private fun ProgressMiniStat(value: String, label: String, modifier: Modifier = 
     Surface(
         modifier = modifier.height(64.dp),
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFFF8FCFF),
-        border = BorderStroke(1.dp, Color(0xFFE3EEF8))
+        color = HomeCardSoft,
+        border = BorderStroke(1.dp, HomeCardBorder)
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Text(
@@ -463,7 +464,7 @@ private fun HomeActionPill(
             .height(42.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(HomeRadiusPill),
-        color = if (primary) HomePrimaryGradient else Color.White,
+        color = if (primary) HomePrimaryGradient else HomeCard,
         border = if (primary) null else BorderStroke(1.dp, HomeCardBorder),
         shadowElevation = if (primary) 2.dp else 1.dp
     ) {
@@ -550,7 +551,7 @@ private fun SegmentedTab(
     ) {
         Box(
             modifier = Modifier
-                .background(if (active) HomePrimaryGradient else Color(0xFFF8FCFF))
+                .background(if (active) HomePrimaryGradient else HomeCardSoft)
                 .padding(horizontal = 8.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -726,8 +727,8 @@ private fun ProgressReportCard(onNavigateToReport: () -> Unit) {
             Surface(
                 modifier = Modifier.size(48.dp),
                 shape = CircleShape,
-                color = Color(0xFFE8F7FF),
-                border = BorderStroke(1.dp, Color(0xFFCDE7FA))
+                color = EgDesign.accentSoft,
+                border = BorderStroke(1.dp, HomeCardBorder)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text("📋", fontSize = 27.sp)
@@ -788,8 +789,8 @@ private fun LoadingStrip(message: String) {
 private fun ErrorBanner(message: String, onRetry: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFFFF8E7),
-        border = BorderStroke(1.dp, Color(0xFFF9D26A)),
+        color = EgDesign.cardSoft,
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -801,7 +802,7 @@ private fun ErrorBanner(message: String, onRetry: () -> Unit) {
             Text("⚠️", fontSize = 15.sp)
             Text(
                 message,
-                color = Color(0xFF8A4B00),
+                color = EgDesign.textPrimary,
                 modifier = Modifier.weight(1f),
                 fontSize = 12.sp,
                 lineHeight = 15.sp,
@@ -836,8 +837,8 @@ private fun EmptyHomeCard(
             Surface(
                 modifier = Modifier.size(42.dp),
                 shape = CircleShape,
-                color = Color(0xFFE8F7FF),
-                border = BorderStroke(1.dp, Color(0xFFD7E7F3))
+                color = EgDesign.accentSoft,
+                border = BorderStroke(1.dp, HomeCardBorder)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(icon, fontSize = 22.sp)
@@ -853,7 +854,7 @@ private fun EmptyHomeCard(
                 subtitle?.let {
                     Text(
                         text = it,
-                        color = Color(0xFF7C8A9C),
+                        color = HomeTextSecondary,
                         fontSize = 12.sp,
                         lineHeight = 17.sp
                     )

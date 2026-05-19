@@ -47,7 +47,8 @@ data class UserProfileUpdateDto(
     @SerializedName("age") val age: Int? = null,
     @SerializedName("gender") val gender: String? = null,
     @SerializedName("date_of_birth") val dateOfBirth: String? = null,
-    @SerializedName("phone_number") val phoneNumber: String? = null
+    @SerializedName("phone_number") val phoneNumber: String? = null,
+    @SerializedName("report_preferences") val reportPreferences: String? = null
 )
 
 data class UserProfileUpdateRequestDto(

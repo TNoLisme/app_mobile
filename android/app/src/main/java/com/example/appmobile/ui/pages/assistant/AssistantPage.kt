@@ -597,7 +597,12 @@ private fun AssistantInputRow(
             value = input,
             onValueChange = onInputChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Hỏi mình về cảm xúc hoặc cách chơi...") },
+            placeholder = {
+                Text(
+                    "Hỏi mình về cảm xúc hoặc cách chơi...",
+                    color = EgDesign.textSecondary
+                )
+            },
             minLines = 1,
             maxLines = 3,
             shape = RoundedCornerShape(18.dp),
@@ -605,7 +610,10 @@ private fun AssistantInputRow(
                 focusedBorderColor = EgDesign.primary,
                 unfocusedBorderColor = EgDesign.cardBorder,
                 focusedContainerColor = EgDesign.card,
-                unfocusedContainerColor = EgDesign.card
+                unfocusedContainerColor = EgDesign.card,
+                focusedTextColor = EgDesign.textPrimary,
+                unfocusedTextColor = EgDesign.textPrimary,
+                cursorColor = EgDesign.primary
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { onSend() })
@@ -630,11 +638,16 @@ private fun AssistantInputRow(
                 .widthIn(min = 68.dp)
                 .clickable(enabled = input.isNotBlank() && !sending) { onSend() },
             shape = RoundedCornerShape(EgDesign.pillRadius),
-            color = if (input.isNotBlank() && !sending) EgDesign.primary else Color(0xFFD8E6F3),
+            color = if (input.isNotBlank() && !sending) EgDesign.primary else EgDesign.cardSoft,
+            border = BorderStroke(1.dp, EgDesign.cardBorder),
             shadowElevation = if (input.isNotBlank() && !sending) 2.dp else 0.dp
         ) {
             Box(modifier = Modifier.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-                Text("Gửi", color = Color.White, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "Gửi",
+                    color = if (input.isNotBlank() && !sending) Color.White else EgDesign.textSecondary,
+                    fontWeight = FontWeight.ExtraBold
+                )
             }
         }
     }

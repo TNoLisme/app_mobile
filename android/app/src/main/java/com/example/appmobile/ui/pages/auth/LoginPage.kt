@@ -36,6 +36,7 @@ import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.UserRepository
+import com.example.appmobile.ui.components.EgDesign
 import kotlinx.coroutines.launch
 
 @Composable
@@ -75,7 +76,7 @@ fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
                     .fillMaxWidth()
                     .padding(vertical = 32.dp),
                 shape = RoundedCornerShape(32.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
+                colors = CardDefaults.cardColors(containerColor = EgDesign.card),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
@@ -106,12 +107,12 @@ fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
                         "Đăng nhập",
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF4A4A4A)
+                        color = EgDesign.textPrimary
                     )
                     Text(
                         "Tiếp tục hành trình học cảm xúc của bé",
                         fontSize = 14.sp,
-                        color = Color.Gray,
+                        color = EgDesign.textSecondary,
                         textAlign = TextAlign.Center
                     )
 
@@ -149,7 +150,7 @@ fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                         Text(
                             "Quên mật khẩu?",
-                            color = Color(0xFF8D6E63),
+                            color = EgDesign.blue,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.clickable { showForgotDialog = true }
@@ -205,10 +206,10 @@ fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
                         modifier = Modifier.padding(top = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Chưa có tài khoản? ", color = Color.DarkGray, fontSize = 14.sp)
+                        Text("Chưa có tài khoản? ", color = EgDesign.textSecondary, fontSize = 14.sp)
                         Text(
                             "Đăng ký ngay",
-                            color = Color(0xFF8D6E63),
+                            color = EgDesign.blue,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.clickable { onNavigateToRegister() }
@@ -240,7 +241,7 @@ private fun AuthTextField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        placeholder = { Text(placeholder, color = Color.Gray) },
+        placeholder = { Text(placeholder, color = EgDesign.textSecondary) },
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp),
@@ -249,10 +250,13 @@ private fun AuthTextField(
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color(0xFFAED9FF),
-            unfocusedBorderColor = Color(0xFFAED9FF),
-            focusedContainerColor = Color(0xFFF0F8FF),
-            unfocusedContainerColor = Color(0xFFF0F8FF)
+            focusedBorderColor = EgDesign.primary,
+            unfocusedBorderColor = EgDesign.cardBorder,
+            focusedContainerColor = EgDesign.cardSoft,
+            unfocusedContainerColor = EgDesign.cardSoft,
+            focusedTextColor = EgDesign.textPrimary,
+            unfocusedTextColor = EgDesign.textPrimary,
+            cursorColor = EgDesign.primary
         )
     )
 }
@@ -261,7 +265,7 @@ private fun AuthTextField(
 private fun CloudIcon(modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
-        color = Color.White.copy(alpha = 0.5f),
+        color = EgDesign.card.copy(alpha = 0.65f),
         shape = RoundedCornerShape(50)
     ) {}
 }
@@ -279,10 +283,10 @@ private fun ForgotPasswordDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isSending) onDismiss() },
-        title = { Text("Quên mật khẩu") },
+        title = { Text("Quên mật khẩu", color = EgDesign.textPrimary) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Nhập email tài khoản, hệ thống sẽ gửi link đặt lại mật khẩu.", color = Color.Gray)
+                Text("Nhập email tài khoản, hệ thống sẽ gửi link đặt lại mật khẩu.", color = EgDesign.textSecondary)
                 OutlinedTextField(
                     value = email,
                     onValueChange = {
@@ -292,7 +296,16 @@ private fun ForgotPasswordDialog(
                     label = { Text("Email của bạn") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = EgDesign.primary,
+                        unfocusedBorderColor = EgDesign.cardBorder,
+                        focusedContainerColor = EgDesign.cardSoft,
+                        unfocusedContainerColor = EgDesign.cardSoft,
+                        focusedTextColor = EgDesign.textPrimary,
+                        unfocusedTextColor = EgDesign.textPrimary,
+                        cursorColor = EgDesign.primary
+                    )
                 )
                 message?.let { Text(it, color = Color.Red) }
             }
@@ -323,7 +336,8 @@ private fun ForgotPasswordDialog(
         },
         dismissButton = {
             TextButton(enabled = !isSending, onClick = onDismiss) { Text("Hủy") }
-        }
+        },
+        containerColor = EgDesign.card
     )
 }
 

@@ -3,6 +3,7 @@ package com.example.appmobile.ui.components
 import androidx.compose.ui.graphics.Color
 import com.example.appmobile.ui.catalog.EmotionUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.state.AppSettingsState
 
 val EgEmotionDisplayOrder = listOf("happy", "sad", "angry", "fear", "surprise", "disgust")
 
@@ -68,6 +69,18 @@ fun egEmotionIcon(value: String): String {
 }
 
 fun egEmotionPastelColor(value: String): Color {
+    val dark = AppSettingsState.activeDarkTheme.value
+    if (dark) {
+        return when (egEmotionKey(value)) {
+            "happy" -> Color(0xFF4A3D16)
+            "sad" -> Color(0xFF173B54)
+            "angry" -> Color(0xFF51222B)
+            "fear" -> Color(0xFF352B59)
+            "surprise" -> Color(0xFF51351B)
+            "disgust" -> Color(0xFF1E4A32)
+            else -> Color(0xFF263241)
+        }
+    }
     return when (egEmotionKey(value)) {
         "happy" -> Color(0xFFFFF7CC)
         "sad" -> Color(0xFFE0F2FE)

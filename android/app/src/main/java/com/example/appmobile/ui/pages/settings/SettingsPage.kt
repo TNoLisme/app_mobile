@@ -73,12 +73,15 @@ import com.example.appmobile.ui.state.AppThemeMode
 import com.example.appmobile.ui.state.CvEmotionScoreState
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 @Composable
 fun SettingsPage(
     onBack: () -> Unit,
     onLogout: () -> Unit,
-    onLogin: () -> Unit = {}
+    onLogin: () -> Unit = {},
+    openParentArea: Boolean = false,
+    openReportEmailEditor: Boolean = false
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -101,7 +104,8 @@ fun SettingsPage(
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var showParentGate by remember { mutableStateOf(false) }
     var showParentArea by remember { mutableStateOf(false) }
-    var showEditAccount by remember { mutableStateOf(false) }
+    var accountEditTarget by remember { mutableStateOf<AccountEditTarget?>(null) }
+    var showReportEmailEditor by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
     var showCameraPrivacy by remember { mutableStateOf(false) }
     var confirmAction by remember { mutableStateOf<ConfirmAction?>(null) }
@@ -137,6 +141,17 @@ fun SettingsPage(
 
     LaunchedEffect(userId) {
         loadProfile()
+    }
+
+    LaunchedEffect(openParentArea, openReportEmailEditor, userId) {
+        if (openParentArea) showParentArea = true
+        if (openReportEmailEditor) {
+            if (isLoggedIn) {
+                showReportEmailEditor = true
+            } else {
+                statusMessage = "Vui lòng đăng nhập để thêm email phụ huynh."
+            }
+        }
     }
 
     SettingsScreen(
@@ -180,24 +195,51 @@ fun SettingsPage(
             onDismiss = { showParentArea = false },
             onLogin = onLogin,
             onRetry = { loadProfile() },
-            onEditAccount = {
-                if (isLoggedIn) showEditAccount = true else statusMessage = "Vui lòng đăng nhập để cập nhật tài khoản."
+            onEditAccount = { target ->
+                if (isLoggedIn) accountEditTarget = target else statusMessage = "Vui lòng đăng nhập để cập nhật tài khoản."
+            },
+            onEditReportEmail = {
+                if (isLoggedIn) showReportEmailEditor = true else statusMessage = "Vui lòng đăng nhập để thêm email phụ huynh."
             },
             onChangePassword = {
                 if (isLoggedIn) showChangePassword = true else statusMessage = "Vui lòng đăng nhập để đổi mật khẩu."
             },
             onCameraPrivacy = { showCameraPrivacy = true },
-            onOpenSystemSettings = ::openSystemSettings,
             onResetPreferences = { confirmAction = ConfirmAction.ResetPreferences },
             onClearProgress = { confirmAction = ConfirmAction.ClearProgress }
         )
     }
 
-    if (showEditAccount) {
-        EditAccountDialog(
+    if (showReportEmailEditor) {
+        ReportEmailDialog(
             profile = profile,
             saving = saving,
-            onDismiss = { if (!saving) showEditAccount = false },
+            onDismiss = { if (!saving) showReportEmailEditor = false },
+            onSave = { email ->
+                val targetUserId = userId ?: return@ReportEmailDialog
+                scope.launch {
+                    saving = true
+                    val updated = repository.updateProfile(targetUserId, UserProfileUpdateDto(reportPreferences = email))
+                    saving = false
+                    if (updated != null) {
+                        profile = updated
+                        accountError = false
+                        statusMessage = "Đã lưu email phụ huynh."
+                        showReportEmailEditor = false
+                    } else {
+                        statusMessage = "Không lưu được email phụ huynh. Vui lòng thử lại."
+                    }
+                }
+            }
+        )
+    }
+
+    accountEditTarget?.let { target ->
+        EditAccountDialog(
+            target = target,
+            profile = profile,
+            saving = saving,
+            onDismiss = { if (!saving) accountEditTarget = null },
             onSave = { update ->
                 val targetUserId = userId ?: return@EditAccountDialog
                 scope.launch {
@@ -208,7 +250,7 @@ fun SettingsPage(
                         profile = updated
                         accountError = false
                         statusMessage = "Đã cập nhật thông tin tài khoản."
-                        showEditAccount = false
+                        accountEditTarget = null
                     } else {
                         statusMessage = "Không lưu được thông tin. Vui lòng thử lại."
                     }
@@ -500,10 +542,10 @@ private fun ParentAreaBottomSheet(
     onDismiss: () -> Unit,
     onLogin: () -> Unit,
     onRetry: () -> Unit,
-    onEditAccount: () -> Unit,
+    onEditAccount: (AccountEditTarget) -> Unit,
+    onEditReportEmail: () -> Unit,
     onChangePassword: () -> Unit,
     onCameraPrivacy: () -> Unit,
-    onOpenSystemSettings: () -> Unit,
     onResetPreferences: () -> Unit,
     onClearProgress: () -> Unit
 ) {
@@ -544,7 +586,8 @@ private fun ParentAreaBottomSheet(
                         profile = profile,
                         onLogin = onLogin,
                         onRetry = onRetry,
-                        onEdit = onEditAccount
+                        onEdit = onEditAccount,
+                        onEditReportEmail = onEditReportEmail
                     )
                     ParentCompactSection(title = "Bảo mật", icon = "🔒") {
                         ActionSettingsRow(
@@ -559,17 +602,9 @@ private fun ParentAreaBottomSheet(
                         ActionSettingsRow(
                             icon = "📷",
                             title = "Quyền riêng tư camera",
-                            description = "Camera chỉ dùng để nhận diện biểu cảm khi chơi. App không lưu ảnh hoặc video của bé.",
+                            description = "Xem cách app dùng camera và mở cài đặt quyền khi cần.",
                             actionText = "Xem",
                             onClick = onCameraPrivacy
-                        )
-                        ThinDivider()
-                        ActionSettingsRow(
-                            icon = "⚙",
-                            title = "Quyền ứng dụng",
-                            description = "Cấp quyền camera để chơi thử thách biểu cảm và quyền thông báo để nhận nhắc nhở học tập.",
-                            actionText = "Mở",
-                            onClick = onOpenSystemSettings
                         )
                     }
                     ParentCompactSection(title = "Dữ liệu học tập", icon = "💾") {
@@ -605,9 +640,14 @@ private fun ParentAccountSection(
     profile: UserProfileDto?,
     onLogin: () -> Unit,
     onRetry: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: (AccountEditTarget) -> Unit,
+    onEditReportEmail: () -> Unit
 ) {
-    ParentCompactSection(title = "Tài khoản", icon = "👤") {
+    val reportEmail = profile.effectiveReportEmail()
+    val accountEmail = profile.accountEmail()
+    val username = profile?.username?.trim()?.takeIf { it.isNotBlank() }
+    val parentPhone = profile?.child?.phone?.trim()?.takeIf { it.isNotBlank() }
+    ParentCompactSection(title = "Tài Khoản", icon = "👤") {
         when {
             !isLoggedIn -> {
                 ActionSettingsRow(
@@ -629,18 +669,38 @@ private fun ParentAccountSection(
                 )
             }
             else -> {
-                CompactValueRow("👤", "Tên đăng nhập", missing(profile?.username))
-                ThinDivider()
-                CompactValueRow("✉", "Email", missing(profile?.email))
-                ThinDivider()
-                CompactValueRow("☎", "Số điện thoại", missing(profile?.child?.phone))
-                ThinDivider()
-                ActionSettingsRow(
+                AccountInfoRow(
                     icon = "👤",
-                    title = "Hồ sơ bé",
-                    description = "Cập nhật thông tin tài khoản khi cần.",
-                    actionText = "Sửa",
-                    onClick = onEdit
+                    label = "Tên đăng nhập",
+                    value = username ?: "Chưa có",
+                    actionText = if (username == null) "Thêm tên" else "Sửa",
+                    onClick = { onEdit(AccountEditTarget.Username) }
+                )
+                ThinDivider()
+                AccountInfoRow(
+                    icon = "✉",
+                    label = "Email",
+                    value = accountEmail ?: "Chưa có",
+                    description = "Email tài khoản để nhận mã và thông báo.",
+                    actionText = if (accountEmail == null) "Thêm email" else "Sửa",
+                    onClick = { onEdit(AccountEditTarget.Email) }
+                )
+                ThinDivider()
+                AccountInfoRow(
+                    icon = "☎",
+                    label = "Số điện thoại phụ huynh",
+                    value = parentPhone ?: "Chưa có",
+                    actionText = if (parentPhone == null) "Thêm SĐT" else "Sửa",
+                    onClick = { onEdit(AccountEditTarget.Phone) }
+                )
+                ThinDivider()
+                AccountInfoRow(
+                    icon = "✉",
+                    label = "Email phụ huynh",
+                    value = reportEmail ?: "Chưa có",
+                    description = "Email này sẽ nhận báo cáo tiến bộ của bé.",
+                    actionText = if (reportEmail == null) "Thêm email" else "Sửa",
+                    onClick = onEditReportEmail
                 )
             }
         }
@@ -802,6 +862,69 @@ private fun CompactValueRow(icon: String, label: String, value: String) {
 }
 
 @Composable
+private fun AccountInfoRow(
+    icon: String,
+    label: String,
+    value: String,
+    actionText: String,
+    onClick: () -> Unit,
+    description: String? = null
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val narrow = maxWidth < 360.dp
+        if (narrow) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AccountInfoText(icon = icon, label = label, value = value, description = description)
+                SettingsButton(
+                    text = actionText,
+                    onClick = onClick,
+                    modifier = Modifier.align(Alignment.End),
+                    minWidth = 104.dp
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                AccountInfoText(
+                    icon = icon,
+                    label = label,
+                    value = value,
+                    description = description,
+                    modifier = Modifier.weight(1f)
+                )
+                SettingsButton(text = actionText, onClick = onClick, minWidth = 104.dp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountInfoText(
+    icon: String,
+    label: String,
+    value: String,
+    description: String?,
+    modifier: Modifier = Modifier
+) {
+    Row(modifier = modifier, verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        SettingsIcon(icon, size = 34.dp)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, color = EgDesign.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(value, color = EgDesign.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            description?.let {
+                Text(it, color = EgDesign.textSecondary, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
 private fun CompactTextBlock(
     icon: String,
     title: String,
@@ -887,14 +1010,15 @@ private fun SettingsButton(
     enabled: Boolean = true,
     minWidth: Dp = 132.dp
 ) {
+    val isDark = AppSettingsState.activeDarkTheme.value
     val background = when {
-        danger && tonal -> Color(0xFFFFF1F2)
+        danger && tonal -> if (isDark) Color(0xFF51222B) else Color(0xFFFFF1F2)
         danger -> Color(0xFFEF4444)
         tonal -> EgDesign.cardSoft
         else -> EgDesign.primary
     }
     val textColor = when {
-        danger && tonal -> Color(0xFFB91C1C)
+        danger && tonal -> if (isDark) Color(0xFFFDA4AF) else Color(0xFFB91C1C)
         danger -> Color.White
         tonal -> EgDesign.primaryDark
         else -> Color.White
@@ -903,7 +1027,7 @@ private fun SettingsButton(
         modifier = modifier.height(44.dp).widthIn(min = minWidth).clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(EgDesign.pillRadius),
         color = if (enabled) background else EgDesign.cardBorder,
-        border = BorderStroke(1.dp, if (danger && tonal) Color(0xFFFECACA) else EgDesign.cardBorder),
+        border = BorderStroke(1.dp, if (danger && tonal && !isDark) Color(0xFFFECACA) else EgDesign.cardBorder),
         shadowElevation = if (enabled) 1.dp else 0.dp
     ) {
         Box(modifier = Modifier.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
@@ -948,62 +1072,119 @@ private fun ThinDivider() {
 
 @Composable
 private fun SettingsStatusBanner(message: String) {
+    val isDark = AppSettingsState.activeDarkTheme.value
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFEFFAF3),
-        border = BorderStroke(1.dp, Color(0xFFC7E9D0))
+        color = if (isDark) Color(0xFF153E2A) else Color(0xFFEFFAF3),
+        border = BorderStroke(1.dp, if (isDark) Color(0xFF2E7D32) else Color(0xFFC7E9D0))
     ) {
-        Text(message, modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), color = Color(0xFF166534), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(message, modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), color = if (isDark) Color(0xFF86EFAC) else Color(0xFF166534), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
 private fun ErrorBanner(message: String) {
+    val isDark = AppSettingsState.activeDarkTheme.value
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFFFF1F2),
-        border = BorderStroke(1.dp, Color(0xFFFDA4AF))
+        color = if (isDark) Color(0xFF51222B) else Color(0xFFFFF1F2),
+        border = BorderStroke(1.dp, if (isDark) Color(0xFFBE123C) else Color(0xFFFDA4AF))
     ) {
-        Text(message, modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), color = Color(0xFF9F1239), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(message, modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), color = if (isDark) Color(0xFFFDA4AF) else Color(0xFF9F1239), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
-private fun EditAccountDialog(
+private fun ReportEmailDialog(
     profile: UserProfileDto?,
     saving: Boolean,
     onDismiss: () -> Unit,
-    onSave: (UserProfileUpdateDto) -> Unit
+    onSave: (String) -> Unit
 ) {
-    var username by rememberSaveable(profile?.userId) { mutableStateOf(profile?.username.orEmpty()) }
-    var email by rememberSaveable(profile?.userId) { mutableStateOf(profile?.email.orEmpty()) }
-    var phone by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.phone.orEmpty()) }
+    var email by rememberSaveable(profile?.userId, profile?.child?.reportPref) {
+        mutableStateOf(profile.effectiveReportEmail().orEmpty())
+    }
     var error by rememberSaveable(profile?.userId) { mutableStateOf<String?>(null) }
 
     fun validate(): Boolean {
+        val trimmed = email.trim()
         error = when {
-            username.trim().isBlank() -> "Tên đăng nhập không được để trống."
-            email.trim().isBlank() -> "Email không được để trống."
-            !email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) -> "Email chưa đúng định dạng."
-            phone.trim().isNotEmpty() && !phone.trim().matches(Regex("^\\d{9,11}$")) -> "Số điện thoại nên gồm 9-11 chữ số."
+            trimmed.isBlank() -> "Vui lòng nhập email phụ huynh."
+            !trimmed.isUsableEmail() -> "Email phụ huynh chưa hợp lệ. Vui lòng kiểm tra lại."
             else -> null
         }
         return error == null
     }
 
     SettingsDialog(onDismiss = onDismiss) {
-        DialogHeader("👤", "Thông tin tài khoản", "Cập nhật tên đăng nhập, email và số điện thoại.")
+        DialogHeader("✉", "Email phụ huynh", "Bố mẹ sẽ nhận báo cáo tiến bộ hằng tuần qua email này.")
         error?.let { ErrorBanner(it) }
-        SettingsTextField(username, { username = it }, "Tên đăng nhập", "Nhập tên đăng nhập")
-        SettingsTextField(email, { email = it }, "Email", "email@example.com", keyboardType = KeyboardType.Email)
         SettingsTextField(
-            phone,
-            { input: String -> if (input.all(Char::isDigit) && input.length <= 11) phone = input },
-            "Số điện thoại",
-            "Nhập số điện thoại",
-            keyboardType = KeyboardType.Phone
+            value = email,
+            onValueChange = { email = it },
+            label = "Email phụ huynh",
+            placeholder = "vidu@email.com",
+            keyboardType = KeyboardType.Email
+        )
+        DialogActions(
+            primaryText = if (saving) "Đang lưu..." else "Lưu email",
+            primaryDanger = false,
+            saving = saving,
+            onCancel = onDismiss,
+            onSave = {
+                if (!saving && validate()) onSave(email.trim())
+            }
+        )
+    }
+}
+
+@Composable
+private fun EditAccountDialog(
+    target: AccountEditTarget,
+    profile: UserProfileDto?,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (UserProfileUpdateDto) -> Unit
+) {
+    val content = accountEditContent(target)
+    val initialValue = when (target) {
+        AccountEditTarget.Username -> profile?.username.orEmpty()
+        AccountEditTarget.Email -> profile.accountEmail().orEmpty()
+        AccountEditTarget.Phone -> profile?.child?.phone.orEmpty()
+    }
+    var value by rememberSaveable(profile?.userId, target.name) { mutableStateOf(initialValue) }
+    var error by rememberSaveable(profile?.userId) { mutableStateOf<String?>(null) }
+
+    fun validate(): Boolean {
+        val trimmed = value.trim()
+        error = when {
+            target == AccountEditTarget.Username && trimmed.isBlank() -> "Tên đăng nhập không được để trống."
+            target == AccountEditTarget.Email && trimmed.isBlank() -> "Vui lòng nhập email."
+            target == AccountEditTarget.Email && !trimmed.isUsableEmail() -> "Email chưa hợp lệ. Vui lòng kiểm tra lại."
+            target == AccountEditTarget.Phone && trimmed.isBlank() -> "Vui lòng nhập số điện thoại phụ huynh."
+            target == AccountEditTarget.Phone && !trimmed.matches(Regex("^\\d{9,11}$")) -> "Số điện thoại nên gồm 9-11 chữ số."
+            else -> null
+        }
+        return error == null
+    }
+
+    SettingsDialog(onDismiss = onDismiss) {
+        DialogHeader(content.icon, content.title, content.subtitle)
+        error?.let { ErrorBanner(it) }
+        SettingsTextField(
+            value = value,
+            onValueChange = { input ->
+                if (target == AccountEditTarget.Phone) {
+                    if (input.all(Char::isDigit) && input.length <= 11) value = input
+                } else {
+                    value = input
+                }
+            },
+            label = content.fieldLabel,
+            placeholder = content.placeholder,
+            keyboardType = content.keyboardType
         )
         DialogActions(
             primaryText = if (saving) "Đang lưu..." else "Lưu thay đổi",
@@ -1012,12 +1193,13 @@ private fun EditAccountDialog(
             onCancel = onDismiss,
             onSave = {
                 if (!saving && validate()) {
+                    val trimmed = value.trim()
                     onSave(
-                        UserProfileUpdateDto(
-                            username = username.trim(),
-                            email = email.trim(),
-                            phoneNumber = phone.trim().ifBlank { null }
-                        )
+                        when (target) {
+                            AccountEditTarget.Username -> UserProfileUpdateDto(username = trimmed)
+                            AccountEditTarget.Email -> UserProfileUpdateDto(email = trimmed)
+                            AccountEditTarget.Phone -> UserProfileUpdateDto(phoneNumber = trimmed)
+                        }
                     )
                 }
             }
@@ -1208,6 +1390,50 @@ private fun SettingsTextField(
     )
 }
 
+private enum class AccountEditTarget {
+    Username,
+    Email,
+    Phone
+}
+
+private data class AccountEditContent(
+    val icon: String,
+    val title: String,
+    val subtitle: String,
+    val fieldLabel: String,
+    val placeholder: String,
+    val keyboardType: KeyboardType
+)
+
+private fun accountEditContent(target: AccountEditTarget): AccountEditContent {
+    return when (target) {
+        AccountEditTarget.Username -> AccountEditContent(
+            icon = "👤",
+            title = "Tên đăng nhập",
+            subtitle = "Tên dùng để đăng nhập vào tài khoản cùng mật khẩu.",
+            fieldLabel = "Tên đăng nhập",
+            placeholder = "Nhập tên đăng nhập",
+            keyboardType = KeyboardType.Text
+        )
+        AccountEditTarget.Email -> AccountEditContent(
+            icon = "✉",
+            title = "Email",
+            subtitle = "Email tài khoản để nhận mã và thông báo.",
+            fieldLabel = "Email",
+            placeholder = "email@example.com",
+            keyboardType = KeyboardType.Email
+        )
+        AccountEditTarget.Phone -> AccountEditContent(
+            icon = "☎",
+            title = "Số điện thoại phụ huynh",
+            subtitle = "Số điện thoại phụ huynh dùng khi cần liên hệ.",
+            fieldLabel = "Số điện thoại phụ huynh",
+            placeholder = "Nhập số điện thoại phụ huynh",
+            keyboardType = KeyboardType.Phone
+        )
+    }
+}
+
 private enum class ConfirmAction {
     ResetPreferences,
     ClearProgress,
@@ -1248,4 +1474,31 @@ private fun confirmContent(action: ConfirmAction): ConfirmContent {
     }
 }
 
-private fun missing(value: String?): String = value?.takeIf { it.isNotBlank() } ?: "Chưa cập nhật"
+private fun missing(value: String?): String = value?.trim()?.takeIf { it.isNotBlank() } ?: "Chưa cập nhật"
+
+private fun UserProfileDto?.effectiveReportEmail(): String? {
+    if (this == null) return null
+    return extractReportEmail(child?.reportPref)
+}
+
+private fun UserProfileDto?.accountEmail(): String? {
+    if (this == null) return null
+    return email?.takeIf { it.isUsableEmail() }
+}
+
+private fun extractReportEmail(rawValue: String?): String? {
+    val raw = rawValue?.trim().orEmpty()
+    if (raw.isBlank()) return null
+    if (raw.isUsableEmail()) return raw
+    return runCatching {
+        val json = JSONObject(raw)
+        listOf("parent_email", "email", "receiver_email")
+            .firstNotNullOfOrNull { key -> json.optString(key).takeIf { it.isUsableEmail() } }
+    }.getOrNull()
+}
+
+private fun String?.isUsableEmail(): Boolean {
+    val value = this?.trim().orEmpty()
+    if (value.isBlank() || value.endsWith("@local.invalid", ignoreCase = true)) return false
+    return Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(value)
+}

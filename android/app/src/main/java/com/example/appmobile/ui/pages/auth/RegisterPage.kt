@@ -31,6 +31,7 @@ import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.UserRepository
+import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.viewmodel.AuthViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -81,7 +82,7 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
                     .fillMaxWidth()
                     .padding(vertical = 16.dp),
                 shape = RoundedCornerShape(32.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
+                colors = CardDefaults.cardColors(containerColor = EgDesign.card),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
@@ -112,12 +113,12 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
                         "Tạo tài khoản",
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF4A4A4A)
+                        color = EgDesign.textPrimary
                     )
                     Text(
                         "Điền thông tin của bé để đồng bộ hồ sơ học tập",
                         fontSize = 14.sp,
-                        color = Color.Gray,
+                        color = EgDesign.textSecondary,
                         textAlign = TextAlign.Center
                     )
 
@@ -232,10 +233,10 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
                         modifier = Modifier.padding(top = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Đã có tài khoản? ", color = Color.DarkGray, fontSize = 14.sp)
+                        Text("Đã có tài khoản? ", color = EgDesign.textSecondary, fontSize = 14.sp)
                         Text(
                             "Đăng nhập",
-                            color = Color(0xFF8D6E63),
+                            color = EgDesign.blue,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.clickable { onNavigateBack() }
@@ -259,7 +260,7 @@ private fun AuthTextField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        placeholder = { Text(placeholder, color = Color.Gray) },
+        placeholder = { Text(placeholder, color = EgDesign.textSecondary) },
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp),
@@ -268,10 +269,13 @@ private fun AuthTextField(
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color(0xFFAED9FF),
-            unfocusedBorderColor = Color(0xFFAED9FF),
-            focusedContainerColor = Color(0xFFF0F8FF),
-            unfocusedContainerColor = Color(0xFFF0F8FF)
+            focusedBorderColor = EgDesign.primary,
+            unfocusedBorderColor = EgDesign.cardBorder,
+            focusedContainerColor = EgDesign.cardSoft,
+            unfocusedContainerColor = EgDesign.cardSoft,
+            focusedTextColor = EgDesign.textPrimary,
+            unfocusedTextColor = EgDesign.textPrimary,
+            cursorColor = EgDesign.primary
         )
     )
 }
@@ -279,19 +283,19 @@ private fun AuthTextField(
 @Composable
 private fun GenderSelector(value: String, onChange: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Giới tính", fontWeight = FontWeight.Bold, color = Color(0xFF4A4A4A), fontSize = 14.sp)
+        Text("Giới tính", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary, fontSize = 14.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RadioButton(selected = value == "male", onClick = { onChange("male") }, colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFFFA726)))
-                Text("Nam", fontSize = 14.sp)
+                Text("Nam", fontSize = 14.sp, color = EgDesign.textSecondary)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RadioButton(selected = value == "female", onClick = { onChange("female") }, colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFFFA726)))
-                Text("Nữ", fontSize = 14.sp)
+                Text("Nữ", fontSize = 14.sp, color = EgDesign.textSecondary)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RadioButton(selected = value == "other", onClick = { onChange("other") }, colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFFFA726)))
-                Text("Khác", fontSize = 14.sp)
+                Text("Khác", fontSize = 14.sp, color = EgDesign.textSecondary)
             }
         }
     }
@@ -301,7 +305,7 @@ private fun GenderSelector(value: String, onChange: (String) -> Unit) {
 private fun CloudIcon(modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
-        color = Color.White.copy(alpha = 0.5f),
+        color = EgDesign.card.copy(alpha = 0.65f),
         shape = RoundedCornerShape(50)
     ) {}
 }

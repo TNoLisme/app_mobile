@@ -13,6 +13,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.appmobile.ui.components.EgDesign
 
 @Composable
 fun GameCard(
@@ -38,9 +39,9 @@ fun GameCard(
                     text = title,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.DarkGray
+                    color = EgDesign.textPrimary
                 )
-                Text(text = "Nhấn để chơi", fontSize = 14.sp, color = Color.Gray)
+                Text(text = "Nhấn để chơi", fontSize = 14.sp, color = EgDesign.textSecondary)
             }
             Image(
                 painter = painterResource(id = imageRes),

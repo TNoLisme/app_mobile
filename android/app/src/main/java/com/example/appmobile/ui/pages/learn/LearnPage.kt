@@ -1,5 +1,9 @@
 package com.example.appmobile.ui.pages.learn
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import android.media.MediaPlayer
 import android.view.Surface
 import android.view.TextureView
@@ -48,6 +52,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.appmobile.R
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.NetworkClient
@@ -64,6 +70,7 @@ import com.example.appmobile.ui.components.egEmotionKey
 import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.example.appmobile.ui.components.egLearningEmotionGridItems
 import com.example.appmobile.ui.state.AppSettingsState
+import kotlinx.coroutines.delay
 
 private data class EmotionDetailContent(
     val id: String,
@@ -85,6 +92,8 @@ private data class SituationVisualContent(
     val startColor: Color,
     val endColor: Color
 )
+
+private val LearnMediaArrowsVisible = mutableStateOf(true)
 
 @Composable
 fun LearnPage(
@@ -237,8 +246,8 @@ private fun EmotionRememberCard(emotion: EmotionUiItem) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        color = Color(0xFFF8FCFF),
-        border = BorderStroke(1.dp, Color(0xFFDCEBFA)),
+        color = EgDesign.card,
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = 1.dp
     ) {
         Column(
@@ -275,7 +284,7 @@ private fun EmotionGridItem(
     modifier: Modifier = Modifier
 ) {
     val key = egEmotionKey(emotion)
-    val backgroundColor = if (selected) Color(0xFFEAF7FF) else egEmotionPastelColor(key)
+    val backgroundColor = if (selected) EgDesign.cardSoft else egEmotionPastelColor(key)
     Surface(
         modifier = modifier
             .height(72.dp)
@@ -331,6 +340,10 @@ private fun LearnMediaCarousel(
     onNext: () -> Unit,
     onOpenDetail: () -> Unit
 ) {
+    var videoControlsVisible by remember(emotion.id, pageIndex) { mutableStateOf(true) }
+    LaunchedEffect(pageIndex, videoControlsVisible) {
+        LearnMediaArrowsVisible.value = pageIndex != 0 || videoControlsVisible
+    }
     EgSoftCard {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -364,7 +377,10 @@ private fun LearnMediaCarousel(
                 contentAlignment = Alignment.Center
             ) {
                 if (pageIndex == 0) {
-                    AssetVideoPlayer(emotionId = egEmotionKey(emotion))
+                    AssetVideoPlayer(
+                        emotionId = egEmotionKey(emotion),
+                        onControlsVisibleChange = { videoControlsVisible = it }
+                    )
                 } else {
                     SituationIllustration(emotion = emotion)
                 }
@@ -396,13 +412,14 @@ private fun SituationIllustration(emotion: EmotionUiItem) {
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.linearGradient(listOf(visual.startColor, visual.endColor)))
+            .background(if (AppSettingsState.activeDarkTheme.value) Color.Black.copy(alpha = 0.35f) else Color.Transparent)
             .padding(horizontal = 18.dp, vertical = 14.dp)
     ) {
         Surface(
             modifier = Modifier.align(Alignment.TopStart),
             shape = RoundedCornerShape(999.dp),
-            color = Color.White.copy(alpha = 0.82f),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.9f))
+            color = EgDesign.card.copy(alpha = 0.88f),
+            border = BorderStroke(1.dp, EgDesign.cardBorder)
         ) {
             Text(
                 text = visual.sceneTitle,
@@ -423,8 +440,8 @@ private fun SituationIllustration(emotion: EmotionUiItem) {
             Surface(
                 modifier = Modifier.size(86.dp),
                 shape = CircleShape,
-                color = Color.White.copy(alpha = 0.86f),
-                border = BorderStroke(2.dp, Color.White.copy(alpha = 0.95f))
+                color = EgDesign.card.copy(alpha = 0.9f),
+                border = BorderStroke(2.dp, EgDesign.cardBorder)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(visual.mainEmoji, fontSize = 48.sp)
@@ -438,8 +455,8 @@ private fun SituationIllustration(emotion: EmotionUiItem) {
                 .align(Alignment.BottomStart)
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            color = Color.White.copy(alpha = 0.88f),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.95f))
+            color = EgDesign.card.copy(alpha = 0.92f),
+            border = BorderStroke(1.dp, EgDesign.cardBorder)
         ) {
             Text(
                 text = visual.caption,
@@ -462,8 +479,8 @@ private fun EmotionDetailButton(onClick: () -> Unit) {
             .height(32.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(999.dp),
-        color = Color(0xFFEAF7FF),
-        border = BorderStroke(1.dp, Color(0xFFCDE7FA)),
+        color = EgDesign.cardSoft,
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = 1.dp
     ) {
         Row(
@@ -505,8 +522,8 @@ private fun EmotionDetailBottomSheet(
                 Surface(
                     modifier = Modifier.size(56.dp),
                     shape = CircleShape,
-                    color = Color(0xFFEAF7FF),
-                    border = BorderStroke(1.dp, Color(0xFFCDE7FA))
+                    color = EgDesign.cardSoft,
+                    border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(content.emoji, fontSize = 31.sp)
@@ -531,7 +548,7 @@ private fun EmotionDetailBottomSheet(
                         .height(34.dp)
                         .clickable(onClick = onDismiss),
                     shape = RoundedCornerShape(999.dp),
-                    color = Color(0xFFF8FCFF),
+                    color = EgDesign.cardSoft,
                     border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Box(modifier = Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
@@ -554,8 +571,8 @@ private fun EmotionDetailSection(icon: String, title: String, items: List<String
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        color = Color(0xFFF8FCFF),
-        border = BorderStroke(1.dp, Color(0xFFDCEBFA))
+        color = EgDesign.cardSoft,
+        border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -580,13 +597,14 @@ private fun EmotionDetailSection(icon: String, title: String, items: List<String
 
 @Composable
 private fun MediaArrow(text: String, modifier: Modifier, onClick: () -> Unit) {
+    if (!LearnMediaArrowsVisible.value) return
     Surface(
         modifier = modifier
             .padding(horizontal = 8.dp)
             .size(34.dp)
             .clickable(onClick = onClick),
         shape = CircleShape,
-        color = Color.White.copy(alpha = 0.82f),
+        color = EgDesign.card.copy(alpha = 0.92f),
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = 2.dp
     ) {
@@ -597,16 +615,41 @@ private fun MediaArrow(text: String, modifier: Modifier, onClick: () -> Unit) {
 }
 
 @Composable
-private fun AssetVideoPlayer(emotionId: String) {
+private fun AssetVideoPlayer(
+    emotionId: String,
+    onControlsVisibleChange: (Boolean) -> Unit = {},
+    allowFullscreen: Boolean = true
+) {
     val context = LocalContext.current
     val assetName = "${egEmotionKey(emotionId)}.mp4"
     val assetPath = remember(assetName) { "fe/assets/videos/$assetName" }
     var isPrepared by remember(assetPath) { mutableStateOf(false) }
     var isPlaying by remember(assetPath) { mutableStateOf(false) }
     var playbackError by remember(assetPath) { mutableStateOf<String?>(null) }
+    var controlsVisible by remember(assetPath) { mutableStateOf(true) }
+    var showFullscreen by remember(assetPath) { mutableStateOf(false) }
     val mediaPlayer = remember(assetPath) { MediaPlayer() }
     val autoPlayEnabled by AppSettingsState.learnVideoAutoplayEnabled
     val soundEnabled by AppSettingsState.learnVideoSoundEnabled
+
+    LaunchedEffect(controlsVisible) {
+        onControlsVisibleChange(controlsVisible)
+    }
+
+    LaunchedEffect(isPlaying, controlsVisible) {
+        if (isPlaying && controlsVisible) {
+            delay(2600)
+            if (isPlaying) controlsVisible = false
+        }
+    }
+
+    LaunchedEffect(showFullscreen) {
+        if (showFullscreen) {
+            runCatching { mediaPlayer.pause() }
+            isPlaying = false
+            controlsVisible = false
+        }
+    }
 
     LaunchedEffect(mediaPlayer, soundEnabled) {
         runCatching {
@@ -629,9 +672,11 @@ private fun AssetVideoPlayer(emotionId: String) {
                 if (autoPlayEnabled) {
                     player.start()
                     isPlaying = true
+                    controlsVisible = true
                 } else {
                     player.seekTo(1)
                     isPlaying = false
+                    controlsVisible = true
                 }
             }
             mediaPlayer.setOnErrorListener { _, _, _ ->
@@ -660,7 +705,12 @@ private fun AssetVideoPlayer(emotionId: String) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(enabled = playbackError == null) { controlsVisible = !controlsVisible },
+        contentAlignment = Alignment.Center
+    ) {
         key(assetPath) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -716,6 +766,25 @@ private fun AssetVideoPlayer(emotionId: String) {
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             )
         } else {
+            if (allowFullscreen && controlsVisible) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(36.dp)
+                        .clickable { showFullscreen = true },
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.55f),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("⛶", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            if (!controlsVisible && isPlaying) {
+                return@Box
+            }
             Surface(
                 modifier = Modifier
                     .size(42.dp)
@@ -725,20 +794,22 @@ private fun AssetVideoPlayer(emotionId: String) {
                         if (isPlaying) {
                             mediaPlayer.pause()
                             isPlaying = false
+                            controlsVisible = true
                         } else {
                             mediaPlayer.start()
                             isPlaying = true
+                            controlsVisible = true
                         }
                     },
                 shape = CircleShape,
-                color = Color.White.copy(alpha = if (isPlaying) 0.45f else 0.92f),
-                border = BorderStroke(1.dp, EgDesign.cardBorder),
+                color = Color.Black.copy(alpha = 0.55f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
                 shadowElevation = 2.dp
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = if (isPlaying) "II" else ">",
-                        color = EgDesign.blue,
+                        color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
@@ -746,13 +817,73 @@ private fun AssetVideoPlayer(emotionId: String) {
             }
         }
     }
+
+    if (allowFullscreen && showFullscreen) {
+        FullscreenVideoDialog(
+            emotionId = emotionId,
+            onDismiss = { showFullscreen = false }
+        )
+    }
+}
+
+@Composable
+private fun FullscreenVideoDialog(emotionId: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+
+    DisposableEffect(activity) {
+        val previousOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        onDispose {
+            activity?.requestedOrientation = previousOrientation
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            AssetVideoPlayer(
+                emotionId = emotionId,
+                allowFullscreen = false
+            )
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp)
+                    .size(42.dp)
+                    .clickable(onClick = onDismiss),
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.55f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("×", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? {
+    return when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }
 }
 
 @Composable
 private fun SituationPanel(emotion: EmotionUiItem) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFFF8FBFF),
+        color = EgDesign.cardSoft,
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -772,7 +903,7 @@ private fun Dot(active: Boolean) {
     Box(
         modifier = Modifier
             .size(if (active) 10.dp else 8.dp)
-            .background(if (active) EgDesign.blue else Color(0xFFD1D5DB), CircleShape)
+            .background(if (active) EgDesign.blue else EgDesign.cardBorder, CircleShape)
     )
 }
 

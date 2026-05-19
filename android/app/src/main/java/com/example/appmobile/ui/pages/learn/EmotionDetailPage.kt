@@ -36,8 +36,8 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.AppBackButton
+import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.pages.game.emotionLearningInfo
-import com.example.appmobile.ui.theme.SoftWhite
 
 @Composable
 fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
@@ -75,7 +75,7 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SoftWhite)
+            .background(EgDesign.background)
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .navigationBarsPadding()
@@ -86,7 +86,8 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
             Spacer(modifier = Modifier.weight(1f))
             Text(
                 text = emotion?.let { "${it.name} ${it.emoji}" } ?: "Cảm xúc",
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = EgDesign.textPrimary
             )
         }
 
@@ -107,20 +108,20 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        Text(text = "Tình huống:", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(text = "Tình huống:", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = EgDesign.textPrimary)
         Spacer(modifier = Modifier.height(8.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = example,
                 modifier = Modifier.padding(16.dp),
                 fontSize = 14.sp,
-                color = Color.Gray
+                color = EgDesign.textSecondary
             )
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        Text(text = "Dấu hiệu nhận biết:", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(text = "Dấu hiệu nhận biết:", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = EgDesign.textPrimary)
         Spacer(modifier = Modifier.height(8.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
@@ -129,10 +130,11 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
             ) {
                 Text(
                     text = learningInfo.description,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    color = EgDesign.textPrimary
                 )
                 learningInfo.cues.forEach { cue ->
-                    Text("• $cue", fontSize = 14.sp, color = Color.DarkGray)
+                    Text("• $cue", fontSize = 14.sp, color = EgDesign.textSecondary)
                 }
             }
         }

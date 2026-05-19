@@ -77,6 +77,7 @@ import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.AppBackButton
+import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.state.UserAvatarState
 import com.google.firebase.auth.FirebaseAuth
 import coil.compose.AsyncImage
@@ -87,13 +88,13 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private val ProfileBackgroundGradient = Color(0xFFEAF7FF)
-private val ProfileButtonGradient = Color(0xFF62B5FF)
-private val ProfileTextPrimary = Color(0xFF0B3A6E)
-private val ProfileTextSecondary = Color(0xFF6B7280)
-private val ProfileBlue = Color(0xFF0B5DAE)
-private val ProfileCardBorder = Color(0xFFD7E7F3)
-private val ProfileSoftSection = Color(0xFFF3FBFF)
+private val ProfileBackgroundGradient: Color get() = EgDesign.background
+private val ProfileButtonGradient: Color get() = EgDesign.primary
+private val ProfileTextPrimary: Color get() = EgDesign.textPrimary
+private val ProfileTextSecondary: Color get() = EgDesign.textSecondary
+private val ProfileBlue: Color get() = EgDesign.blue
+private val ProfileCardBorder: Color get() = EgDesign.cardBorder
+private val ProfileSoftSection: Color get() = EgDesign.cardSoft
 
 private data class ProfileBadge(
     val id: String,
@@ -283,8 +284,8 @@ private fun ErrorAlert(message: String, onRetry: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFFFFF8E7),
-        border = BorderStroke(1.dp, Color(0xFFF9D26A)),
+        color = EgDesign.cardSoft,
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = 1.dp
     ) {
         Row(
@@ -296,7 +297,7 @@ private fun ErrorAlert(message: String, onRetry: () -> Unit) {
             Text(
                 text = message,
                 modifier = Modifier.weight(1f),
-                color = Color(0xFF8A4B00),
+                color = ProfileTextPrimary,
                 fontSize = 12.sp,
                 lineHeight = 15.sp,
                 maxLines = 2,
@@ -479,8 +480,8 @@ private fun BadgeCircle(
         Surface(
             modifier = Modifier.fillMaxSize(),
             shape = CircleShape,
-            color = if (unlocked) Color(0xFFFFF4B8) else Color(0xFFE5E7EB),
-            border = BorderStroke(1.dp, if (unlocked) Color(0xFFFFD54F) else Color(0xFFD1D5DB)),
+            color = if (unlocked) Color(0xFFFFF4B8) else EgDesign.cardSoft,
+            border = BorderStroke(1.dp, if (unlocked) Color(0xFFFFD54F) else ProfileCardBorder),
             shadowElevation = if (unlocked) 2.dp else 0.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -532,7 +533,7 @@ private fun BadgeRequirementDialog(
                 Text("Đã hiểu", color = ProfileBlue, fontWeight = FontWeight.Bold)
             }
         },
-        containerColor = Color.White,
+        containerColor = EgDesign.card,
         shape = RoundedCornerShape(22.dp)
     )
 }
@@ -576,7 +577,7 @@ private fun InfoTile(icon: String, label: String, value: String, modifier: Modif
     Card(
         modifier = modifier.height(62.dp),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.96f)),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         border = BorderStroke(1.dp, ProfileCardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -636,12 +637,12 @@ private fun StatTile(stat: ProfileStat, modifier: Modifier = Modifier) {
         modifier = modifier.height(62.dp),
         shape = RoundedCornerShape(14.dp),
         color = Color.Transparent,
-        border = BorderStroke(1.dp, Color(0xFFCDE7FA)),
+        border = BorderStroke(1.dp, ProfileCardBorder),
         shadowElevation = 1.dp
     ) {
         Column(
             modifier = Modifier
-                .background(Color(0xFFEAF7FF))
+                .background(EgDesign.cardSoft)
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -685,7 +686,7 @@ private fun ProfileSurface(content: @Composable () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.96f)),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         border = BorderStroke(1.dp, ProfileCardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -732,14 +733,14 @@ private fun GradientPill(
 private fun StatusBanner(message: String) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFEFFAF3),
-        border = BorderStroke(1.dp, Color(0xFFC7E9D0)),
+        color = EgDesign.cardSoft,
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Text(
             text = message,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            color = Color(0xFF166534),
+            color = ProfileTextPrimary,
             lineHeight = 17.sp,
             fontSize = 13.sp
         )
@@ -1084,8 +1085,8 @@ private fun EditProfileHeader(saving: Boolean, onDismiss: () -> Unit) {
         Surface(
             modifier = Modifier.size(46.dp),
             shape = CircleShape,
-            color = Color(0xFFE8F7FF),
-            border = BorderStroke(1.dp, Color(0xFFCDE7FA))
+            color = EgDesign.cardSoft,
+            border = BorderStroke(1.dp, ProfileCardBorder)
         ) {
             Box(contentAlignment = Alignment.Center) { Text("✏️", fontSize = 22.sp) }
         }
@@ -1109,7 +1110,7 @@ private fun CloseButton(enabled: Boolean, onClick: () -> Unit) {
             .size(36.dp)
             .clickable(enabled = enabled, onClick = onClick),
         shape = CircleShape,
-        color = Color(0xFFF8FBFF),
+        color = EgDesign.cardSoft,
         border = BorderStroke(1.dp, ProfileCardBorder)
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -1123,13 +1124,13 @@ private fun FormErrorBanner(message: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFFFF1F2),
-        border = BorderStroke(1.dp, Color(0xFFFDA4AF))
+        color = EgDesign.cardSoft,
+        border = BorderStroke(1.dp, ProfileCardBorder)
     ) {
         Text(
             text = "⚠️ $message",
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            color = Color(0xFF9F1239),
+            color = Color(0xFFF43F5E),
             fontSize = 13.sp,
             lineHeight = 18.sp,
             fontWeight = FontWeight.SemiBold
@@ -1189,8 +1190,8 @@ private fun ProfileTextField(
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = ProfileBlue,
             unfocusedBorderColor = ProfileCardBorder,
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
+            focusedContainerColor = EgDesign.card,
+            unfocusedContainerColor = EgDesign.card,
             focusedTextColor = ProfileTextPrimary,
             unfocusedTextColor = ProfileTextPrimary,
             cursorColor = ProfileBlue
@@ -1210,7 +1211,7 @@ private fun GenderDropdown(value: String, onValueChange: (String) -> Unit) {
                 .height(56.dp)
                 .clickable { expanded = true },
             shape = RoundedCornerShape(14.dp),
-            color = Color.White,
+            color = EgDesign.card,
             border = BorderStroke(1.dp, ProfileCardBorder)
         ) {
             Row(
@@ -1257,7 +1258,7 @@ private fun SecondaryPillButton(
             .height(48.dp)
             .clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(999.dp),
-        color = Color.White,
+        color = EgDesign.card,
         border = BorderStroke(1.dp, ProfileCardBorder),
         shadowElevation = 1.dp
     ) {

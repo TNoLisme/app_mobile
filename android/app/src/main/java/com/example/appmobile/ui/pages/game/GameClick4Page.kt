@@ -41,6 +41,7 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -134,7 +135,7 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("â† Quay láº¡i") }
                 Spacer(modifier = Modifier.weight(1f))
-                Text("ThÃ¡m tá»­ cáº£m xÃºc", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("ThÃ¡m tá»­ cáº£m xÃºc", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -166,7 +167,7 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = EgDesign.card),
                 elevation = CardDefaults.cardElevation(2.dp)
             ) {
                 Column(
@@ -182,7 +183,8 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                     Text(
                         question.story,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = EgDesign.textSecondary
                     )
 
                     if (feedback.value != null) {
@@ -218,7 +220,7 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(emotion.emoji, fontSize = 24.sp)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(emotion.name, fontWeight = FontWeight.SemiBold)
+                                    Text(emotion.name, color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold)
                                 }
                             }
                         }

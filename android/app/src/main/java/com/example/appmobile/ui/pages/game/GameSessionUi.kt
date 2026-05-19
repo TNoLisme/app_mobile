@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.data.remote.dto.GameContentOptionDto
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.state.AppSettingsState
 
 data class EmotionLearningInfo(
     val id: String,
@@ -37,11 +39,11 @@ data class AnswerVisualState(
 
 @Composable
 fun GameStatChip(text: String) {
-    Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFE7F1FF)) {
+    Surface(shape = MaterialTheme.shapes.large, color = EgDesign.cardSoft) {
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            color = Color(0xFF1E4E8C),
+            color = EgDesign.blue,
             fontWeight = FontWeight.SemiBold
         )
     }
@@ -52,12 +54,12 @@ fun GameFeedbackCard(message: String) {
     val isCorrect = message.startsWith("Đúng")
     Surface(
         shape = MaterialTheme.shapes.large,
-        color = if (isCorrect) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
+        color = EgDesign.cardSoft
     ) {
         Text(
             text = message,
             modifier = Modifier.padding(12.dp),
-            color = if (isCorrect) Color(0xFF2E7D32) else Color(0xFFE65100),
+            color = EgDesign.textPrimary,
             fontWeight = FontWeight.SemiBold
         )
     }
@@ -68,12 +70,12 @@ fun GameLevelSummaryCard(summary: String, onBack: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Kết thúc level", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
-            Text(summary)
+            Text("Kết thúc level", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
+            Text(summary, color = EgDesign.textSecondary)
             Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
                 Text("Quay lại chọn level")
             }
@@ -94,30 +96,30 @@ fun EmotionLearningDialog(emotionId: String?, onDismiss: () -> Unit) {
             }
         },
         title = {
-            Text("Ôn lại ${info.title}", color = Color(0xFF1E4E8C), fontWeight = FontWeight.Bold)
+            Text("Ôn lại ${info.title}", color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(info.emoji, fontSize = 34.sp)
-                    Text(info.description, color = Color.DarkGray)
+                    Text(info.description, color = EgDesign.textSecondary)
                 }
-                Surface(shape = MaterialTheme.shapes.large, color = Color(0xFFE7F1FF)) {
+                Surface(shape = MaterialTheme.shapes.large, color = EgDesign.cardSoft) {
                     Text(
                         info.situation,
                         modifier = Modifier.padding(12.dp),
-                        color = Color(0xFF1E4E8C)
+                        color = EgDesign.textPrimary
                     )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Dấu hiệu nhận biết", fontWeight = FontWeight.SemiBold)
+                    Text("Dấu hiệu nhận biết", color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold)
                     info.cues.forEach { cue ->
-                        Text("• $cue", color = Color.DarkGray)
+                        Text("• $cue", color = EgDesign.textSecondary)
                     }
                 }
             }
         },
-        containerColor = Color.White
+        containerColor = EgDesign.card
     )
 }
 
@@ -209,22 +211,23 @@ fun answerVisualState(
 ): AnswerVisualState {
     val isSelected = selectedEmotionId == optionId
     val isCorrect = normalizeEmotionForLearning(correctEmotion) == optionId
+    val isDark = AppSettingsState.activeDarkTheme.value
     return when {
         hasFeedback && isCorrect -> AnswerVisualState(
             borderColor = Color(0xFF2E7D32),
-            containerColor = Color(0xFFE8F5E9)
+            containerColor = if (isDark) Color(0xFF153E2A) else Color(0xFFE8F5E9)
         )
         hasFeedback && isSelected -> AnswerVisualState(
             borderColor = Color(0xFFD32F2F),
-            containerColor = Color(0xFFFFEBEE)
+            containerColor = if (isDark) Color(0xFF51222B) else Color(0xFFFFEBEE)
         )
         isSelected -> AnswerVisualState(
             borderColor = Color(0xFF3B82F6),
-            containerColor = Color(0xFFE7F1FF)
+            containerColor = EgDesign.cardSoft
         )
         else -> AnswerVisualState(
-            borderColor = Color(0xFFF1F5F9),
-            containerColor = Color.White
+            borderColor = EgDesign.cardBorder,
+            containerColor = EgDesign.card
         )
     }
 }

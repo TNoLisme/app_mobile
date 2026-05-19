@@ -38,6 +38,7 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -131,7 +132,7 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("â† Quay láº¡i") }
                 Spacer(modifier = Modifier.weight(1f))
-                Text("Cáº£m xÃºc Ä‘Ãºng chá»—", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Cáº£m xÃºc Ä‘Ãºng chá»—", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -163,12 +164,12 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = EgDesign.card),
                 elevation = CardDefaults.cardElevation(2.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("TÃ¬nh huá»‘ng", fontWeight = FontWeight.Bold, color = Color(0xFF1E4E8C))
-                    Text(question.text, style = MaterialTheme.typography.titleMedium)
+                    Text("TÃ¬nh huá»‘ng", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
+                    Text(question.text, style = MaterialTheme.typography.titleMedium, color = EgDesign.textSecondary)
 
                     if (feedback.value != null) {
                         GameFeedbackCard(feedback.value.orEmpty())
@@ -203,7 +204,7 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(emotion.emoji, fontSize = 24.sp)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(emotion.name, fontWeight = FontWeight.SemiBold)
+                                    Text(emotion.name, color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold)
                                 }
                             }
                         }
