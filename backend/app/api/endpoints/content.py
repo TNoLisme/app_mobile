@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.db.session import get_db
 from app.models.analytics import ChildProgress
@@ -48,12 +49,12 @@ class AbandonSessionRequest(BaseModel):
     session_id: str
 
 
-GAME_RECOGNIZE_EMOTION = "3bcb2108-721c-4a15-a585-31f3084ed000"
-GAME_FACE_ASSEMBLY = "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051"
-GAME_EMOTION_MATCH = "08bbffbf-d147-4556-bccb-b7621cafbf15"
-GAME_DETECTIVE = "aacaf79e-e15e-42a9-a3d1-a522720d919b"
-CV_STORY_GAME_ID = "e05909f3-3dee-42a6-9a75-fd985b1bdf47"
-CV_REQUEST_GAME_ID = "61f5e09e-eefa-44c1-86e1-87dfceac3b8e"
+CV_STORY_GAME_ID = "1B450620-EE43-4F60-BAD6-1E214642999E"
+GAME_EMOTION_MATCH = "AFA91963-F75A-4D92-BCF4-72E4E53C84D2"
+GAME_RECOGNIZE_EMOTION = "6695AFE0-6414-40A3-B688-B08A98CD2B61"
+CV_REQUEST_GAME_ID = "3CF6130E-73F3-4146-8D73-D2709B4CF44E"
+GAME_DETECTIVE = "17C0CC09-CEC9-48DC-BF06-E574CF8BF303"
+GAME_FACE_ASSEMBLY = "EEA09E6C-8C2F-4DF1-A361-F5EDC89D8281"
 CV_STORY_QUESTION_COUNT = 5
 CV_STORY_MAX_LEVEL = 5
 CV_REQUEST_QUESTION_COUNT = 6
@@ -268,7 +269,6 @@ def _cached_click_questions(db: Session, game_id: str, user_id: str, level: int)
     game_data = (
         db.query(GameData)
         .filter(GameData.game_id == game_id, GameData.user_id == user_id, GameData.level == level)
-        .order_by(GameData.created_at.desc())
         .first()
     )
     if game_data is None:
@@ -301,15 +301,27 @@ def _generate_click_questions(db: Session, game_id: str, user_id: str, level: in
     count = CLICK_QUESTION_COUNT
     candidates = _level_content(db, game_id, level)
     if len(candidates) < count:
+        fallback_candidates = (
+            db.query(GameContent)
+            .filter(GameContent.game_id == game_id)
+            .order_by(GameContent.level, GameContent.content_id)
+            .all()
+        )
+        seen_ids = {item.content_id for item in candidates}
+        candidates = candidates + [item for item in fallback_candidates if item.content_id not in seen_ids]
+
+    if not candidates:
         raise HTTPException(
             status_code=409,
             detail={
                 "code": "level_content_unavailable",
-                "message": "Level này đang được cập nhật câu hỏi.",
-                "available": len(candidates),
+                "message": "Game này chưa có dữ liệu câu hỏi.",
+                "available": 0,
                 "required": count,
             },
         )
+
+    effective_count = min(count, len(candidates))
 
     grouped: dict[str, list[GameContent]] = {emotion: [] for emotion in EMOTION_KEYS}
     for item in candidates:
@@ -319,7 +331,7 @@ def _generate_click_questions(db: Session, game_id: str, user_id: str, level: in
 
     selected: list[GameContent] = []
     used_ids: set[str] = set()
-    for emotion, target_count in _counts_from_ratio(ratio, count).items():
+    for emotion, target_count in _counts_from_ratio(ratio, effective_count).items():
         pool = [item for item in grouped.get(emotion, []) if item.content_id not in used_ids]
         take = min(len(pool), target_count)
         if take > 0:
@@ -327,16 +339,39 @@ def _generate_click_questions(db: Session, game_id: str, user_id: str, level: in
             selected.extend(picks)
             used_ids.update(item.content_id for item in picks)
 
-    if len(selected) < count:
+    if len(selected) < effective_count:
         remaining = [item for item in candidates if item.content_id not in used_ids]
-        selected.extend(random.sample(remaining, count - len(selected)))
+        needed = min(effective_count - len(selected), len(remaining))
+        if needed > 0:
+            selected.extend(random.sample(remaining, needed))
 
-    data_id = str(uuid.uuid4())
-    db.add(GameData(data_id=data_id, game_id=game_id, user_id=user_id, level=level))
-    for item in selected:
-        db.add(GameDataQuestion(data_id=data_id, question_id=item.content_id))
-    db.flush()
     return selected
+
+
+def _sync_click_questions_catalog(db: Session, game_id: str, questions: list[GameContent]) -> None:
+    for item in questions:
+        db.execute(
+            text(
+                """
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM questions
+                    WHERE question_id = :question_id
+                )
+                BEGIN
+                    INSERT INTO questions (question_id, game_id, content_id, level, correct_answer)
+                    VALUES (:question_id, :game_id, :content_id, :level, :correct_answer)
+                END
+                """
+            ),
+            {
+                "question_id": item.content_id,
+                "game_id": game_id,
+                "content_id": item.content_id,
+                "level": item.level,
+                "correct_answer": item.correct_answer,
+            },
+        )
 
 
 def _select_click_questions(db: Session, game_id: str, user_id: str, level: int, ratio: list[float]) -> list[GameContent]:
@@ -682,28 +717,21 @@ def start_game(game_id: str, body: StartGameRequest, db: Session = Depends(get_d
     _ensure_user(db, body.user_id)
     if body.level < 1:
         raise HTTPException(status_code=400, detail="Level must be greater than 0")
-    if game.level and body.level > int(game.level):
+    if game_id not in CLICK_GAME_IDS and game.level and body.level > int(game.level):
         raise HTTPException(status_code=400, detail=f"Level must be between 1 and {int(game.level)}")
 
     if game_id in CLICK_GAME_IDS:
-        if game.game_type != "click_game":
+        if game.game_type not in {"click_game", "GameClick"}:
             raise HTTPException(status_code=400, detail="Game is not a click game")
         if body.level > CLICK_MAX_LEVEL:
             raise HTTPException(status_code=400, detail=f"Level must be between 1 and {CLICK_MAX_LEVEL}")
 
     progress = _ensure_progress(db, body.user_id, game_id)
-    if game_id in CLICK_GAME_IDS and body.level > int(progress.level or 1):
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "code": "level_locked",
-                "message": "Level này chưa được mở khóa.",
-                "unlocked_level": int(progress.level or 1),
-            },
-        )
     ratio = _normalized_ratio(progress.ratio)
     review_emotions = _merge_click_review_emotions(db, body.user_id) if game_id in CLICK_GAME_IDS else _normalized_review(progress.review_emotions)
     questions = _select_questions_for_run(db, game_id, body.level, body.user_id, ratio)
+    if game_id in CLICK_GAME_IDS:
+        _sync_click_questions_catalog(db, game_id, questions)
     level_threshold = _click_pass_threshold(game) if game_id in CLICK_GAME_IDS else _threshold_for_level(game, body.level)
     formatted_questions = _format_questions_for_run(db, game_id, body.level, questions)
 

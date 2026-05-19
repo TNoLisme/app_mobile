@@ -52,7 +52,6 @@ class GameData(Base):
     game_id = Column(String(64), ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(String(128), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
     level = Column(Integer, default=1, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class GameDataQuestion(Base):

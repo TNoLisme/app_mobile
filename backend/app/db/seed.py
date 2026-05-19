@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session
 from app.models.game import EmotionConcept, Game, GameContent
 
 
-GAME_RECOGNIZE_EMOTION = "3bcb2108-721c-4a15-a585-31f3084ed000"
-GAME_FACE_ASSEMBLY = "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051"
-GAME_EMOTION_MATCH = "08bbffbf-d147-4556-bccb-b7621cafbf15"
-GAME_DETECTIVE = "aacaf79e-e15e-42a9-a3d1-a522720d919b"
-GAME_CV_STORY = "e05909f3-3dee-42a6-9a75-fd985b1bdf47"
-GAME_CV_REQUEST = "61f5e09e-eefa-44c1-86e1-87dfceac3b8e"
+GAME_CV_STORY = "1B450620-EE43-4F60-BAD6-1E214642999E"
+GAME_EMOTION_MATCH = "AFA91963-F75A-4D92-BCF4-72E4E53C84D2"
+GAME_RECOGNIZE_EMOTION = "6695AFE0-6414-40A3-B688-B08A98CD2B61"
+GAME_CV_REQUEST = "3CF6130E-73F3-4146-8D73-D2709B4CF44E"
+GAME_DETECTIVE = "17C0CC09-CEC9-48DC-BF06-E574CF8BF303"
+GAME_FACE_ASSEMBLY = "EEA09E6C-8C2F-4DF1-A361-F5EDC89D8281"
 
 
 GAMES = [
@@ -25,7 +25,7 @@ GAMES = [
     {
         "game_id": GAME_FACE_ASSEMBLY,
         "game_type": "click_game",
-        "name": "Xưởng lắp ghép",
+        "name": "Xưởng lắp ghép cảm xúc",
         "level": 8,
         "difficulty_level": "normal",
         "max_errors": 3,
@@ -55,7 +55,7 @@ GAMES = [
     {
         "game_id": GAME_CV_STORY,
         "game_type": "camera_game",
-        "name": "Câu chuyện khuôn mặt",
+        "name": "Câu chuyện trên khuôn mặt",
         "level": 5,
         "difficulty_level": "normal",
         "max_errors": 2,
