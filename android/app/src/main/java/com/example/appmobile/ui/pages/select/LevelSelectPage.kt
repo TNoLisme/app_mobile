@@ -201,13 +201,7 @@ fun LevelSelectPage(
             .ifEmpty { GameUiCatalog.levelsForGame(gameId) }
 
         val isClickGame = GameUiCatalog.isClickGame(gameId)
-        val availabilityByLevel = if (isClickGame) {
-            levels.associate { level ->
-                level.id to (repository.getContentForLevel(gameId, level.id).size >= 5)
-            }
-        } else {
-            levels.associate { it.id to true }
-        }
+        val availabilityByLevel = levels.associate { it.id to true }
 
         val progress = repository.getGameProgress(gameId, userId, forceRefresh = forceRefresh)
         val progressLevel = progress?.level ?: 0
