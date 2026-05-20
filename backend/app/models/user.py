@@ -22,6 +22,6 @@ class Child(Base):
     gender = Column(String(10))
     date_of_birth = Column(Date)
     phone_number = Column(String(20))
-    report_preferences = Column(String(255))
+    report_preferences = Column(String(512))
     
     user = relationship("User", back_populates="child_profile")

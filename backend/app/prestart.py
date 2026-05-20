@@ -99,6 +99,7 @@ def apply_additive_migrations() -> None:
         _alter_column_if_exists(connection, "game_content", "correct_answer", "NVARCHAR(100) NULL")
         _alter_column_if_exists(connection, "game_content", "emotion", "NVARCHAR(100) NULL")
         _alter_column_if_exists(connection, "game_content", "explanation", "NVARCHAR(MAX) NULL")
+        _alter_column_if_exists(connection, "children", "report_preferences", "NVARCHAR(512) NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "emotion", "NVARCHAR(100) NOT NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "title", "NVARCHAR(255) NOT NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "video_path", "NVARCHAR(500) NULL")

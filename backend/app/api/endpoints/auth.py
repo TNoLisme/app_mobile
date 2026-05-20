@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -107,6 +107,22 @@ def _user_payload(user: User, child: Child | None = None) -> dict:
             "report_preferences": child.report_preferences,
         }
     return payload
+
+
+def _ensure_report_preferences_capacity(db: Session) -> None:
+    bind = db.get_bind()
+    if getattr(bind.dialect, "name", "") != "mssql":
+        return
+    db.execute(
+        text(
+            """
+            IF COL_LENGTH('children', 'report_preferences') IS NOT NULL
+            BEGIN
+                ALTER TABLE children ALTER COLUMN report_preferences NVARCHAR(512) NULL
+            END
+            """
+        )
+    )
 
 
 @router.post("/sync", response_model=UserDto)
@@ -260,9 +276,12 @@ async def update_profile(payload: dict = Body(...), db: Session = Depends(get_db
         db.add(child)
 
     if child is not None:
+        if update.get("report_preferences") not in [None, ""]:
+            _ensure_report_preferences_capacity(db)
         for field in ["age", "gender", "phone_number", "report_preferences"]:
             if update.get(field) not in [None, ""]:
-                setattr(child, field, update[field])
+                value = str(update[field]).strip() if field == "report_preferences" else update[field]
+                setattr(child, field, value)
         if update.get("date_of_birth") not in [None, ""]:
             child.date_of_birth = _parse_date(update.get("date_of_birth"))
 

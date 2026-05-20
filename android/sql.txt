@@ -18,7 +18,7 @@ CREATE TABLE children (
     gender VARCHAR(10), -- 'male', 'female', 'other'
     date_of_birth DATE,
     phone_number VARCHAR(20),
-    report_preferences VARCHAR(20), -- 'daily', 'weekly', 'monthly'
+    report_preferences NVARCHAR(512), -- Email phụ huynh hoặc tùy chọn báo cáo
     created_at DATETIME2 DEFAULT GETDATE(),
     last_login DATETIME2,
     last_played DATETIME2,

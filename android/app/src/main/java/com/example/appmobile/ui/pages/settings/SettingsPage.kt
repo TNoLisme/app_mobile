@@ -89,15 +89,24 @@ fun SettingsPage(
     val repository = remember {
         UserRepository(NetworkClient.apiService, FirebaseAuthHelper(), database.userDao())
     }
-    val userId = remember {
-        FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.getBackendUserId(context)
+    val firebaseUserId = remember {
+        FirebaseAuth.getInstance().currentUser?.uid?.takeIf { it.isNotBlank() }
     }
-    val isLoggedIn = userId != null
+    val backendUserId = remember {
+        AppSession.getBackendUserId(context) ?: AppSession.currentBackendUserId()
+    }
+    val userIdCandidates = remember(backendUserId, firebaseUserId) {
+        listOf(backendUserId, firebaseUserId)
+            .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+            .distinct()
+    }
+    val isLoggedIn = userIdCandidates.isNotEmpty()
     val systemSettingsIntent = remember(context) {
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
     }
 
     var profile by remember { mutableStateOf<UserProfileDto?>(null) }
+    var activeUserId by remember { mutableStateOf(userIdCandidates.firstOrNull()) }
     var accountLoading by remember { mutableStateOf(false) }
     var accountError by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
@@ -123,27 +132,41 @@ fun SettingsPage(
     }
 
     fun loadProfile() {
-        if (!isLoggedIn || userId == null) {
+        if (!isLoggedIn) {
             accountLoading = false
             accountError = false
             profile = null
+            activeUserId = null
             return
         }
         scope.launch {
             accountLoading = true
             accountError = false
-            val loaded = repository.getProfile(userId)
+            var loaded: UserProfileDto? = null
+            var matchedUserId: String? = null
+            for (candidate in userIdCandidates) {
+                val candidateProfile = repository.getProfile(candidate)
+                if (candidateProfile != null) {
+                    loaded = candidateProfile
+                    matchedUserId = candidate
+                    break
+                }
+            }
             profile = loaded
+            activeUserId = loaded?.userId?.takeIf { it.isNotBlank() } ?: matchedUserId ?: userIdCandidates.firstOrNull()
             accountError = loaded == null
             accountLoading = false
         }
     }
 
-    LaunchedEffect(userId) {
+    LaunchedEffect(userIdCandidates) {
+        if (activeUserId?.let { it !in userIdCandidates } != false) {
+            activeUserId = userIdCandidates.firstOrNull()
+        }
         loadProfile()
     }
 
-    LaunchedEffect(openParentArea, openReportEmailEditor, userId) {
+    LaunchedEffect(openParentArea, openReportEmailEditor, userIdCandidates) {
         if (openParentArea) showParentArea = true
         if (openReportEmailEditor) {
             if (isLoggedIn) {
@@ -216,17 +239,19 @@ fun SettingsPage(
             saving = saving,
             onDismiss = { if (!saving) showReportEmailEditor = false },
             onSave = { email ->
-                val targetUserId = userId ?: return@ReportEmailDialog
+                val targetUserId = activeUserId ?: userIdCandidates.firstOrNull() ?: return@ReportEmailDialog
                 scope.launch {
                     saving = true
                     val updated = repository.updateProfile(targetUserId, UserProfileUpdateDto(reportPreferences = email))
                     saving = false
                     if (updated != null) {
                         profile = updated
+                        activeUserId = updated.userId?.takeIf { it.isNotBlank() } ?: targetUserId
                         accountError = false
                         statusMessage = "Đã lưu email phụ huynh."
                         showReportEmailEditor = false
                     } else {
+                        accountError = profile == null
                         statusMessage = "Không lưu được email phụ huynh. Vui lòng thử lại."
                     }
                 }
@@ -241,17 +266,19 @@ fun SettingsPage(
             saving = saving,
             onDismiss = { if (!saving) accountEditTarget = null },
             onSave = { update ->
-                val targetUserId = userId ?: return@EditAccountDialog
+                val targetUserId = activeUserId ?: userIdCandidates.firstOrNull() ?: return@EditAccountDialog
                 scope.launch {
                     saving = true
                     val updated = repository.updateProfile(targetUserId, update)
                     saving = false
                     if (updated != null) {
                         profile = updated
+                        activeUserId = updated.userId?.takeIf { it.isNotBlank() } ?: targetUserId
                         accountError = false
                         statusMessage = "Đã cập nhật thông tin tài khoản."
                         accountEditTarget = null
                     } else {
+                        accountError = profile == null
                         statusMessage = "Không lưu được thông tin. Vui lòng thử lại."
                     }
                 }
@@ -264,7 +291,7 @@ fun SettingsPage(
             saving = saving,
             onDismiss = { if (!saving) showChangePassword = false },
             onSave = { newPassword ->
-                val targetUserId = userId ?: return@ChangePasswordDialog
+                val targetUserId = activeUserId ?: userIdCandidates.firstOrNull() ?: return@ChangePasswordDialog
                 scope.launch {
                     saving = true
                     val updated = repository.updateProfile(targetUserId, UserProfileUpdateDto(password = newPassword))
@@ -297,7 +324,7 @@ fun SettingsPage(
                     }
                     ConfirmAction.ClearProgress -> {
                         scope.launch {
-                            val targetUserId = userId ?: "local-player"
+                            val targetUserId = activeUserId ?: userIdCandidates.firstOrNull() ?: "local-player"
                             runCatching {
                                 database.sessionDao().clearLearningHistoryForUser(targetUserId)
                                 database.reportDao().clearProgressForChild(targetUserId)
