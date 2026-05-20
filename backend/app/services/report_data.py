@@ -35,6 +35,7 @@ class GameStat:
     average_score: int | None
     best_score: int | None
     current_level: int | None
+    progress_percent: int | None
 
 
 @dataclass(frozen=True)
@@ -182,6 +183,7 @@ def _game_stats(raw_games: list[Any]) -> list[GameStat]:
             average_score=score_to_int(raw.get("avg_score")),
             best_score=score_to_int(raw.get("best_score")),
             current_level=safe_int(raw.get("level"), 0) or None,
+            progress_percent=score_to_int(raw.get("progress_percent", raw.get("progressPercent", raw.get("avg_score")))),
         )
         current = selected.get(game_id)
         if current is None or item.sessions > current.sessions:
@@ -196,12 +198,14 @@ def _daily_sessions(raw_daily: dict[str, Any]) -> list[DailySession]:
 def _achievements(report: "ReportData") -> list[str]:
     achievements: list[str] = []
     if report.sessions_count >= 5:
-        achievements.append(f"Duy trì luyện tập đều với {report.sessions_count} lượt chơi.")
+        achievements.append(f"Duy trì luyện tập tích cực với {report.sessions_count} lượt chơi trong tuần.")
+    if report.learned_emotion_count > 0:
+        achievements.append(f"Đã luyện {report.learned_emotion_count}/{report.total_emotion_count} cảm xúc cơ bản.")
     if report.average_score is not None and report.average_score >= 80:
         achievements.append("Đạt điểm trung bình cao.")
     for emotion in report.emotion_stats:
         if emotion.attempts >= 3 and emotion.accuracy is not None and emotion.accuracy >= 80:
-            achievements.append(f"Làm tốt cảm xúc {emotion.name}.")
+            achievements.append(f"Làm tốt cảm xúc {emotion.name} với {emotion.correct}/{emotion.attempts} lượt chính xác.")
     return achievements
 
 

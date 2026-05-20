@@ -382,6 +382,7 @@ def _create_report(db: Session, child_user_id: str, report_type: str) -> Report:
 
 def _report_payload(report: Report, db: Session) -> dict:
     user = db.get(User, report.child_id)
+    child = db.get(Child, report.child_id)
     parsed_data = {}
     try:
         parsed_data = json.loads(report.data or "{}")
@@ -408,6 +409,8 @@ def _report_payload(report: Report, db: Session) -> dict:
         "child_id": report.child_id,
         "child_name": user.name if user else None,
         "child_email": user.email if user else None,
+        "child_age": child.age if child else None,
+        "child_code": f"EG-{(report.child_id or 'LOCAL')[:8].upper()}-{(report.generated_at or datetime.utcnow()).year}",
         "report_type": report.report_type,
         "generated_at": report.generated_at.isoformat() if report.generated_at else None,
         "summary": report.summary,
@@ -600,7 +603,7 @@ def _sanitize_filename(filename: str) -> str:
     return cleaned or "BaoCao"
 
 
-def _build_pdf_bytes(payload: dict) -> bytes | None:
+def _build_pdf_bytes(payload: dict, parent_email: str | None = None) -> bytes | None:
     if not REPORTLAB_AVAILABLE:
         return None
     report = build_report_data(payload)
@@ -621,6 +624,9 @@ def _build_pdf_bytes(payload: dict) -> bytes | None:
         summary=summary,
         report_data_json=payload.get("data"),
         generated_at=generated_at,
+        parent_email=parent_email or payload.get("parent_email"),
+        child_age=_safe_int(payload.get("child_age"), 0) or None,
+        child_code=payload.get("child_code"),
     )
 
 
@@ -634,7 +640,7 @@ def _send_report_email(recipient: str, payload: dict) -> tuple[bool, str]:
     if not smtp_username or not smtp_password or not smtp_host or not smtp_from:
         return False, "Chưa thể gửi email lúc này. Vui lòng thử lại sau."
 
-    pdf_bytes = _build_pdf_bytes(payload)
+    pdf_bytes = _build_pdf_bytes(payload, parent_email=recipient)
     if not pdf_bytes:
         return False, "Chưa tạo được báo cáo. Vui lòng thử lại."
 
