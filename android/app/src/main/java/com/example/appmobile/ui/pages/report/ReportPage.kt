@@ -83,7 +83,6 @@ fun ReportPage(
     val state by viewModel.state.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
     var pendingEmailReportId by remember { mutableStateOf<String?>(null) }
-    var showRegenerateConfirm by remember { mutableStateOf(false) }
     var showAddEmailGate by remember { mutableStateOf(false) }
     var showParentDetailsGate by remember { mutableStateOf(false) }
     var showParentDetails by remember { mutableStateOf(false) }
@@ -96,14 +95,6 @@ fun ReportPage(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    fun requestGenerateReport() {
-        if (state.currentWeekReport != null) {
-            showRegenerateConfirm = true
-        } else {
-            viewModel.onGeneratePdf()
-        }
     }
 
     fun requestSendEmail(reportId: String?) {
@@ -148,22 +139,12 @@ fun ReportPage(
     if (showParentDetailsGate) {
         ParentGateDialog(
             title = "Khu vực phụ huynh",
-            message = "Phần này dành cho phụ huynh xem báo cáo chi tiết, tải xuống hoặc gửi lại báo cáo.",
-            confirmText = "Xem chi tiết",
+            message = "Phần này dành cho phụ huynh xem báo cáo chi tiết của bé.",
+            confirmText = "Tiếp tục",
             onDismiss = { showParentDetailsGate = false },
             onConfirm = {
                 showParentDetailsGate = false
                 showParentDetails = true
-            }
-        )
-    }
-
-    if (showRegenerateConfirm) {
-        ConfirmRegenerateReportDialog(
-            onDismiss = { showRegenerateConfirm = false },
-            onConfirm = {
-                showRegenerateConfirm = false
-                viewModel.onGeneratePdf()
             }
         )
     }
@@ -193,15 +174,8 @@ fun ReportPage(
             if (state.hasRecipientEmail) {
                 ChildSendReportCard(
                     state = state,
-                    onSend = { requestSendEmail(state.currentWeekReport?.id) },
-                    onViewReport = {
-                        val reportId = state.currentWeekReport?.id ?: state.currentReport?.id
-                        if (!reportId.isNullOrBlank()) {
-                            viewModel.onPreviewPdf(reportId)
-                        } else {
-                            requestGenerateReport()
-                        }
-                    }
+                    onSend = { requestSendEmail(null) },
+                    onViewReport = viewModel::onPreviewCurrentReport
                 )
             } else {
                 MissingParentEmailCard(onAddEmail = { showAddEmailGate = true })
@@ -230,7 +204,7 @@ fun ReportPage(
                     hasRecipientEmail = state.hasRecipientEmail,
                     parentEmail = state.parentEmail,
                     onRefresh = { viewModel.onRefreshReports(showFullLoading = false) },
-                    onGenerate = ::requestGenerateReport,
+                    onGenerate = viewModel::onGeneratePdf,
                     onOpen = viewModel::onOpenReport,
                     onDownload = viewModel::onDownloadPdf,
                     onSend = { reportId -> requestSendEmail(reportId) }
@@ -296,7 +270,7 @@ private fun ChildWeeklySummaryCard(summary: WeeklySummary?) {
             Text("Tuần này con đã học thế nào?", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 20.sp)
             Text(
                 text = if (sessions > 0) {
-                    "Tuần này con đã chơi $sessions lượt 🎉"
+                    "Tuần này con đã luyện $sessions lượt 🎉"
                 } else {
                     "Tuần này con chưa có lượt chơi nào. Mình bắt đầu luyện cảm xúc nhé."
                 },
@@ -307,7 +281,7 @@ private fun ChildWeeklySummaryCard(summary: WeeklySummary?) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 ChildMetricBox("🎮", sessions.toString(), "Lượt chơi", Modifier.weight(1f))
                 ChildMetricBox("⭐", score, "Điểm TB", Modifier.weight(1f))
-                ChildMetricBox("🌈", emotionCount, "Cảm xúc", Modifier.weight(1f))
+                ChildMetricBox("🌈", emotionCount, "Cảm xúc đã luyện", Modifier.weight(1f))
             }
             Text(
                 text = childProgressLine(summary),
@@ -331,7 +305,16 @@ private fun ChildPracticeCard(emotions: List<ReportEmotionUi>, onPlayNow: () -> 
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Con nên luyện thêm", fontWeight = FontWeight.ExtraBold, color = ReportNavy, fontSize = 19.sp)
             if (weak.isEmpty()) {
-                Text("Con chơi thêm vài màn để app gợi ý cảm xúc cần luyện nhé.", color = ReportInk, lineHeight = 21.sp)
+                val hasPracticeData = emotions.any { it.attempts > 0 }
+                Text(
+                    if (hasPracticeData) {
+                        "Con đang làm tốt. Hãy tiếp tục luyện tập nhé!"
+                    } else {
+                        "Con chơi thêm vài màn để app gợi ý cảm xúc cần luyện nhé."
+                    },
+                    color = ReportInk,
+                    lineHeight = 21.sp
+                )
                 Button(
                     onClick = onPlayNow,
                     colors = ButtonDefaults.buttonColors(containerColor = ReportBlue),
@@ -371,7 +354,7 @@ private fun ChildSendReportCard(
         PdfState.Generating -> "Đang chuẩn bị báo cáo..."
         PdfState.EmailSending -> "Đang gửi báo cáo..."
         PdfState.EmailSent -> "Gửi lại cho bố mẹ"
-        else -> if (state.currentWeekReport == null) "Tạo và gửi báo cáo" else "Gửi báo cáo cho bố mẹ"
+        else -> "Gửi báo cáo cho bố mẹ"
     }
     Card(
         modifier = Modifier
@@ -431,7 +414,7 @@ private fun ParentDetailsLink(expanded: Boolean, onClick: () -> Unit) {
         colors = ButtonDefaults.outlinedButtonColors(contentColor = ReportNavy)
     ) {
         Text(
-            if (expanded) "Ẩn báo cáo chi tiết" else "Phụ huynh xem báo cáo chi tiết >",
+            if (expanded) "Đóng báo cáo chi tiết" else "Phụ huynh xem báo cáo chi tiết >",
             fontWeight = FontWeight.Bold,
             maxLines = 1
         )
@@ -855,14 +838,14 @@ private fun childProgressLine(summary: WeeklySummary?): String {
         avg == null -> "Con chơi thêm một chút để app tính điểm trung bình nhé."
         avg >= 80 -> "Con đang tiến bộ rất tốt."
         avg >= 60 -> "Con đang tiến bộ ổn."
-        avg >= 40 -> "Con cần luyện thêm một số cảm xúc."
+        avg >= 40 -> "Con thử luyện thêm vài cảm xúc nữa nhé!"
         else -> "Con nên ôn lại các cảm xúc cơ bản."
     }
 }
 
 private fun weakEmotionItems(emotions: List<ReportEmotionUi>): List<ReportEmotionUi> {
     return emotions
-        .filter { it.attempts > 0 }
+        .filter { it.attempts > 0 && it.accuracy < 60 }
         .sortedWith(compareBy<ReportEmotionUi> { it.accuracy }.thenByDescending { it.attempts })
         .take(2)
 }

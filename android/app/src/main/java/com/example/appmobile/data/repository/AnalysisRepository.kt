@@ -8,6 +8,7 @@ import com.example.appmobile.data.remote.dto.ReportPayloadDto
 import com.example.appmobile.data.remote.dto.ReportPreviewDataDto
 import com.example.appmobile.data.remote.dto.ReportRequestDto
 import com.example.appmobile.data.remote.dto.ReportRequestResponseDto
+import com.example.appmobile.data.remote.dto.SendReportRequestDto
 import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.domain.model.Statistics
 import kotlinx.coroutines.flow.Flow
@@ -54,23 +55,32 @@ class AnalysisRepository(
         }
     }
 
-    suspend fun requestReport(childId: String, sendEmail: Boolean = false): ReportPayloadDto? {
+    suspend fun requestReport(childId: String, sendEmail: Boolean = false, parentEmail: String? = null): ReportPayloadDto? {
+        return requestReportResponse(childId, sendEmail, parentEmail)?.data
+    }
+
+    suspend fun requestReportResponse(
+        childId: String,
+        sendEmail: Boolean = false,
+        parentEmail: String? = null
+    ): ReportRequestResponseDto? {
         return try {
             val response = apiService.requestReport(
                 ReportRequestDto(
                     childUserId = childId,
-                    sendEmail = sendEmail
+                    sendEmail = sendEmail,
+                    parentEmail = parentEmail
                 )
             )
-            if (response.isSuccessful) response.body()?.data else null
+            if (response.isSuccessful) response.body() else null
         } catch (_: Exception) {
             null
         }
     }
 
-    suspend fun sendReport(reportId: String): ReportRequestResponseDto? {
+    suspend fun sendReport(reportId: String, parentEmail: String? = null): ReportRequestResponseDto? {
         return try {
-            val response = apiService.sendReport(reportId)
+            val response = apiService.sendReport(reportId, SendReportRequestDto(parentEmail = parentEmail))
             if (response.isSuccessful) response.body() else null
         } catch (_: Exception) {
             null

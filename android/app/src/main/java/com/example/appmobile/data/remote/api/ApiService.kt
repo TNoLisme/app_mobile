@@ -138,7 +138,10 @@ interface ApiService {
     suspend fun requestReport(@Body request: ReportRequestDto): Response<ReportRequestResponseDto>
 
     @POST("reports/{reportId}/send")
-    suspend fun sendReport(@Path("reportId") reportId: String): Response<ReportRequestResponseDto>
+    suspend fun sendReport(
+        @Path("reportId") reportId: String,
+        @Body request: SendReportRequestDto = SendReportRequestDto()
+    ): Response<ReportRequestResponseDto>
 
     @GET("reports/{reportId}/pdf")
     suspend fun downloadReportPdf(@Path("reportId") reportId: String): Response<ResponseBody>

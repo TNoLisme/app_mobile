@@ -177,7 +177,11 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 )
             }
 
-            val created = repository.requestReport(currentUserId(), sendEmail = false)
+            val created = repository.requestReport(
+                currentUserId(),
+                sendEmail = false,
+                parentEmail = state.value.parentEmail
+            )
             if (created?.reportId.isNullOrBlank()) {
                 _state.update {
                     it.copy(
@@ -189,49 +193,57 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             val payload = created!!
-            reportPayloads = distinctReports(listOf(payload) + reportPayloads)
             val generatedReport = payload.toGeneratedReport()
-            _state.update {
-                it.copy(
-                    pdfState = PdfState.Generated(generatedReport.id),
-                    currentReport = generatedReport,
-                    currentWeekReport = generatedReport.takeIf { report -> report.type == "weekly" } ?: it.currentWeekReport,
-                    generatedReports = reportPayloads.map { report -> report.toGeneratedReport() },
-                    statusMessage = "Báo cáo đã sẵn sàng. Bạn có thể xem, tải xuống hoặc gửi email cho phụ huynh."
-                )
-            }
+            applyReportPayload(
+                payload = payload,
+                pdfState = PdfState.Generated(generatedReport.id),
+                statusMessage = "Báo cáo đã sẵn sàng. Nội dung đang khớp với thống kê tuần này."
+            )
         }
     }
 
-    fun onPreviewPdf(reportId: String? = null) {
-        val targetId = reportId ?: activeReportId() ?: return
+    fun onPreviewCurrentReport() {
+        val current = state.value.pdfState
+        if (current == PdfState.Generating || current == PdfState.EmailSending) return
+
         viewModelScope.launch {
             _state.update {
                 it.copy(
-                    statusMessage = "Đang mở báo cáo...",
-                    pdfState = PdfState.Generated(targetId)
+                    pdfState = PdfState.Generating,
+                    statusMessage = "Đang chuẩn bị báo cáo mới nhất...",
+                    errorMessage = null
                 )
             }
 
-            val pages = runCatching { renderPdfPages(targetId) }.getOrDefault(emptyList())
-            if (pages.isEmpty()) {
+            val payload = repository.requestReport(
+                currentUserId(),
+                sendEmail = false,
+                parentEmail = state.value.parentEmail
+            )
+            val targetId = payload?.reportId?.takeIf { it.isNotBlank() }
+            if (payload == null || targetId == null) {
                 _state.update {
                     it.copy(
-                        pdfState = PdfState.PreviewError(targetId),
+                        pdfState = PdfState.GenerateError("Không tạo được báo cáo. Vui lòng thử lại."),
                         statusMessage = null
                     )
                 }
                 return@launch
             }
 
-            replacePreviewPages(pages)
-            _state.update {
-                it.copy(
-                    pdfState = PdfState.Generated(targetId),
-                    isPreviewVisible = true,
-                    statusMessage = null
-                )
-            }
+            applyReportPayload(
+                payload = payload,
+                pdfState = PdfState.Generated(targetId),
+                statusMessage = "Đang mở báo cáo..."
+            )
+            openPdfPreview(targetId)
+        }
+    }
+
+    fun onPreviewPdf(reportId: String? = null) {
+        val targetId = reportId ?: activeReportId() ?: return
+        viewModelScope.launch {
+            openPdfPreview(targetId)
         }
     }
 
@@ -293,14 +305,15 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                     statusMessage = null
                 )
             }
-            val result = repository.sendReport(targetId)
+            val result = repository.sendReport(targetId, state.value.parentEmail)
             val sent = result?.emailSent == true
+            result?.data?.let { payload -> applyReportPayload(payload) }
             _state.update {
                 it.copy(
                     pdfState = if (sent) {
                         PdfState.EmailSent
                     } else {
-                        PdfState.EmailError("Chưa gửi được báo cáo. Vui lòng thử lại.")
+                        PdfState.EmailError(result?.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại.")
                     },
                     statusMessage = if (sent) "Đã gửi báo cáo cho bố mẹ 🎉" else null
                 )
@@ -315,10 +328,6 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             }
             return
         }
-        val preferredId = reportId
-            ?: state.value.currentWeekReport?.id
-            ?: activeReportId()
-
         viewModelScope.launch {
             _state.update {
                 it.copy(
@@ -328,43 +337,47 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 )
             }
 
-            val targetId = if (!preferredId.isNullOrBlank()) {
-                preferredId
-            } else {
-                val created = repository.requestReport(currentUserId(), sendEmail = false)
-                val payload = created?.takeIf { !it.reportId.isNullOrBlank() }
-                if (payload != null) {
-                    reportPayloads = distinctReports(listOf(payload) + reportPayloads)
-                    val generatedReport = payload.toGeneratedReport()
-                    _state.update {
-                        it.copy(
-                            currentReport = generatedReport,
-                            currentWeekReport = generatedReport.takeIf { report -> report.type == "weekly" } ?: it.currentWeekReport,
-                            generatedReports = reportPayloads.map { report -> report.toGeneratedReport() }
-                        )
-                    }
-                }
-                payload?.reportId
-            }
-
-            if (targetId.isNullOrBlank()) {
+            if (!reportId.isNullOrBlank()) {
+                val result = repository.sendReport(reportId, state.value.parentEmail)
+                val sent = result?.emailSent == true
+                result?.data?.let { payload -> applyReportPayload(payload) }
                 _state.update {
                     it.copy(
-                        pdfState = PdfState.GenerateError("Chưa tạo được báo cáo. Vui lòng thử lại."),
+                        pdfState = if (sent) {
+                            PdfState.EmailSent
+                        } else {
+                            PdfState.EmailError(result?.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại.")
+                        },
+                        statusMessage = if (sent) "Đã gửi báo cáo cho bố mẹ 🎉" else null
+                    )
+                }
+                return@launch
+            }
+
+            val result = repository.requestReportResponse(
+                childId = currentUserId(),
+                sendEmail = true,
+                parentEmail = state.value.parentEmail
+            )
+            val payload = result?.data
+            if (payload?.reportId.isNullOrBlank()) {
+                _state.update {
+                    it.copy(
+                        pdfState = PdfState.GenerateError(result?.message ?: "Chưa tạo được báo cáo. Vui lòng thử lại."),
                         statusMessage = null
                     )
                 }
                 return@launch
             }
 
-            val result = repository.sendReport(targetId)
-            val sent = result?.emailSent == true
+            applyReportPayload(payload!!, pdfState = PdfState.EmailSending, statusMessage = null)
+            val sent = result.emailSent == true
             _state.update {
                 it.copy(
                     pdfState = if (sent) {
                         PdfState.EmailSent
                     } else {
-                        PdfState.EmailError("Chưa gửi được báo cáo. Vui lòng thử lại.")
+                        PdfState.EmailError(result.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại.")
                     },
                     statusMessage = if (sent) "Đã gửi báo cáo cho bố mẹ 🎉" else null
                 )
@@ -413,10 +426,33 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             .sortedWith(compareByDescending<ReportEmotionUi> { it.attempts }.thenByDescending { it.accuracy })
     }
 
+    private fun ReportPayloadDto.toEmotionStats(): List<ReportEmotionUi> {
+        val emotionJson = parseReportData(data)?.optJSONObject("emotion_stats") ?: return emptyList()
+        val names = emotionJson.names() ?: return emptyList()
+        return (0 until names.length())
+            .mapNotNull { index ->
+                val name = names.optString(index)
+                val stat = emotionJson.optJSONObject(name) ?: return@mapNotNull null
+                val correct = stat.optInt("correct", 0)
+                val incorrect = stat.optInt("incorrect", 0)
+                val attempts = stat.optInt("attempts", correct + incorrect)
+                if (attempts <= 0) return@mapNotNull null
+                ReportEmotionUi(
+                    name = name,
+                    emoji = emotionEmoji(name),
+                    accuracy = stat.optDouble("accuracy", 0.0).roundToInt().coerceIn(0, 100),
+                    attempts = attempts
+                )
+            }
+            .sortedWith(compareByDescending<ReportEmotionUi> { it.attempts }.thenByDescending { it.accuracy })
+    }
+
     private fun ReportPreviewDataDto.toWeeklySummary(): WeeklySummary {
         return stats.toWeeklySummary(
             learnedEmotionCount = insights?.emotionStats.orEmpty().count { (_, stat) ->
-                (stat.correct ?: 0) + (stat.incorrect ?: 0) > 0
+                val correct = stat.correct ?: 0
+                val incorrect = stat.incorrect ?: 0
+                (stat.attempts ?: (correct + incorrect)) > 0
             }.takeIf { it > 0 },
             activeDays = insights?.dailySessions.orEmpty().count { (_, count) -> count > 0 }.takeIf { it > 0 }
         )
@@ -453,7 +489,10 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 (0 until json.length()).count { index ->
                     val key = json.names()?.optString(index).orEmpty()
                     val stat = json.optJSONObject(key)
-                    ((stat?.optInt("correct") ?: 0) + (stat?.optInt("incorrect") ?: 0)) > 0
+                    val correct = stat?.optInt("correct", 0) ?: 0
+                    val incorrect = stat?.optInt("incorrect", 0) ?: 0
+                    val attempts = stat?.optInt("attempts", correct + incorrect) ?: (correct + incorrect)
+                    attempts > 0
                 }
             }
             ?.takeIf { it > 0 }
@@ -522,6 +561,62 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             is PdfState.PreviewError -> pdfState.reportId
             else -> state.value.currentReport?.id
         }?.takeIf { it.isNotBlank() }
+    }
+
+    private fun applyReportPayload(
+        payload: ReportPayloadDto,
+        pdfState: PdfState? = null,
+        statusMessage: String? = state.value.statusMessage
+    ) {
+        reportPayloads = distinctReports(listOf(payload) + reportPayloads)
+        val generatedReport = payload.toGeneratedReport()
+        val generatedReports = reportPayloads.map { it.toGeneratedReport() }
+        val payloadSummary = generatedReport.summary
+        val payloadEmotions = payload.toEmotionStats()
+
+        _state.update { current ->
+            val nextSummary = if (generatedReport.type == "weekly") payloadSummary else current.weeklySummary
+            val nextEmotions = payloadEmotions.ifEmpty { current.emotionStats }
+            current.copy(
+                weeklySummary = nextSummary,
+                emotionStats = nextEmotions,
+                parentSuggestion = buildParentSuggestion(nextSummary, nextEmotions),
+                currentReport = generatedReport,
+                currentWeekReport = generatedReport.takeIf { report -> report.type == "weekly" } ?: current.currentWeekReport,
+                generatedReports = generatedReports,
+                pdfState = pdfState ?: current.pdfState,
+                statusMessage = statusMessage
+            )
+        }
+    }
+
+    private suspend fun openPdfPreview(reportId: String) {
+        _state.update {
+            it.copy(
+                statusMessage = "Đang mở báo cáo...",
+                pdfState = PdfState.Generated(reportId)
+            )
+        }
+
+        val pages = runCatching { renderPdfPages(reportId) }.getOrDefault(emptyList())
+        if (pages.isEmpty()) {
+            _state.update {
+                it.copy(
+                    pdfState = PdfState.PreviewError(reportId),
+                    statusMessage = null
+                )
+            }
+            return
+        }
+
+        replacePreviewPages(pages)
+        _state.update {
+            it.copy(
+                pdfState = PdfState.Generated(reportId),
+                isPreviewVisible = true,
+                statusMessage = null
+            )
+        }
     }
 
     private suspend fun renderPdfPages(reportId: String): List<Bitmap> = withContext(Dispatchers.IO) {
@@ -630,10 +725,10 @@ fun buildParentSuggestion(summary: WeeklySummary?, emotions: List<ReportEmotionU
     return when {
         avg == null -> "Bé cần chơi thêm một vài lượt để app có đủ dữ liệu gợi ý. Phụ huynh có thể cùng bé đọc tình huống ngắn rồi khuyến khích bé thể hiện cảm xúc trước camera."
         avg >= 80 -> "Bé đang làm tốt. Phụ huynh có thể cho bé luyện thêm các tình huống khó hơn để củng cố khả năng nhận biết cảm xúc."
-        avg >= 60 -> "Bé nên luyện thêm các cảm xúc có điểm thấp. Hãy cùng bé đọc tình huống ngắn, hỏi “Con nghĩ bạn nhỏ đang cảm thấy thế nào?” rồi khuyến khích bé thể hiện cảm xúc trước camera."
+        avg >= 60 -> "Bé nên luyện thêm các cảm xúc có điểm thấp. Hãy cùng bé đọc tình huống ngắn, hỏi 'Con nghĩ bạn nhỏ đang cảm thấy thế nào?' rồi khuyến khích bé thể hiện cảm xúc trước camera."
         avg >= 40 -> {
             val target = weak.joinToString(" và ").ifBlank { "các cảm xúc còn thấp" }
-            "Bé cần luyện thêm cảm xúc $target. Phụ huynh có thể cùng bé đọc các tình huống ngắn, hỏi “Con nghĩ bạn nhỏ đang cảm thấy thế nào?” rồi khuyến khích bé thể hiện cảm xúc trước camera."
+            "Bé cần luyện thêm cảm xúc $target. Phụ huynh có thể cùng bé đọc các tình huống ngắn, hỏi 'Con nghĩ bạn nhỏ đang cảm thấy thế nào?' rồi khuyến khích bé thể hiện cảm xúc trước camera."
         }
         else -> "Bé cần ôn lại các cảm xúc cơ bản. Phụ huynh nên bắt đầu với Vui vẻ, Buồn bã và Tức giận."
     }

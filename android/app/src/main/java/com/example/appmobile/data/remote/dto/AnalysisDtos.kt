@@ -29,6 +29,7 @@ data class ReportStatsDto(
 data class ReportEmotionStatsDto(
     @SerializedName("correct") val correct: Int? = null,
     @SerializedName("incorrect") val incorrect: Int? = null,
+    @SerializedName("attempts") val attempts: Int? = null,
     @SerializedName("accuracy") val accuracy: Float? = null
 )
 
@@ -84,7 +85,12 @@ data class ReportHistoryResponseDto(
 data class ReportRequestDto(
     @SerializedName("child_user_id") val childUserId: String,
     @SerializedName("report_type") val reportType: String = "weekly",
-    @SerializedName("send_email") val sendEmail: Boolean = true
+    @SerializedName("send_email") val sendEmail: Boolean = true,
+    @SerializedName("parent_email") val parentEmail: String? = null
+)
+
+data class SendReportRequestDto(
+    @SerializedName("parent_email") val parentEmail: String? = null
 )
 
 data class ReportRequestResponseDto(

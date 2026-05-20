@@ -7,7 +7,13 @@ import unicodedata
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
-from email.message import EmailMessage
+from email import encoders
+from email.header import Header
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import formataddr
+from html import escape
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -20,6 +26,7 @@ from app.db.session import get_db
 from app.models.analytics import ChildProgress, Report
 from app.models.game import Game, GameContent, PlaySession, SessionQuestion
 from app.models.user import Child, User
+from app.services.report_data import build_report_data, build_summary_text
 from app.services.report_pdf import REPORTLAB_AVAILABLE, ReportPdfService
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
@@ -190,9 +197,9 @@ def _build_games_stats(db: Session, sessions: list[PlaySession]) -> list[dict]:
     return enriched
 
 
-def _build_emotion_stats(db: Session, child_user_id: str, start_at: datetime) -> dict[str, dict]:
+def _build_emotion_stats(db: Session, child_user_id: str, start_at: datetime, end_at: datetime) -> dict[str, dict]:
     stats = {
-        display: {"correct": 0, "incorrect": 0, "accuracy": 0.0}
+        display: {"correct": 0, "incorrect": 0, "attempts": 0, "accuracy": 0.0}
         for display in EMOTION_DISPLAY.values()
     }
 
@@ -202,6 +209,7 @@ def _build_emotion_stats(db: Session, child_user_id: str, start_at: datetime) ->
         .join(PlaySession, PlaySession.session_id == SessionQuestion.session_id)
         .filter(PlaySession.user_id == child_user_id)
         .filter(PlaySession.start_time >= start_at)
+        .filter(PlaySession.start_time < end_at)
         .group_by(GameContent.emotion, SessionQuestion.is_correct)
         .all()
     )
@@ -220,6 +228,7 @@ def _build_emotion_stats(db: Session, child_user_id: str, start_at: datetime) ->
         correct = stats[label]["correct"]
         incorrect = stats[label]["incorrect"]
         total = correct + incorrect
+        stats[label]["attempts"] = total
         stats[label]["accuracy"] = round((correct * 100.0 / total), 1) if total else 0.0
 
     return stats
@@ -228,32 +237,24 @@ def _build_emotion_stats(db: Session, child_user_id: str, start_at: datetime) ->
 def _build_achievements(total_sessions: int, avg_score: float | None, games_stats: list[dict], emotion_stats: dict[str, dict]) -> list[str]:
     achievements: list[str] = []
 
-    if total_sessions >= 20:
-        achievements.append(f"Hoàn thành {total_sessions} lượt chơi trong kỳ.")
-    elif total_sessions >= 10:
+    if total_sessions >= 5:
         achievements.append(f"Duy trì luyện tập đều với {total_sessions} lượt chơi.")
-    elif total_sessions >= 5:
-        achievements.append(f"Bé đã bắt đầu hình thành thói quen học với {total_sessions} lượt chơi.")
 
-    if avg_score is not None:
-        if avg_score >= 80:
-            achievements.append("Điểm trung bình đạt mức xuất sắc.")
-        elif avg_score >= 60:
-            achievements.append("Điểm trung bình đạt mức tốt.")
-        elif avg_score >= 40:
-            achievements.append("Bé đang làm quen và cần luyện thêm một số cảm xúc.")
+    if avg_score is not None and avg_score >= 80:
+        achievements.append("Đạt điểm trung bình cao.")
 
-    if games_stats:
-        top_game = games_stats[0]
-        if top_game["sessions"] >= 3:
-            achievements.append(f"Chơi nhiều nhất: {top_game['game_name']} ({top_game['sessions']} lượt).")
-
-    strong_emotions = [name for name, values in emotion_stats.items() if values.get("accuracy", 0) >= 80]
-    if strong_emotions:
-        achievements.append(f"Nhận diện tốt các cảm xúc: {', '.join(strong_emotions)}.")
+    for name, values in emotion_stats.items():
+        if not isinstance(values, dict):
+            continue
+        correct = _safe_int(values.get("correct"), 0)
+        incorrect = _safe_int(values.get("incorrect"), 0)
+        attempts = _safe_int(values.get("attempts"), correct + incorrect)
+        accuracy = _safe_float(values.get("accuracy"), 0)
+        if attempts >= 3 and accuracy >= 80:
+            achievements.append(f"Làm tốt cảm xúc {name}.")
 
     if not achievements:
-        achievements.append("Chưa đủ dữ liệu nổi bật trong kỳ này.")
+        achievements.append("Chưa có thành tựu nổi bật trong kỳ này.")
 
     return achievements
 
@@ -309,24 +310,17 @@ def _build_report_summary(db: Session, child_user_id: str, report_type: str) -> 
 
     avg_score = round((sum(score_values) / len(score_values)), 1) if score_values else None
     previous_avg_score = _previous_period_average(db, child_user_id, start_at, end_at)
-    total_games = len(game_ids)
     daily_sessions = _build_daily_sessions(sessions, start_at, end_at)
     games_stats = _build_games_stats(db, sessions)
-    emotion_stats = _build_emotion_stats(db, child_user_id, start_at)
+    total_games = len([game for game in games_stats if _safe_int(game.get("sessions"), 0) > 0])
+    emotion_stats = _build_emotion_stats(db, child_user_id, start_at, end_at)
     achievements = _build_achievements(total_sessions, avg_score, games_stats, emotion_stats)
 
-    if total_sessions == 0:
-        summary = "Bé chưa có lượt chơi trong tuần này. Hãy bắt đầu với một trò chơi cảm xúc nhé."
-    elif avg_score is None:
-        summary = f"Bé đã có {total_sessions} lượt chơi. Hãy chơi thêm để app tính điểm trung bình nhé."
-    elif avg_score >= 80:
-        summary = f"Bé đã chơi {total_sessions} lượt trong tuần này. Điểm trung bình là {round(avg_score)}/100. Bé tiến bộ rất tốt."
-    elif avg_score >= 60:
-        summary = f"Bé đã chơi {total_sessions} lượt trong tuần này. Điểm trung bình là {round(avg_score)}/100. Bé đang tiến bộ ổn."
-    elif avg_score >= 40:
-        summary = f"Bé đã chơi {total_sessions} lượt trong tuần này. Điểm trung bình là {round(avg_score)}/100. Bé cần luyện thêm một số cảm xúc."
-    else:
-        summary = f"Bé đã chơi {total_sessions} lượt trong tuần này. Điểm trung bình là {round(avg_score)}/100. Bé nên ôn lại các cảm xúc cơ bản."
+    summary = build_summary_text(
+        sessions_count=total_sessions,
+        average_score=None if avg_score is None else round(avg_score),
+        period_type=report_type,
+    )
 
     data = {
         "period": report_type,
@@ -396,11 +390,15 @@ def _report_payload(report: Report, db: Session) -> dict:
 
     raw_avg_score = parsed_data.get("avg_score")
     raw_previous_avg_score = parsed_data.get("previous_avg_score")
+    raw_games_stats = parsed_data.get("games_stats") if isinstance(parsed_data.get("games_stats"), list) else []
+    games_played_count = len(
+        [game for game in raw_games_stats if isinstance(game, dict) and _safe_int(game.get("sessions"), 0) > 0]
+    )
     stats = {
         "total_sessions": _safe_int(parsed_data.get("total_sessions"), 0),
         "avg_score": None if raw_avg_score is None else round(_safe_float(raw_avg_score), 1),
         "progress_count": _safe_int(parsed_data.get("progress_count"), 0),
-        "total_games": _safe_int(parsed_data.get("total_games"), 0),
+        "total_games": games_played_count,
         "total_playtime_minutes": _safe_int(parsed_data.get("total_playtime_minutes"), 0),
         "previous_avg_score": None if raw_previous_avg_score is None else round(_safe_float(raw_previous_avg_score), 1),
     }
@@ -479,60 +477,120 @@ def _resolve_parent_email(db: Session, child_user_id: str, explicit_email: str |
 
 
 def _build_report_email_body(payload: dict) -> str:
-    child_name = payload.get("child_name") or "bé"
-    report_type = payload.get("report_type") or "weekly"
-    summary = payload.get("summary") or "Chưa có dữ liệu chi tiết."
-    stats = payload.get("stats") or {}
-    generated_at = payload.get("generated_at") or datetime.utcnow().isoformat()
-
-    total_sessions = stats.get("total_sessions", 0)
-    avg_score = stats.get("avg_score")
-    total_games = stats.get("total_games", 0)
-    total_playtime_minutes = stats.get("total_playtime_minutes", 0)
-    avg_score_text = f"{round(avg_score)}/100" if avg_score is not None else "Chưa có"
-    playtime_text = (
-        "Chưa đo"
-        if _safe_int(total_sessions) > 0 and _safe_int(total_playtime_minutes) == 0
-        else f"{total_playtime_minutes} phút"
-    )
-
-    report_data = {}
-    try:
-        report_data = json.loads(payload.get("data") or "{}")
-    except json.JSONDecodeError:
-        report_data = {}
-
-    top_games = report_data.get("games_stats", [])[:3]
-    top_games_text = "\n".join(
-        f"- {game.get('game_name', 'Trò chơi')}: {game.get('sessions', 0)} lượt"
-        for game in top_games
-    ) or "- Chưa có dữ liệu trò chơi."
-
-    achievements = report_data.get("achievements", [])[:3]
-    achievements_text = "\n".join(f"- {item}" for item in achievements) or "- Chưa có thành tựu nổi bật."
-
-    reportlab_note = (
-        ""
-        if REPORTLAB_AVAILABLE
-        else "\n\nLưu ý: email này hiện chưa kèm tệp PDF."
-    )
+    report = build_report_data(payload)
+    weak_names = ", ".join(item.name for item in report.weak_emotions[:2])
+    recommendation = report.progress_comment
+    if weak_names:
+        recommendation = f"{recommendation} Phụ huynh có thể cùng bé ôn lại các tình huống về {weak_names}."
 
     return (
-        f"EmoGarden - Báo cáo tiến độ ({report_type})\n\n"
-        f"Người học: {child_name}\n"
-        f"Thời điểm tạo: {generated_at}\n\n"
-        f"Tóm tắt:\n{summary}\n\n"
-        f"Thống kê chính:\n"
-        f"- Tổng số lượt chơi: {total_sessions}\n"
-        f"- Điểm trung bình: {avg_score_text}\n"
-        f"- Trò chơi đã luyện: {total_games}\n"
-        f"- Thời gian chơi: {playtime_text}\n\n"
-        f"Trò chơi luyện nhiều:\n{top_games_text}\n\n"
-        f"Thành tựu nổi bật:\n{achievements_text}\n\n"
-        "Phụ huynh vui lòng xem file PDF đính kèm để xem báo cáo đầy đủ."
-        f"{reportlab_note}\n\n"
-        "Email này được tạo tự động từ EmoGarden."
+        "EmoGarden - Báo cáo tiến độ cảm xúc\n\n"
+        "Kính gửi Quý phụ huynh,\n\n"
+        f"EmoGarden gửi báo cáo tiến độ học cảm xúc tuần này của bé {report.child_name}.\n\n"
+        f"Tuần này, bé đã luyện {report.sessions_count} lượt.\n"
+        f"Điểm trung bình: {report.average_score_text}.\n"
+        f"Bé đã luyện {report.learned_emotion_count}/{report.total_emotion_count} cảm xúc.\n\n"
+        f"{recommendation}\n\n"
+        "Báo cáo chi tiết đã được đính kèm trong email này.\n\n"
+        "Trân trọng,\n"
+        "EmoGarden"
     )
+
+
+def _build_report_email_html(payload: dict) -> str:
+    report = build_report_data(payload)
+    weak_names = ", ".join(item.name for item in report.weak_emotions[:2])
+    recommendation = report.progress_comment
+    if weak_names:
+        recommendation = f"{recommendation} Phụ huynh có thể cùng bé ôn lại các tình huống về {weak_names}."
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #1f2937;
+                max-width: 640px;
+                margin: 0 auto;
+                padding: 20px;
+                background: #f4f8fb;
+            }}
+            .header {{
+                background: linear-gradient(135deg, #5bb3f5 0%, #2677c9 100%);
+                color: white;
+                padding: 28px;
+                border-radius: 14px 14px 0 0;
+                text-align: center;
+            }}
+            .content {{
+                background: #ffffff;
+                padding: 28px;
+                border-radius: 0 0 14px 14px;
+                border: 1px solid #dbeafe;
+            }}
+            .summary {{
+                background: #eff6ff;
+                border-left: 4px solid #5bb3f5;
+                padding: 14px;
+                border-radius: 8px;
+                margin: 18px 0;
+            }}
+            .metric-row {{
+                display: table;
+                width: 100%;
+                border-spacing: 8px;
+                margin: 16px 0;
+            }}
+            .metric {{
+                display: table-cell;
+                background: #f0f9ff;
+                border: 1px solid #dbeafe;
+                border-radius: 12px;
+                padding: 12px;
+                text-align: center;
+                width: 33.33%;
+            }}
+            .metric strong {{
+                display: block;
+                color: #0f6fbf;
+                font-size: 20px;
+            }}
+            .metric span {{
+                color: #64748b;
+                font-size: 12px;
+            }}
+            .footer {{
+                color: #64748b;
+                font-size: 12px;
+                margin-top: 18px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>EmoGarden</h1>
+            <h2>Báo cáo tiến độ cảm xúc</h2>
+        </div>
+        <div class="content">
+            <p>Kính gửi Quý Phụ huynh,</p>
+            <p>EmoGarden gửi báo cáo tiến độ học cảm xúc tuần này của bé <strong>{escape(report.child_name)}</strong>.</p>
+            <div class="metric-row">
+                <div class="metric"><strong>{report.sessions_count}</strong><span>Lượt luyện</span></div>
+                <div class="metric"><strong>{report.average_score_text}</strong><span>Điểm trung bình</span></div>
+                <div class="metric"><strong>{report.learned_emotion_count}/{report.total_emotion_count}</strong><span>Cảm xúc đã luyện</span></div>
+            </div>
+            <div class="summary">{escape(recommendation)}</div>
+            <p>Báo cáo chi tiết đã được đính kèm trong email này.</p>
+            <p>Trân trọng,<br/>EmoGarden</p>
+            <p class="footer">Email này được tạo tự động từ EmoGarden.</p>
+        </div>
+    </body>
+    </html>
+    """
 
 
 def _sanitize_filename(filename: str) -> str:
@@ -545,9 +603,10 @@ def _sanitize_filename(filename: str) -> str:
 def _build_pdf_bytes(payload: dict) -> bytes | None:
     if not REPORTLAB_AVAILABLE:
         return None
-    child_name = payload.get("child_name") or "Be"
-    report_type = payload.get("report_type") or "weekly"
-    summary = payload.get("summary") or "Chưa có dữ liệu."
+    report = build_report_data(payload)
+    child_name = report.child_name or "Bé"
+    report_type = report.period_type or "weekly"
+    summary = report.summary_text
     generated_at = None
     generated_at_raw = payload.get("generated_at")
     if generated_at_raw:
@@ -566,35 +625,43 @@ def _build_pdf_bytes(payload: dict) -> bytes | None:
 
 
 def _send_report_email(recipient: str, payload: dict) -> tuple[bool, str]:
+    report = build_report_data(payload, parent_email=recipient)
     smtp_username = (settings.SMTP_USERNAME or settings.EMAIL_USER or "").strip()
     smtp_password = settings.SMTP_PASSWORD or settings.EMAIL_PASS
-    smtp_host = (settings.SMTP_HOST or ("smtp.gmail.com" if smtp_username else "")).strip()
+    smtp_host = (settings.SMTP_HOST or "smtp.gmail.com").strip()
     smtp_from = (settings.SMTP_FROM_EMAIL or smtp_username).strip()
 
-    if not smtp_host or not smtp_from:
-        return False, "SMTP chưa được cấu hình đầy đủ."
-
-    message = EmailMessage()
-    message["Subject"] = "EmoGarden - Báo cáo tiến độ"
-    message["From"] = f"{settings.SMTP_FROM_NAME} <{smtp_from}>"
-    message["To"] = recipient
-    message.set_content(_build_report_email_body(payload))
+    if not smtp_username or not smtp_password or not smtp_host or not smtp_from:
+        return False, "Chưa thể gửi email lúc này. Vui lòng thử lại sau."
 
     pdf_bytes = _build_pdf_bytes(payload)
-    if pdf_bytes:
-        child_name = payload.get("child_name") or "Be"
-        report_type = payload.get("report_type") or "weekly"
-        date_part = datetime.utcnow().strftime("%Y%m%d")
-        filename_utf8 = f"BaoCao_{child_name}_{report_type}_{date_part}.pdf"
-        filename_ascii = _sanitize_filename(filename_utf8)
-        message.add_attachment(
-            pdf_bytes,
-            maintype="application",
-            subtype="pdf",
-            filename=filename_ascii,
-            disposition="attachment",
-            params={"filename*": f"UTF-8''{quote(filename_utf8)}"},
-        )
+    if not pdf_bytes:
+        return False, "Chưa tạo được báo cáo. Vui lòng thử lại."
+
+    child_name = report.child_name or "Bé"
+    report_type = report.period_type or "weekly"
+    date_part = datetime.utcnow().strftime("%Y%m%d")
+    filename_utf8 = f"BaoCao_{child_name}_{report_type}_{date_part}.pdf"
+    filename_ascii = _sanitize_filename(filename_utf8)
+
+    message = MIMEMultipart("mixed")
+    message["Subject"] = str(Header(f"Báo cáo tiến độ cảm xúc của {child_name} - EmoGarden", "utf-8"))
+    message["From"] = formataddr((str(Header(settings.SMTP_FROM_NAME or "EmoGarden", "utf-8")), smtp_from))
+    message["To"] = recipient
+
+    alternative = MIMEMultipart("alternative")
+    alternative.attach(MIMEText(_build_report_email_body(payload), "plain", "utf-8"))
+    alternative.attach(MIMEText(_build_report_email_html(payload), "html", "utf-8"))
+    message.attach(alternative)
+
+    attachment = MIMEBase("application", "pdf")
+    attachment.set_payload(pdf_bytes)
+    encoders.encode_base64(attachment)
+    attachment.add_header(
+        "Content-Disposition",
+        f"attachment; filename=\"{filename_ascii}\"; filename*=UTF-8''{quote(filename_utf8)}",
+    )
+    message.attach(attachment)
 
     try:
         with smtplib.SMTP(smtp_host, settings.SMTP_PORT, timeout=20) as server:
@@ -604,10 +671,10 @@ def _send_report_email(recipient: str, payload: dict) -> tuple[bool, str]:
                 server.login(smtp_username, smtp_password)
             server.send_message(message)
         if pdf_bytes:
-            return True, f"Đã gửi báo cáo PDF tới {recipient}."
-        return True, f"Đã gửi báo cáo tới {recipient} (không có tệp PDF đính kèm)."
-    except Exception as exc:  # pragma: no cover - external service
-        return False, f"Gửi email thất bại: {exc}"
+            return True, f"Đã gửi báo cáo tới {recipient}."
+        return True, f"Đã gửi nội dung báo cáo tới {recipient}."
+    except Exception:  # pragma: no cover - external service
+        return False, "Chưa gửi được email. Vui lòng thử lại."
 
 
 def _create_and_optionally_send_report(
