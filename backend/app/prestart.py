@@ -1,3 +1,4 @@
+import json
 import re
 import time
 
@@ -120,12 +121,13 @@ def apply_additive_migrations() -> None:
             text(
                 """
                 UPDATE child_progress
-                SET review_emotions='{"happy":0,"sad":0,"angry":0,"fear":0,"surprise":0,"disgust":0}'
+                SET review_emotions=:review_emotions
                 WHERE review_emotions IS NULL
                   OR LTRIM(RTRIM(review_emotions))=''
                   OR LTRIM(RTRIM(review_emotions))='[]'
                 """
-            )
+            ),
+            {"review_emotions": json.dumps({"happy": 0, "sad": 0, "angry": 0, "fear": 0, "surprise": 0, "disgust": 0})},
         )
 
 
