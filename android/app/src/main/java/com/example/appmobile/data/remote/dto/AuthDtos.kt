@@ -53,7 +53,8 @@ data class UserProfileUpdateDto(
 
 data class UserProfileUpdateRequestDto(
     @SerializedName("user_id") val userId: String,
-    @SerializedName("update") val update: UserProfileUpdateDto
+    @SerializedName("update") val update: UserProfileUpdateDto,
+    @SerializedName("lookup_email") val lookupEmail: String? = null
 )
 
 data class ChildRegisterRequestDto(

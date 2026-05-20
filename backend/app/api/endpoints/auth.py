@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 from datetime import date, datetime
 
@@ -107,6 +108,56 @@ def _user_payload(user: User, child: Child | None = None) -> dict:
             "report_preferences": child.report_preferences,
         }
     return payload
+
+
+def _clean_lookup_email(value: str | None) -> str | None:
+    email = (value or "").strip()
+    if not email or "@" not in email or "." not in email.rsplit("@", 1)[-1]:
+        return None
+    return email.lower()
+
+
+def _local_email_for_user_id(user_id: str) -> str:
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "", user_id).strip("._-")[:48]
+    if not safe:
+        safe = uuid.uuid4().hex[:12]
+    return f"{safe}@local.invalid"
+
+
+def _find_user(db: Session, user_id: str | None, lookup_email: str | None = None) -> User | None:
+    user = db.get(User, user_id) if user_id else None
+    email = _clean_lookup_email(lookup_email)
+    if user is None and email is not None:
+        user = db.query(User).filter(func.lower(User.email) == email).first()
+    return user
+
+
+def _ensure_profile_user(db: Session, user_id: str, lookup_email: str | None = None) -> User:
+    user = _find_user(db, user_id, lookup_email)
+    if user is not None:
+        return user
+
+    email = _clean_lookup_email(lookup_email) or _local_email_for_user_id(user_id)
+    username = email.split("@", 1)[0][:50] or "Local Player"
+    user = User(
+        user_id=user_id,
+        username=username,
+        email=email,
+        role="child",
+        name="Local Player",
+    )
+    db.add(user)
+    db.flush()
+    return user
+
+
+def _ensure_child(db: Session, user_id: str) -> Child:
+    child = db.query(Child).filter(Child.user_id == user_id).first()
+    if child is None:
+        child = Child(user_id=user_id)
+        db.add(child)
+        db.flush()
+    return child
 
 
 def _ensure_report_preferences_capacity(db: Session) -> None:
@@ -247,11 +298,15 @@ async def reset_password(request: ResetPasswordRequest, db: Session = Depends(ge
 
 
 @router.get("/me")
-async def get_profile(user_id: str = Query(...), db: Session = Depends(get_db)):
-    user = db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    child = db.query(Child).filter(Child.user_id == user_id).first()
+async def get_profile(
+    user_id: str = Query(...),
+    email: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    user = _ensure_profile_user(db, user_id, email)
+    child = _ensure_child(db, user.user_id) if user.role == "child" else None
+    db.commit()
+    db.refresh(user)
     return _user_payload(user, child)
 
 
@@ -259,21 +314,17 @@ async def get_profile(user_id: str = Query(...), db: Session = Depends(get_db)):
 async def update_profile(payload: dict = Body(...), db: Session = Depends(get_db)):
     user_id = payload.get("user_id")
     update = payload.get("update", {})
+    lookup_email = payload.get("lookup_email")
     if not user_id:
         raise HTTPException(status_code=400, detail="Thiếu user_id")
 
-    user = db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+    user = _ensure_profile_user(db, user_id, lookup_email)
 
     for field in ["name", "username", "email", "password", "role"]:
         if update.get(field) not in [None, ""]:
             setattr(user, field, update[field])
 
-    child = db.query(Child).filter(Child.user_id == user_id).first()
-    if child is None and user.role == "child":
-        child = Child(user_id=user_id)
-        db.add(child)
+    child = _ensure_child(db, user.user_id) if user.role == "child" else None
 
     if child is not None:
         if update.get("report_preferences") not in [None, ""]:

@@ -11,6 +11,7 @@ import com.example.appmobile.data.remote.dto.ReportRequestResponseDto
 import com.example.appmobile.data.remote.dto.SendReportRequestDto
 import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.domain.model.Statistics
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -98,7 +99,10 @@ class AnalysisRepository(
 
     suspend fun getUserProfile(userId: String): UserProfileDto? {
         return try {
-            val response = apiService.getUserProfile(userId)
+            val lookupEmail = FirebaseAuth.getInstance().currentUser?.email
+                ?.trim()
+                ?.takeIf { it.isNotBlank() && "@" in it }
+            val response = apiService.getUserProfile(userId, lookupEmail)
             if (response.isSuccessful) response.body() else null
         } catch (_: Exception) {
             null

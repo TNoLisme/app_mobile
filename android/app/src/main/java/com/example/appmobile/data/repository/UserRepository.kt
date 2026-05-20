@@ -27,6 +27,12 @@ class UserRepository(
     private val firebaseAuthHelper: FirebaseAuthHelper,
     private val userDao: UserDao
 ) {
+    private fun currentAccountEmail(): String? {
+        return firebaseAuthHelper.auth.currentUser?.email
+            ?.trim()
+            ?.takeIf { it.isNotBlank() && "@" in it }
+    }
+
     suspend fun registerNewAccount(
         email: String,
         pass: String,
@@ -148,7 +154,7 @@ class UserRepository(
 
     suspend fun getProfile(userId: String): UserProfileDto? {
         return try {
-            val response = apiService.getUserProfile(userId)
+            val response = apiService.getUserProfile(userId, currentAccountEmail())
             if (response.isSuccessful) response.body() else null
         } catch (e: Exception) {
             null
@@ -157,7 +163,7 @@ class UserRepository(
 
     suspend fun updateProfile(userId: String, update: UserProfileUpdateDto): UserProfileDto? {
         return try {
-            val response = apiService.updateUserProfile(UserProfileUpdateRequestDto(userId, update))
+            val response = apiService.updateUserProfile(UserProfileUpdateRequestDto(userId, update, currentAccountEmail()))
             if (response.isSuccessful) response.body() else null
         } catch (e: Exception) {
             null

@@ -24,7 +24,10 @@ interface ApiService {
     suspend fun getChildProfile(@Path("uid") uid: String): Response<ChildDto>
 
     @GET("users/me")
-    suspend fun getUserProfile(@Query("user_id") userId: String): Response<UserProfileDto>
+    suspend fun getUserProfile(
+        @Query("user_id") userId: String,
+        @Query("email") lookupEmail: String? = null
+    ): Response<UserProfileDto>
 
     @PUT("users/me")
     suspend fun updateUserProfile(@Body request: UserProfileUpdateRequestDto): Response<UserProfileDto>
