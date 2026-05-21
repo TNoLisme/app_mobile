@@ -84,8 +84,6 @@ fun ReportPage(
     val lifecycleOwner = LocalLifecycleOwner.current
     var pendingEmailReportId by remember { mutableStateOf<String?>(null) }
     var showAddEmailGate by remember { mutableStateOf(false) }
-    var showParentDetailsGate by remember { mutableStateOf(false) }
-    var showParentDetails by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
@@ -136,19 +134,6 @@ fun ReportPage(
         )
     }
 
-    if (showParentDetailsGate) {
-        ParentGateDialog(
-            title = "Khu vực phụ huynh",
-            message = "Phần này dành cho phụ huynh xem báo cáo chi tiết của bé.",
-            confirmText = "Tiếp tục",
-            onDismiss = { showParentDetailsGate = false },
-            onConfirm = {
-                showParentDetailsGate = false
-                showParentDetails = true
-            }
-        )
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -185,31 +170,6 @@ fun ReportPage(
                 StatusMessageCard(message = message)
             }
 
-            ParentDetailsLink(
-                expanded = showParentDetails,
-                onClick = {
-                    if (showParentDetails) {
-                        showParentDetails = false
-                    } else {
-                        showParentDetailsGate = true
-                    }
-                }
-            )
-
-            if (showParentDetails) {
-                ParentSuggestionCard(text = state.parentSuggestion)
-                GeneratedReportsSection(
-                    reports = state.generatedReports,
-                    isRefreshing = state.isRefreshing,
-                    hasRecipientEmail = state.hasRecipientEmail,
-                    parentEmail = state.parentEmail,
-                    onRefresh = { viewModel.onRefreshReports(showFullLoading = false) },
-                    onGenerate = viewModel::onGeneratePdf,
-                    onOpen = viewModel::onOpenReport,
-                    onDownload = viewModel::onDownloadPdf,
-                    onSend = { reportId -> requestSendEmail(reportId) }
-                )
-            }
         }
     }
 }
@@ -353,7 +313,6 @@ private fun ChildSendReportCard(
     val buttonText = when (state.pdfState) {
         PdfState.Generating -> "Đang chuẩn bị báo cáo..."
         PdfState.EmailSending -> "Đang gửi báo cáo..."
-        PdfState.EmailSent -> "Gửi lại cho bố mẹ"
         else -> "Gửi báo cáo cho bố mẹ"
     }
     Card(
@@ -403,21 +362,6 @@ private fun MissingParentEmailCard(onAddEmail: () -> Unit) {
             Text("Nhờ bố mẹ thêm email để nhận báo cáo hằng tuần nhé.", color = ReportInk, lineHeight = 21.sp)
             PrimaryReportButton(text = "Thêm email phụ huynh", onClick = onAddEmail)
         }
-    }
-}
-
-@Composable
-private fun ParentDetailsLink(expanded: Boolean, onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = ReportNavy)
-    ) {
-        Text(
-            if (expanded) "Đóng báo cáo chi tiết" else "Phụ huynh xem báo cáo chi tiết >",
-            fontWeight = FontWeight.Bold,
-            maxLines = 1
-        )
     }
 }
 
