@@ -315,7 +315,6 @@ private fun ChildSendReportCard(
     val generatedReportId = when (val pdfState = state.pdfState) {
         is PdfState.Generated -> pdfState.reportId
         is PdfState.PreviewError -> pdfState.reportId
-        is PdfState.EmailError -> state.currentReport?.id
         else -> null
     }?.takeIf { it.isNotBlank() }
     val buttonText = when (state.pdfState) {

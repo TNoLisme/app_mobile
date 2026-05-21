@@ -310,12 +310,12 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             result?.data?.let { payload -> applyReportPayload(payload) }
             _state.update {
                 it.copy(
-                    pdfState = if (sent) {
-                        PdfState.NotGenerated
+                    pdfState = PdfState.NotGenerated,
+                    statusMessage = if (sent) {
+                        "Đã gửi báo cáo cho bố mẹ 🎉"
                     } else {
-                        PdfState.EmailError(result?.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại.")
-                    },
-                    statusMessage = if (sent) "Đã gửi báo cáo cho bố mẹ 🎉" else null
+                        result?.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại."
+                    }
                 )
             }
         }
@@ -343,12 +343,12 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 result?.data?.let { payload -> applyReportPayload(payload) }
                 _state.update {
                     it.copy(
-                        pdfState = if (sent) {
-                            PdfState.NotGenerated
+                        pdfState = PdfState.NotGenerated,
+                        statusMessage = if (sent) {
+                            "Đã gửi báo cáo cho bố mẹ 🎉"
                         } else {
-                            PdfState.EmailError(result?.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại.")
-                        },
-                        statusMessage = if (sent) "Đã gửi báo cáo cho bố mẹ 🎉" else null
+                            result?.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại."
+                        }
                     )
                 }
                 return@launch
@@ -363,8 +363,8 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             if (payload?.reportId.isNullOrBlank()) {
                 _state.update {
                     it.copy(
-                        pdfState = PdfState.GenerateError(result?.message ?: "Chưa tạo được báo cáo. Vui lòng thử lại."),
-                        statusMessage = null
+                        pdfState = PdfState.NotGenerated,
+                        statusMessage = result?.message ?: "Chưa tạo được báo cáo. Vui lòng thử lại."
                     )
                 }
                 return@launch
@@ -374,12 +374,12 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             val sent = result.emailSent == true
             _state.update {
                 it.copy(
-                    pdfState = if (sent) {
-                        PdfState.NotGenerated
+                    pdfState = PdfState.NotGenerated,
+                    statusMessage = if (sent) {
+                        "Đã gửi báo cáo cho bố mẹ 🎉"
                     } else {
-                        PdfState.EmailError(result.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại.")
-                    },
-                    statusMessage = if (sent) "Đã gửi báo cáo cho bố mẹ 🎉" else null
+                        result.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại."
+                    }
                 )
             }
         }
