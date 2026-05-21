@@ -1,9 +1,5 @@
 package com.example.appmobile.ui.pages.learn
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import android.content.pm.ActivityInfo
 import android.media.MediaPlayer
 import android.view.Surface
 import android.view.TextureView
@@ -769,7 +765,7 @@ private fun AssetVideoPlayer(
             if (allowFullscreen && controlsVisible) {
                 Surface(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
+                        .align(Alignment.BottomEnd)
                         .padding(8.dp)
                         .size(36.dp)
                         .clickable { showFullscreen = true },
@@ -828,17 +824,6 @@ private fun AssetVideoPlayer(
 
 @Composable
 private fun FullscreenVideoDialog(emotionId: String, onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    val activity = remember(context) { context.findActivity() }
-
-    DisposableEffect(activity) {
-        val previousOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        onDispose {
-            activity?.requestedOrientation = previousOrientation
-        }
-    }
-
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
@@ -868,14 +853,6 @@ private fun FullscreenVideoDialog(emotionId: String, onDismiss: () -> Unit) {
                 }
             }
         }
-    }
-}
-
-private tailrec fun Context.findActivity(): Activity? {
-    return when (this) {
-        is Activity -> this
-        is ContextWrapper -> baseContext.findActivity()
-        else -> null
     }
 }
 
