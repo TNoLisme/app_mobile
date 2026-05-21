@@ -308,11 +308,10 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             val result = repository.sendReport(targetId, state.value.parentEmail)
             val sent = result?.emailSent == true
             result?.data?.let { payload -> applyReportPayload(payload) }
-            val nextReportId = result?.data?.reportId?.takeIf { it.isNotBlank() } ?: targetId
             _state.update {
                 it.copy(
                     pdfState = if (sent) {
-                        PdfState.Generated(nextReportId)
+                        PdfState.NotGenerated
                     } else {
                         PdfState.EmailError(result?.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại.")
                     },
@@ -342,11 +341,10 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 val result = repository.sendReport(reportId, state.value.parentEmail)
                 val sent = result?.emailSent == true
                 result?.data?.let { payload -> applyReportPayload(payload) }
-                val nextReportId = result?.data?.reportId?.takeIf { it.isNotBlank() } ?: reportId
                 _state.update {
                     it.copy(
                         pdfState = if (sent) {
-                            PdfState.Generated(nextReportId)
+                            PdfState.NotGenerated
                         } else {
                             PdfState.EmailError(result?.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại.")
                         },
@@ -374,11 +372,10 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
 
             applyReportPayload(payload!!, pdfState = PdfState.EmailSending, statusMessage = null)
             val sent = result.emailSent == true
-            val nextReportId = payload.reportId?.takeIf { it.isNotBlank() }
             _state.update {
                 it.copy(
                     pdfState = if (sent) {
-                        nextReportId?.let { reportId -> PdfState.Generated(reportId) } ?: PdfState.NotGenerated
+                        PdfState.NotGenerated
                     } else {
                         PdfState.EmailError(result.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại.")
                     },

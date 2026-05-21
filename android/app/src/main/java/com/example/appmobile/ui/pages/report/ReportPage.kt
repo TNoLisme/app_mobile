@@ -159,7 +159,8 @@ fun ReportPage(
             if (state.hasRecipientEmail) {
                 ChildSendReportCard(
                     state = state,
-                    onSend = { requestSendEmail(null) },
+                    onGenerate = viewModel::onGeneratePdf,
+                    onSend = { reportId -> requestSendEmail(reportId) },
                     onViewReport = viewModel::onPreviewCurrentReport
                 )
             } else {
@@ -306,15 +307,26 @@ private fun ChildPracticeCard(emotions: List<ReportEmotionUi>, onPlayNow: () -> 
 @Composable
 private fun ChildSendReportCard(
     state: ProgressReportUiState,
-    onSend: () -> Unit,
+    onGenerate: () -> Unit,
+    onSend: (String?) -> Unit,
     onViewReport: () -> Unit
 ) {
     val busy = state.pdfState == PdfState.Generating || state.pdfState == PdfState.EmailSending
+    val generatedReportId = when (val pdfState = state.pdfState) {
+        is PdfState.Generated -> pdfState.reportId
+        is PdfState.PreviewError -> pdfState.reportId
+        is PdfState.EmailError -> state.currentReport?.id
+        else -> null
+    }?.takeIf { it.isNotBlank() }
     val buttonText = when (state.pdfState) {
         PdfState.Generating -> "Đang chuẩn bị báo cáo..."
         PdfState.EmailSending -> "Đang gửi báo cáo..."
+        is PdfState.Generated,
+        is PdfState.PreviewError,
+        is PdfState.EmailError -> "Gửi báo cáo cho bố mẹ"
         else -> "Gửi báo cáo cho bố mẹ"
     }
+    val primaryText = if (generatedReportId == null && !busy) "Tạo báo cáo" else buttonText
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -329,21 +341,29 @@ private fun ChildSendReportCard(
                 Text("Báo cáo tuần này sẽ gửi đến: $email", color = ReportInk, lineHeight = 21.sp)
             }
             Button(
-                onClick = onSend,
+                onClick = {
+                    if (generatedReportId == null) {
+                        onGenerate()
+                    } else {
+                        onSend(generatedReportId)
+                    }
+                },
                 enabled = !busy,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = ReportBlue, disabledContainerColor = EgDesign.cardBorder)
             ) {
-                Text(buttonText, color = Color.White, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                Text(primaryText, color = Color.White, fontWeight = FontWeight.ExtraBold, maxLines = 1)
             }
-            OutlinedButton(
-                onClick = onViewReport,
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Xem báo cáo", color = ReportNavy, fontWeight = FontWeight.Bold, maxLines = 1)
+            if (generatedReportId != null) {
+                OutlinedButton(
+                    onClick = onViewReport,
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Xem báo cáo", color = ReportNavy, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
             }
         }
     }
