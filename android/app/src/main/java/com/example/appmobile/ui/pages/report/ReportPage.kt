@@ -60,6 +60,7 @@ import com.example.appmobile.ui.viewmodel.PdfState
 import com.example.appmobile.ui.viewmodel.ProgressReportUiState
 import com.example.appmobile.ui.viewmodel.ReportEmotionUi
 import com.example.appmobile.ui.viewmodel.ReportViewModel
+import com.example.appmobile.ui.viewmodel.SendReportResultDialogUi
 import com.example.appmobile.ui.viewmodel.WeeklySummary
 import com.example.appmobile.ui.viewmodel.buildWeeklySummaryText
 import com.example.appmobile.ui.viewmodel.formatReportScore
@@ -131,6 +132,13 @@ fun ReportPage(
                 showAddEmailGate = false
                 onUpdateEmail()
             }
+        )
+    }
+
+    state.sendResultDialog?.let { result ->
+        SendReportResultDialog(
+            result = result,
+            onDismiss = viewModel::dismissSendResultDialog
         )
     }
 
@@ -872,6 +880,68 @@ private fun StatusMessageCard(message: String) {
             fontWeight = FontWeight.SemiBold,
             lineHeight = 20.sp
         )
+    }
+}
+
+@Composable
+private fun SendReportResultDialog(
+    result: SendReportResultDialogUi,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnClickOutside = true)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(26.dp),
+            color = EgDesign.card,
+            shadowElevation = 12.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = if (result.isSuccess) Color(0xFFE9F8EF) else Color(0xFFFFEFEF)
+                ) {
+                    Text(
+                        text = if (result.isSuccess) "🎉" else "!",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (result.isSuccess) Color(0xFF16843A) else Color(0xFFD43838),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Text(
+                    text = result.title,
+                    color = ReportNavy,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 22.sp,
+                    lineHeight = 26.sp,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = result.message,
+                    color = ReportInk,
+                    fontSize = 15.sp,
+                    lineHeight = 21.sp,
+                    textAlign = TextAlign.Center
+                )
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = ReportBlue)
+                ) {
+                    Text("Đã hiểu", color = Color.White, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+        }
     }
 }
 

@@ -39,6 +39,7 @@ data class ProgressReportUiState(
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
     val statusMessage: String? = null,
+    val sendResultDialog: SendReportResultDialogUi? = null,
     val weeklySummary: WeeklySummary? = null,
     val emotionStats: List<ReportEmotionUi> = emptyList(),
     val parentSuggestion: String = "",
@@ -50,6 +51,12 @@ data class ProgressReportUiState(
     val isPreviewVisible: Boolean = false,
     val hasRecipientEmail: Boolean = false,
     val parentEmail: String? = null
+)
+
+data class SendReportResultDialogUi(
+    val isSuccess: Boolean,
+    val title: String,
+    val message: String
 )
 
 data class WeeklySummary(
@@ -302,7 +309,8 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             _state.update {
                 it.copy(
                     pdfState = PdfState.EmailSending,
-                    statusMessage = null
+                    statusMessage = null,
+                    sendResultDialog = null
                 )
             }
             val result = repository.sendReport(targetId, state.value.parentEmail)
@@ -311,11 +319,8 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             _state.update {
                 it.copy(
                     pdfState = PdfState.NotGenerated,
-                    statusMessage = if (sent) {
-                        "Đã gửi báo cáo cho bố mẹ 🎉"
-                    } else {
-                        result?.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại."
-                    }
+                    statusMessage = null,
+                    sendResultDialog = buildSendResultDialog(sent, result?.message)
                 )
             }
         }
@@ -333,7 +338,8 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 it.copy(
                     pdfState = PdfState.EmailSending,
                     statusMessage = null,
-                    errorMessage = null
+                    errorMessage = null,
+                    sendResultDialog = null
                 )
             }
 
@@ -344,11 +350,8 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 _state.update {
                     it.copy(
                         pdfState = PdfState.NotGenerated,
-                        statusMessage = if (sent) {
-                            "Đã gửi báo cáo cho bố mẹ 🎉"
-                        } else {
-                            result?.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại."
-                        }
+                        statusMessage = null,
+                        sendResultDialog = buildSendResultDialog(sent, result?.message)
                     )
                 }
                 return@launch
@@ -364,7 +367,12 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 _state.update {
                     it.copy(
                         pdfState = PdfState.NotGenerated,
-                        statusMessage = result?.message ?: "Chưa tạo được báo cáo. Vui lòng thử lại."
+                        statusMessage = null,
+                        sendResultDialog = SendReportResultDialogUi(
+                            isSuccess = false,
+                            title = "Chưa gửi được báo cáo",
+                            message = result?.message ?: "Chưa tạo được báo cáo. Vui lòng thử lại."
+                        )
                     )
                 }
                 return@launch
@@ -375,11 +383,8 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             _state.update {
                 it.copy(
                     pdfState = PdfState.NotGenerated,
-                    statusMessage = if (sent) {
-                        "Đã gửi báo cáo cho bố mẹ 🎉"
-                    } else {
-                        result.message ?: "Chưa gửi được báo cáo. Vui lòng thử lại."
-                    }
+                    statusMessage = null,
+                    sendResultDialog = buildSendResultDialog(sent, result.message)
                 )
             }
         }
@@ -399,6 +404,27 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearStatusMessage() {
         _state.update { it.copy(statusMessage = null) }
+    }
+
+    fun dismissSendResultDialog() {
+        _state.update { it.copy(sendResultDialog = null) }
+    }
+
+    private fun buildSendResultDialog(sent: Boolean, message: String?): SendReportResultDialogUi {
+        return if (sent) {
+            SendReportResultDialogUi(
+                isSuccess = true,
+                title = "Đã gửi báo cáo!",
+                message = "Báo cáo đã được gửi cho bố mẹ."
+            )
+        } else {
+            SendReportResultDialogUi(
+                isSuccess = false,
+                title = "Chưa gửi được báo cáo",
+                message = message?.takeIf { it.isNotBlank() }
+                    ?: "Vui lòng thử lại sau."
+            )
+        }
     }
 
     private fun currentUserId(): String {
