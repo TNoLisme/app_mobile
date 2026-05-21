@@ -74,6 +74,7 @@ class PlaySession(Base):
     end_time = Column(DateTime)
     state = Column(String(30), default="playing")
     score = Column(Integer, default=0)
+    level = Column(Integer, default=1)
     emotion_errors = Column(Text)
     max_errors = Column(Integer, default=3)
     level_threshold = Column(Float, default=70.0)
