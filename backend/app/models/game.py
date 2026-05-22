@@ -55,13 +55,22 @@ class GameData(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class Question(Base):
+    __tablename__ = "questions"
+
+    question_id = Column(String(64), primary_key=True)
+    game_id = Column(String(64), ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
+    content_id = Column(String(64), ForeignKey("game_content.content_id", ondelete="CASCADE"), nullable=False)
+    level = Column(Integer, default=1)
+    correct_answer = Column(Unicode(50))
+
+
 class GameDataQuestion(Base):
     __tablename__ = "game_data_question"
 
     data_id = Column(String(64), ForeignKey("game_data.data_id", ondelete="CASCADE"), primary_key=True)
-    # SQL Server does not allow multiple cascade paths from games -> game_data_question.
-    # Keep cascade from game_data side and use NO ACTION on game_content side.
-    question_id = Column(String(64), ForeignKey("game_content.content_id"), primary_key=True)
+    # Trỏ về bảng questions.question_id thay vì game_content.content_id
+    question_id = Column(String(64), ForeignKey("questions.question_id"), primary_key=True)
 
 
 class PlaySession(Base):
@@ -89,8 +98,15 @@ class SessionQuestion(Base):
 
     id = Column(String(64), primary_key=True)
     session_id = Column(String(64), ForeignKey("sessions.session_id", ondelete="CASCADE"), nullable=False, index=True)
-    question_id = Column(String(64), ForeignKey("game_content.content_id", ondelete="SET NULL"), index=True)
-    is_correct = Column(Integer, default=0)
+    # Trỏ về bảng questions
+    question_id = Column(String(64), ForeignKey("questions.question_id", ondelete="SET NULL"), index=True)
+    
+    # Bổ sung các cột thiếu so với file txt
+    user_answer = Column(Unicode(255))
+    correct_answer = Column(Unicode(255))
+    is_correct = Column(Integer, default=0)  # Tương đương BIT trong SQL Server
     response_time_ms = Column(Integer, default=0)
+    check_hint = Column(Integer, default=0)  # Tương đương BIT
     cv_confidence = Column(Float)
+    timestamp = Column(DateTime, default=datetime.utcnow)
     used_hint = Column(Integer, default=0)

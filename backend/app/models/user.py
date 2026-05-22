@@ -24,4 +24,9 @@ class Child(Base):
     phone_number = Column(String(20))
     report_preferences = Column(String(512))
     
+    # Bổ sung các cột thiếu
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime)
+    last_played = Column(DateTime)
+    
     user = relationship("User", back_populates="child_profile")

@@ -12,5 +12,6 @@ data class GameEntity(
     val level: Int,
     @ColumnInfo(name = "difficulty_level") val difficultyLevel: String?,
     @ColumnInfo(name = "max_errors") val maxErrors: Int,
+    @ColumnInfo(name = "level_threshold") val levelThreshold: Float? = null,
     @ColumnInfo(name = "time_limit") val timeLimit: Int?
 )

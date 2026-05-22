@@ -9,5 +9,6 @@ data class GameDataEntity(
     @PrimaryKey @ColumnInfo(name = "data_id") val dataId: String,
     @ColumnInfo(name = "game_id") val gameId: String,
     @ColumnInfo(name = "user_id") val userId: String,
-    val level: Int
+    val level: Int,
+    @ColumnInfo(name = "created_at") val createdAt: String? = null
 )

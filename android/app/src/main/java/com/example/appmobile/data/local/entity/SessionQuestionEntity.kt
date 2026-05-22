@@ -12,5 +12,9 @@ data class SessionQuestionEntity(
     @ColumnInfo(name = "user_answer") val userAnswer: String?,
     @ColumnInfo(name = "is_correct") val isCorrect: Boolean,
     @ColumnInfo(name = "response_time_ms") val responseTimeMs: Int,
-    @ColumnInfo(name = "cv_confidence") val cvConfidence: Float?
+    @ColumnInfo(name = "cv_confidence") val cvConfidence: Float?,
+    @ColumnInfo(name = "correct_answer") val correctAnswer: String? = null,
+    @ColumnInfo(name = "check_hint") val checkHint: Boolean? = false,
+    val timestamp: String? = null,
+    @ColumnInfo(name = "used_hint") val usedHint: Int? = 0
 )

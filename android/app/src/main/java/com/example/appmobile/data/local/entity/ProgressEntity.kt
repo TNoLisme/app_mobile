@@ -12,5 +12,8 @@ data class ProgressEntity(
     val level: Int,
     val accuracy: Float,
     val score: Int,
-    @ColumnInfo(name = "last_played") val lastPlayed: String
+    @ColumnInfo(name = "last_played") val lastPlayed: String,
+    @ColumnInfo(name = "avg_response_time") val avgResponseTime: Float = 0.0f,
+    val ratio: String? = null,
+    @ColumnInfo(name = "review_emotions") val reviewEmotions: String? = null
 )
