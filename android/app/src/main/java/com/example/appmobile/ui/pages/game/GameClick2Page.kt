@@ -68,12 +68,12 @@ private data class AssemblyQuestionUi(
 )
 
 private val faceEmotions = listOf(
-    FaceEmotionUi("happy", "Vui váº»", "ðŸ˜Š", R.drawable.face_ensemble_happy),
-    FaceEmotionUi("sad", "Buá»“n bÃ£", "ðŸ˜¢", R.drawable.face_ensemble_sad),
-    FaceEmotionUi("angry", "Tá»©c giáº­n", "ðŸ˜ ", R.drawable.face_ensemble_angry),
-    FaceEmotionUi("fear", "Sá»£ hÃ£i", "ðŸ˜¨", R.drawable.face_ensemble_fear),
-    FaceEmotionUi("surprise", "Ngáº¡c nhiÃªn", "ðŸ˜²", R.drawable.face_ensemble_surprise),
-    FaceEmotionUi("disgust", "GhÃª tá»Ÿm", "ðŸ¤¢", R.drawable.face_ensemble_disgust)
+    FaceEmotionUi("happy", "Vui vẻ", "ðŸ˜Š", R.drawable.face_ensemble_happy),
+    FaceEmotionUi("sad", "Buồn bã", "ðŸ˜¢", R.drawable.face_ensemble_sad),
+    FaceEmotionUi("angry", "Tức giận", "ðŸ˜ ", R.drawable.face_ensemble_angry),
+    FaceEmotionUi("fear", "Sợ hãi", "ðŸ˜¨", R.drawable.face_ensemble_fear),
+    FaceEmotionUi("surprise", "Ngạc nhiên", "ðŸ˜²", R.drawable.face_ensemble_surprise),
+    FaceEmotionUi("disgust", "Ghê tởm", "ðŸ¤¢", R.drawable.face_ensemble_disgust)
 )
 
 @Composable
@@ -110,9 +110,9 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             }
             summary.value = if (response != null) {
                 val status = if (response.passed) "ÄÃ£ qua level" else "ChÆ°a qua level"
-                "$status. Äiá»ƒm: ${response.score}/50."
+                "$status. Điểm: ${response.score}/50."
             } else {
-                "HoÃ n thÃ nh. Äiá»ƒm táº¡m tÃ­nh: ${score.intValue}."
+                "Hoàn thành. Điểm táº¡m tÃ­nh: ${score.intValue}."
             }
             response?.reviewEmotionsToLearn
                 ?.firstOrNull()
@@ -161,7 +161,7 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
         feedback.value = if (isCorrect) {
             "ÄÃºng rá»“i, con Ä‘Ã£ ghÃ©p khuÃ´n máº·t ${target.label}."
         } else {
-            "ChÆ°a Ä‘Ãºng. ÄÃ¡p Ã¡n lÃ  khuÃ´n máº·t ${target.label}."
+            "ChÆ°a đúng. Đáp án lÃ  khuÃ´n máº·t ${target.label}."
         }
     }
 
@@ -206,15 +206,15 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
     GameScreenShell(contentMaxWidth = 900, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onBack) { Text("â† Quay láº¡i") }
+                TextButton(onClick = onBack) { Text("â† Quay lại") }
                 Spacer(modifier = Modifier.weight(1f))
-                Text("XÆ°á»Ÿng láº¯p ghÃ©p", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
+                Text("Xưởng lắp ghép", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GameStatChip("CÃ¢u ${currentIndex.intValue + 1}/${questions.value.size}")
-                GameStatChip("Äiá»ƒm ${score.intValue}")
+                GameStatChip("Câu ${currentIndex.intValue + 1}/${questions.value.size}")
+                GameStatChip("Điểm ${score.intValue}")
                 GameStatChip("Level $level")
             }
 
@@ -309,7 +309,7 @@ private fun PreviewCard(selectedEyebrow: Int, selectedEyes: Int, selectedMouth: 
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("KhuÃ´n máº·t Ä‘ang ghÃ©p", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
+            Text("Khuôn mặt Ä‘ang ghÃ©p", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
             Spacer(modifier = Modifier.height(12.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -318,13 +318,13 @@ private fun PreviewCard(selectedEyebrow: Int, selectedEyes: Int, selectedMouth: 
                 border = BorderStroke(1.dp, EgDesign.cardBorder)
             ) {
                 Column(modifier = Modifier.fillMaxWidth().height(270.dp)) {
-                    FacePartBand(selectedEyebrow, partIndex = 0, label = "LÃ´ng mÃ y")
-                    FacePartBand(selectedEyes, partIndex = 1, label = "Máº¯t")
-                    FacePartBand(selectedMouth, partIndex = 2, label = "Miá»‡ng")
+                    FacePartBand(selectedEyebrow, partIndex = 0, label = "Lông mày")
+                    FacePartBand(selectedEyes, partIndex = 1, label = "Mắt")
+                    FacePartBand(selectedMouth, partIndex = 2, label = "Miệng")
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text("Chá»n cÃ¹ng má»™t cáº£m xÃºc cho cáº£ 3 pháº§n Ä‘á»ƒ táº¡o khuÃ´n máº·t Ä‘Ãºng.", color = EgDesign.textSecondary)
+            Text("Chá»n cÃ¹ng má»™t cảm xúc cho cáº£ 3 pháº§n Ä‘á»ƒ táº¡o khuÃ´n máº·t đúng.", color = EgDesign.textSecondary)
         }
     }
 }
@@ -390,20 +390,20 @@ private fun AssemblyControls(
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("YÃªu cáº§u", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
+            Text("Yêu cầu", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
             Text(question.text, style = MaterialTheme.typography.bodyLarge, color = EgDesign.textSecondary)
             Surface(shape = MaterialTheme.shapes.large, color = EgDesign.cardSoft) {
                 Text(
-                    "${target.emoji} GhÃ©p khuÃ´n máº·t: ${target.label}",
+                    "${target.emoji} Ghép khuôn mặt: ${target.label}",
                     modifier = Modifier.padding(12.dp),
                     color = EgDesign.textPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
             }
 
-            ControlItem("LÃ´ng mÃ y", selectedEyebrow, onCycleEyebrow, enabled = feedback == null)
-            ControlItem("Máº¯t", selectedEyes, onCycleEyes, enabled = feedback == null)
-            ControlItem("Miá»‡ng", selectedMouth, onCycleMouth, enabled = feedback == null)
+            ControlItem("Lông mày", selectedEyebrow, onCycleEyebrow, enabled = feedback == null)
+            ControlItem("Mắt", selectedEyes, onCycleEyes, enabled = feedback == null)
+            ControlItem("Miệng", selectedMouth, onCycleMouth, enabled = feedback == null)
 
             if (feedback != null) {
                 GameFeedbackCard(feedback)
@@ -414,7 +414,7 @@ private fun AssemblyControls(
                     Text("Chá»n láº¡i")
                 }
                 Button(onClick = onCheck, modifier = Modifier.weight(1f), enabled = canCheck) {
-                    Text("Kiá»ƒm tra")
+                    Text("Kiểm tra")
                 }
             }
 
@@ -426,8 +426,8 @@ private fun AssemblyControls(
                 Text(
                     when {
                         isSubmitting -> "Äang lÆ°u..."
-                        isLastQuestion -> "HoÃ n thÃ nh"
-                        else -> "CÃ¢u tiáº¿p theo"
+                        isLastQuestion -> "Hoàn thành"
+                        else -> "Câu tiếp theo"
                     }
                 )
             }

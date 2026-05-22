@@ -82,9 +82,9 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             }
             summary.value = if (response != null) {
                 val status = if (response.passed) "ÄÃ£ qua level" else "ChÆ°a qua level"
-                "$status. Äiá»ƒm: ${response.score}/50."
+                "$status. Điểm: ${response.score}/50."
             } else {
-                "HoÃ n thÃ nh. Äiá»ƒm táº¡m tÃ­nh: ${score.intValue}."
+                "Hoàn thành. Điểm táº¡m tÃ­nh: ${score.intValue}."
             }
             response?.reviewEmotionsToLearn
                 ?.firstOrNull()
@@ -102,7 +102,7 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                 val emotion = normalizeEmotionForLearning((content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null })
                 MatchQuestionUi(
                     questionId = content.contentId,
-                    text = content.questionText?.ifBlank { "Cáº£m xÃºc nÃ o phÃ¹ há»£p?" } ?: "Cáº£m xÃºc nÃ o phÃ¹ há»£p?",
+                    text = content.questionText?.ifBlank { "Cảm xúc nÃ o phÃ¹ há»£p?" } ?: "Cảm xúc nÃ o phÃ¹ há»£p?",
                     correctEmotion = emotion,
                     optionEmotionIds = optionEmotionIdsFromBackend(content.options, emotion)
                 )
@@ -130,15 +130,15 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
     GameScreenShell(contentMaxWidth = 800, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onBack) { Text("â† Quay láº¡i") }
+                TextButton(onClick = onBack) { Text("â† Quay lại") }
                 Spacer(modifier = Modifier.weight(1f))
-                Text("Cáº£m xÃºc Ä‘Ãºng chá»—", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
+                Text("Cảm xúc đúng chỗ", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GameStatChip("CÃ¢u ${currentIndex.intValue + 1}/${questions.value.size}")
-                GameStatChip("Äiá»ƒm ${score.intValue}")
+                GameStatChip("Câu ${currentIndex.intValue + 1}/${questions.value.size}")
+                GameStatChip("Điểm ${score.intValue}")
                 GameStatChip("Level $level")
             }
 
@@ -168,7 +168,7 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                 elevation = CardDefaults.cardElevation(2.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("TÃ¬nh huá»‘ng", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
+                    Text("Tình huống", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
                     Text(question.text, style = MaterialTheme.typography.titleMedium, color = EgDesign.textSecondary)
 
                     if (feedback.value != null) {
@@ -235,7 +235,7 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                         )
                         results.value = updatedResults
                         val targetName = GameUiCatalog.emotionById(question.correctEmotion)?.name ?: question.correctEmotion
-                        feedback.value = if (isCorrect) "ÄÃºng rá»“i." else "ChÆ°a Ä‘Ãºng. ÄÃ¡p Ã¡n lÃ  $targetName."
+                        feedback.value = if (isCorrect) "ÄÃºng rá»“i." else "ChÆ°a đúng. Đáp án lÃ  $targetName."
                         return@Button
                     }
 
@@ -255,9 +255,9 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                 Text(
                     when {
                         isSubmitting.value -> "Äang lÆ°u..."
-                        feedback.value == null -> "Tráº£ lá»i"
-                        currentIndex.intValue >= questions.value.lastIndex -> "HoÃ n thÃ nh"
-                        else -> "CÃ¢u tiáº¿p theo"
+                        feedback.value == null -> "Trả lời"
+                        currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
+                        else -> "Câu tiếp theo"
                     }
                 )
             }
@@ -279,8 +279,8 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
 
 private fun fallbackMatchQuestions(): List<MatchQuestionUi> {
     return listOf(
-        MatchQuestionUi("fallback-match-happy", "BÃ© Ä‘Æ°á»£c táº·ng mÃ³n quÃ  yÃªu thÃ­ch. Cáº£m xÃºc nÃ o phÃ¹ há»£p?", "happy"),
-        MatchQuestionUi("fallback-match-angry", "Báº¡n giáº­t Ä‘á»“ chÆ¡i khá»i tay bÃ©. Cáº£m xÃºc nÃ o cÃ³ thá»ƒ xuáº¥t hiá»‡n?", "angry")
+        MatchQuestionUi("fallback-match-happy", "BÃ© Ä‘Æ°á»£c táº·ng mÃ³n quÃ  yÃªu thÃ­ch. Cảm xúc nÃ o phÃ¹ há»£p?", "happy"),
+        MatchQuestionUi("fallback-match-angry", "Báº¡n giáº­t Ä‘á»“ chÆ¡i khá»i tay bÃ©. Cảm xúc nÃ o cÃ³ thá»ƒ xuáº¥t hiá»‡n?", "angry")
     )
 }
 

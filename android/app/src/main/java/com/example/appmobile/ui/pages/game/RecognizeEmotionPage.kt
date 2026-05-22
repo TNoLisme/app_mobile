@@ -90,9 +90,9 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
             }
             summary.value = if (response != null) {
                 val status = if (response.passed) "ÄÃ£ qua level" else "ChÆ°a qua level"
-                "$status. Äiá»ƒm: ${response.score}/50."
+                "$status. Điểm: ${response.score}/50."
             } else {
-                "HoÃ n thÃ nh. Äiá»ƒm táº¡m tÃ­nh: ${score.intValue}."
+                "Hoàn thành. Điểm táº¡m tÃ­nh: ${score.intValue}."
             }
             response?.reviewEmotionsToLearn
                 ?.firstOrNull()
@@ -110,7 +110,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                 val emotion = normalizeEmotionForLearning((content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null })
                 RecognizeQuestionUi(
                     questionId = content.contentId,
-                    questionText = content.questionText?.ifBlank { "ÄÃ¢y lÃ  cáº£m xÃºc gÃ¬?" } ?: "ÄÃ¢y lÃ  cáº£m xÃºc gÃ¬?",
+                    questionText = content.questionText?.ifBlank { "ÄÃ¢y lÃ  cảm xúc gÃ¬?" } ?: "ÄÃ¢y lÃ  cảm xúc gÃ¬?",
                     imageRes = emotionImageResource(emotion),
                     correctEmotion = emotion,
                     optionEmotionIds = optionEmotionIdsFromBackend(content.options, emotion)
@@ -156,20 +156,20 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                             color = Color(0xFF3B82F6)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("CÃ¢u ${currentIndex.intValue + 1}/${questions.value.size}", color = EgDesign.textPrimary)
+                        Text("Câu ${currentIndex.intValue + 1}/${questions.value.size}", color = EgDesign.textPrimary)
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                "Chiáº¿c há»™p cáº£m xÃºc",
+                "Chiếc hộp cảm xúc",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = EgDesign.textPrimary
             )
             Text(
-                "BÃ© hÃ£y nhÃ¬n hÃ¬nh vÃ  chá»n cáº£m xÃºc Ä‘Ãºng nháº¥t nhÃ©",
+                "Bé hãy nhÃ¬n hÃ¬nh vÃ  chá»n cảm xúc đúng nhất nhé",
                 style = MaterialTheme.typography.bodyMedium,
                 color = EgDesign.textSecondary
             )
@@ -283,7 +283,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                         results.value = updatedResults
                         val targetName = GameUiCatalog.emotionById(currentQuestion.correctEmotion)?.name
                             ?: currentQuestion.correctEmotion
-                        feedback.value = if (isCorrect) "ÄÃºng rá»“i." else "ChÆ°a Ä‘Ãºng. ÄÃ¡p Ã¡n lÃ  $targetName."
+                        feedback.value = if (isCorrect) "ÄÃºng rá»“i." else "ChÆ°a đúng. Đáp án lÃ  $targetName."
                         return@Button
                     }
 
@@ -303,9 +303,9 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                 Text(
                     when {
                         isSubmitting.value -> "Äang lÆ°u..."
-                        feedback.value == null -> "Tráº£ lá»i"
-                        currentIndex.intValue >= questions.value.lastIndex -> "HoÃ n thÃ nh"
-                        else -> "CÃ¢u tiáº¿p theo"
+                        feedback.value == null -> "Trả lời"
+                        currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
+                        else -> "Câu tiếp theo"
                     }
                 )
             }
@@ -362,7 +362,7 @@ private fun LevelSummaryCard(summary: String, onBack: () -> Unit) {
             Text("Káº¿t thÃºc level", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
             Text(summary, color = EgDesign.textSecondary)
             Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-                Text("Quay láº¡i chá»n level")
+                Text("Quay lại chá»n level")
             }
         }
     }
@@ -370,12 +370,12 @@ private fun LevelSummaryCard(summary: String, onBack: () -> Unit) {
 
 private fun fallbackRecognizeQuestions(): List<RecognizeQuestionUi> {
     return listOf(
-        RecognizeQuestionUi("fallback-recognize-happy", "ÄÃ¢y lÃ  cáº£m xÃºc gÃ¬?", R.drawable.happy_1, "happy"),
-        RecognizeQuestionUi("fallback-recognize-sad", "ÄÃ¢y lÃ  cáº£m xÃºc gÃ¬?", R.drawable.sad_1, "sad"),
-        RecognizeQuestionUi("fallback-recognize-surprise", "ÄÃ¢y lÃ  cáº£m xÃºc gÃ¬?", R.drawable.surprise_1, "surprise"),
-        RecognizeQuestionUi("fallback-recognize-angry", "ÄÃ¢y lÃ  cáº£m xÃºc gÃ¬?", R.drawable.angry_1, "angry"),
-        RecognizeQuestionUi("fallback-recognize-fear", "ÄÃ¢y lÃ  cáº£m xÃºc gÃ¬?", R.drawable.fear_1, "fear"),
-        RecognizeQuestionUi("fallback-recognize-disgust", "ÄÃ¢y lÃ  cáº£m xÃºc gÃ¬?", R.drawable.disgust_1, "disgust")
+        RecognizeQuestionUi("fallback-recognize-happy", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.happy_1, "happy"),
+        RecognizeQuestionUi("fallback-recognize-sad", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.sad_1, "sad"),
+        RecognizeQuestionUi("fallback-recognize-surprise", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.surprise_1, "surprise"),
+        RecognizeQuestionUi("fallback-recognize-angry", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.angry_1, "angry"),
+        RecognizeQuestionUi("fallback-recognize-fear", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.fear_1, "fear"),
+        RecognizeQuestionUi("fallback-recognize-disgust", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.disgust_1, "disgust")
     )
 }
 

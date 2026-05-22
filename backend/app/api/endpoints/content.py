@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.analytics import ChildProgress
-from app.models.game import Game, GameContent, GameData, GameDataQuestion, PlaySession, SessionQuestion
+from app.models.game import Game, GameContent, GameData, GameDataQuestion, PlaySession, SessionQuestion, Question
 from app.models.user import User, Child
 from app.schemas.content import CvScenarioListOut, CvScenarioOut, GameContentOut, GameOut
 from app.schemas.runtime import EndLevelRequest, StartGameRequest
@@ -247,7 +247,7 @@ def _question_count_for_level(level: int) -> int:
 
 def _question_count_for_game_level(game_id: str, level: int) -> int:
     if game_id in CLICK_GAME_IDS:
-        return CLICK_QUESTION_COUNT
+        return _question_count_for_level(level)
     if game_id == CV_STORY_GAME_ID:
         return CV_STORY_QUESTION_COUNT
     if game_id == CV_REQUEST_GAME_ID:
@@ -264,7 +264,7 @@ def _level_content(db: Session, game_id: str, level: int) -> list[GameContent]:
     )
 
 
-def _cached_click_questions(db: Session, game_id: str, user_id: str, level: int) -> list[GameContent]:
+def _cached_click_questions(db: Session, game_id: str, user_id: str, level: int) -> list[Question]:
     game_data = (
         db.query(GameData)
         .filter(GameData.game_id == game_id, GameData.user_id == user_id, GameData.level == level)
@@ -281,9 +281,9 @@ def _cached_click_questions(db: Session, game_id: str, user_id: str, level: int)
     ]
     if not ids:
         return []
-    rows = db.query(GameContent).filter(GameContent.content_id.in_(ids)).all()
-    by_id = {row.content_id: row for row in rows}
-    return [by_id[item] for item in ids if item in by_id]
+    rows = db.query(Question).filter(Question.question_id.in_(ids)).all()
+    by_id = {row.question_id: row for row in rows}
+    return [by_id[question_id] for question_id in ids if question_id in by_id]
 
 
 def _counts_from_ratio(ratio: list[float], count: int) -> dict[str, int]:
@@ -297,8 +297,22 @@ def _counts_from_ratio(ratio: list[float], count: int) -> dict[str, int]:
     return counts
 
 
-def _generate_click_questions(db: Session, game_id: str, user_id: str, level: int, ratio: list[float]) -> list[GameContent]:
-    count = CLICK_QUESTION_COUNT
+def _get_or_create_question(db: Session, content: GameContent) -> Question:
+    question = db.query(Question).filter(Question.content_id == content.content_id).first()
+    if not question:
+        question = Question(
+            question_id=str(uuid.uuid4()),
+            game_id=content.game_id,
+            content_id=content.content_id,
+            level=content.level,
+            correct_answer=content.correct_answer or content.emotion,
+        )
+        db.add(question)
+        db.flush()
+    return question
+
+
+def _generate_click_questions(db: Session, game_id: str, user_id: str, level: int, ratio: list[float], count: int) -> list[Question]:
     candidates = _level_content(db, game_id, level)
     if len(candidates) < count:
         raise HTTPException(
@@ -333,26 +347,31 @@ def _generate_click_questions(db: Session, game_id: str, user_id: str, level: in
 
     data_id = str(uuid.uuid4())
     db.add(GameData(data_id=data_id, game_id=game_id, user_id=user_id, level=level))
+    
+    selected_questions = []
     for item in selected:
-        db.add(GameDataQuestion(data_id=data_id, question_id=item.content_id))
+        question = _get_or_create_question(db, item)
+        selected_questions.append(question)
+        db.add(GameDataQuestion(data_id=data_id, question_id=question.question_id))
+        
     db.flush()
-    return selected
+    return selected_questions
 
 
-def _select_click_questions(db: Session, game_id: str, user_id: str, level: int, ratio: list[float]) -> list[GameContent]:
+def _select_click_questions(db: Session, game_id: str, user_id: str, level: int, ratio: list[float], target_count: int) -> list[Question]:
     cached = _cached_click_questions(db, game_id, user_id, level)
-    if len(cached) >= CLICK_QUESTION_COUNT:
-        return random.sample(cached, CLICK_QUESTION_COUNT)
-    return _generate_click_questions(db, game_id, user_id, level, ratio)
+    if len(cached) >= target_count:
+        return random.sample(cached, target_count)
+    return _generate_click_questions(db, game_id, user_id, level, ratio, target_count)
 
 
-def _select_questions_for_run(db: Session, game_id: str, level: int, user_id: str | None = None, ratio: list[float] | None = None) -> list[GameContent]:
+def _select_questions_for_run(db: Session, game_id: str, level: int, user_id: str | None = None, ratio: list[float] | None = None) -> list[Question] | list[GameContent]:
     count = _question_count_for_game_level(game_id, level)
 
     if game_id in CLICK_GAME_IDS:
         if user_id is None:
             raise HTTPException(status_code=400, detail="Missing user_id")
-        return _select_click_questions(db, game_id, user_id, level, ratio or list(DEFAULT_RATIO))
+        return _select_click_questions(db, game_id, user_id, level, ratio or list(DEFAULT_RATIO), count)
 
     if game_id != CV_STORY_GAME_ID:
         questions = _level_content(db, game_id, level)[:count]
@@ -404,8 +423,11 @@ def _question_option(content: GameContent) -> dict:
     }
 
 
-def _format_game_content(content: GameContent, options_pool: list[GameContent] | None = None) -> dict:
+def _format_game_content(content: GameContent, options_pool: list[GameContent] | None = None, question_id: str | None = None) -> dict:
     payload = GameContentOut.model_validate(content).model_dump()
+    if question_id:
+        payload["content_id"] = question_id
+    
     if options_pool is None:
         return payload
 
@@ -423,9 +445,19 @@ def _format_game_content(content: GameContent, options_pool: list[GameContent] |
     return payload
 
 
-def _format_questions_for_run(db: Session, game_id: str, level: int, questions: list[GameContent]) -> list[dict]:
+def _format_questions_for_run(db: Session, game_id: str, level: int, questions: list) -> list[dict]:
     options_pool = _level_content(db, game_id, level) if game_id in CLICK_GAME_IDS else None
-    return [_format_game_content(question, options_pool) for question in questions]
+    
+    result = []
+    for q in questions:
+        if isinstance(q, Question):
+            # Fetch the actual game content to format
+            content = db.query(GameContent).filter(GameContent.content_id == q.content_id).first()
+            if content:
+                result.append(_format_game_content(content, options_pool, question_id=q.question_id))
+        else:
+            result.append(_format_game_content(q, options_pool))
+    return result
 
 
 def _updated_ratio(current_ratio: list[float], emotion_errors: dict[str, int]) -> list[float]:
@@ -719,7 +751,7 @@ def start_game(game_id: str, body: StartGameRequest, db: Session = Depends(get_d
         level_threshold=level_threshold,
         ratio=json.dumps(ratio),
         time_limit=game.time_limit,
-        question_ids=json.dumps([question.content_id for question in questions]),
+        question_ids=json.dumps([getattr(q, "question_id", getattr(q, "content_id")) for q in questions]),
         level=body.level,
     )
     db.add(session)
@@ -779,7 +811,8 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
     for result in filtered_results:
         if result.is_correct:
             continue
-        content = db.get(GameContent, result.question_id)
+        question = db.get(Question, result.question_id)
+        content = db.get(GameContent, question.content_id) if question else db.get(GameContent, result.question_id)
         emotion = _normalize_emotion((content.emotion or content.correct_answer) if content else None)
         if emotion:
             emotion_errors[emotion] = emotion_errors.get(emotion, 0) + 1

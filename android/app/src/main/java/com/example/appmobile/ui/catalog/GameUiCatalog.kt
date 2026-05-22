@@ -110,19 +110,20 @@ object GameUiCatalog {
 
     fun gamesByType(type: String): List<GameUiItem> = games.filter { it.type == type }
 
-    fun gameById(id: String): GameUiItem? = games.firstOrNull { it.id == id }
+    fun gameById(id: String): GameUiItem? = games.firstOrNull { it.id.equals(id, ignoreCase = true) }
 
     fun isClickGame(id: String): Boolean = gameById(id)?.type == "click_game"
 
     fun emotionById(id: String): EmotionUiItem? = emotions.firstOrNull { it.id == id }
 
     fun gameFromBackend(id: String, title: String, type: String, maxLevel: Int): GameUiItem {
-        val fallback = gameById(id)
+        val normalizedId = id.lowercase()
+        val fallback = gameById(normalizedId)
         return GameUiItem(
-            id = id,
-            title = title.ifBlank { fallback?.title ?: "Trò chơi" },
+            id = normalizedId,
+            title = fallback?.title ?: title.ifBlank { "Trò chơi" },
             description = fallback?.description ?: "",
-            type = type.ifBlank { fallback?.type ?: "click_game" },
+            type = fallback?.type ?: type.ifBlank { "click_game" },
             imageRes = fallback?.imageRes ?: R.drawable.logo_emo,
             maxLevel = maxLevel.takeIf { it > 0 } ?: fallback?.maxLevel ?: 1
         )

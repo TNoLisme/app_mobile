@@ -85,9 +85,9 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             }
             summary.value = if (response != null) {
                 val status = if (response.passed) "ÄÃ£ qua level" else "ChÆ°a qua level"
-                "$status. Äiá»ƒm: ${response.score}/50."
+                "$status. Điểm: ${response.score}/50."
             } else {
-                "HoÃ n thÃ nh. Äiá»ƒm táº¡m tÃ­nh: ${score.intValue}."
+                "Hoàn thành. Điểm táº¡m tÃ­nh: ${score.intValue}."
             }
             response?.reviewEmotionsToLearn
                 ?.firstOrNull()
@@ -105,7 +105,7 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                 val emotion = normalizeEmotionForLearning((content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null })
                 DetectiveQuestionUi(
                     questionId = content.contentId,
-                    story = content.questionText?.ifBlank { "Cáº£m xÃºc nÃ o Ä‘ang áº©n giáº¥u?" } ?: "Cáº£m xÃºc nÃ o Ä‘ang áº©n giáº¥u?",
+                    story = content.questionText?.ifBlank { "Cảm xúc nÃ o Ä‘ang áº©n giáº¥u?" } ?: "Cảm xúc nÃ o Ä‘ang áº©n giáº¥u?",
                     correctEmotion = emotion,
                     optionEmotionIds = optionEmotionIdsFromBackend(content.options, emotion)
                 )
@@ -133,15 +133,15 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
     GameScreenShell(contentMaxWidth = 700, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onBack) { Text("â† Quay láº¡i") }
+                TextButton(onClick = onBack) { Text("â† Quay lại") }
                 Spacer(modifier = Modifier.weight(1f))
-                Text("ThÃ¡m tá»­ cáº£m xÃºc", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
+                Text("Thám tử­ cảm xúc", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GameStatChip("CÃ¢u ${currentIndex.intValue + 1}/${questions.value.size}")
-                GameStatChip("Äiá»ƒm ${score.intValue}")
+                GameStatChip("Câu ${currentIndex.intValue + 1}/${questions.value.size}")
+                GameStatChip("Điểm ${score.intValue}")
                 GameStatChip("Level $level")
             }
 
@@ -251,7 +251,7 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                         )
                         results.value = updatedResults
                         val targetName = GameUiCatalog.emotionById(question.correctEmotion)?.name ?: question.correctEmotion
-                        feedback.value = if (isCorrect) "PhÃ¡ Ã¡n Ä‘Ãºng rá»“i." else "ChÆ°a Ä‘Ãºng. ÄÃ¡p Ã¡n lÃ  $targetName."
+                        feedback.value = if (isCorrect) "PhÃ¡ Ã¡n đúng rá»“i." else "ChÆ°a đúng. Đáp án lÃ  $targetName."
                         return@Button
                     }
 
@@ -271,9 +271,9 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                 Text(
                     when {
                         isSubmitting.value -> "Äang lÆ°u..."
-                        feedback.value == null -> "Tráº£ lá»i"
-                        currentIndex.intValue >= questions.value.lastIndex -> "HoÃ n thÃ nh"
-                        else -> "Manh má»‘i tiáº¿p theo"
+                        feedback.value == null -> "Trả lời"
+                        currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
+                        else -> "Manh má»‘i tiếp theo"
                     }
                 )
             }
@@ -297,7 +297,7 @@ private fun fallbackDetectiveQuestions(): List<DetectiveQuestionUi> {
     return listOf(
         DetectiveQuestionUi(
             "fallback-detective-fear",
-            "Minh bÃ¡m cháº·t tay máº¹ khi tháº¥y chÃ³ lá»›n. Cáº£m xÃºc nÃ o Ä‘ang áº©n giáº¥u?",
+            "Minh bÃ¡m cháº·t tay máº¹ khi tháº¥y chÃ³ lá»›n. Cảm xúc nÃ o Ä‘ang áº©n giáº¥u?",
             "fear"
         )
     )

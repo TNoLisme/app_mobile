@@ -1,3 +1,4 @@
+import uuid
 from sqlalchemy.orm import Session
 
 from app.models.game import EmotionConcept, Game, GameContent
@@ -603,9 +604,28 @@ OBSOLETE_GAME_CONTENT_IDS = [
 ]
 
 
+def _str_to_uuid(val: str) -> str:
+    if val is None:
+        return None
+    try:
+        uuid.UUID(val)
+        return val
+    except ValueError:
+        return str(uuid.uuid5(uuid.NAMESPACE_DNS, val))
+
 def _upsert(db: Session, model: type, key_name: str, rows: list[dict]) -> None:
+    seen = set()
     for row in rows:
-        instance = db.get(model, row[key_name])
+        for k, v in row.items():
+            if k.endswith('_id') and isinstance(v, str):
+                row[k] = _str_to_uuid(v)
+        
+        pk_val = row[key_name]
+        if pk_val in seen:
+            continue
+        seen.add(pk_val)
+        
+        instance = db.get(model, pk_val)
         if instance is None:
             db.add(model(**row))
         else:
@@ -615,7 +635,8 @@ def _upsert(db: Session, model: type, key_name: str, rows: list[dict]) -> None:
 
 def seed_static_content(db: Session) -> None:
     if OBSOLETE_GAME_CONTENT_IDS:
-        db.query(GameContent).filter(GameContent.content_id.in_(OBSOLETE_GAME_CONTENT_IDS)).delete(synchronize_session=False)
+        obs_ids = [_str_to_uuid(i) for i in OBSOLETE_GAME_CONTENT_IDS]
+        db.query(GameContent).filter(GameContent.content_id.in_(obs_ids)).delete(synchronize_session=False)
     _upsert(db, Game, "game_id", GAMES)
     _upsert(db, EmotionConcept, "concept_id", EMOTION_CONCEPTS)
     _upsert(db, GameContent, "content_id", GAME_CONTENT + CV_STORY_CONTENT)
