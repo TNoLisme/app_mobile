@@ -187,6 +187,14 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             HomePage(
                 onNavigateToGame = { gameType -> navController.navigate("select_game/$gameType") },
                 onNavigateToLearn = ::goLearn,
+                onNavigateToLearnEmotion = { emotionId ->
+                    navController.navigate("learn_detail/$emotionId") { launchSingleTop = true }
+                },
+                onStartEmotionChallenge = { emotionId ->
+                    navController.navigate("game/${GameUiCatalog.GAME_CV_REQUEST}/1?emotion=$emotionId") {
+                        launchSingleTop = true
+                    }
+                },
                 onNavigateToReport = { navController.navigate("report") },
                 onNavigateToProfile = ::goProfile,
                 onNavigateToSettings = ::goSettings,

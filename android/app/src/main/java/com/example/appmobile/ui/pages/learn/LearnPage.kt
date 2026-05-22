@@ -3,6 +3,7 @@ package com.example.appmobile.ui.pages.learn
 import android.media.MediaPlayer
 import android.view.Surface
 import android.view.TextureView
+import android.graphics.Matrix
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -624,9 +625,38 @@ private fun AssetVideoPlayer(
     var playbackError by remember(assetPath) { mutableStateOf<String?>(null) }
     var controlsVisible by remember(assetPath) { mutableStateOf(true) }
     var showFullscreen by remember(assetPath) { mutableStateOf(false) }
+    var currentTextureView by remember(assetPath) { mutableStateOf<TextureView?>(null) }
+    var videoWidth by remember(assetPath) { mutableIntStateOf(0) }
+    var videoHeight by remember(assetPath) { mutableIntStateOf(0) }
     val mediaPlayer = remember(assetPath) { MediaPlayer() }
     val autoPlayEnabled by AppSettingsState.learnVideoAutoplayEnabled
     val soundEnabled by AppSettingsState.learnVideoSoundEnabled
+
+    fun applyVideoFitTransform(textureView: TextureView) {
+        val vw = textureView.width.toFloat()
+        val vh = textureView.height.toFloat()
+        val videoW = videoWidth.toFloat()
+        val videoH = videoHeight.toFloat()
+        if (vw <= 0f || vh <= 0f || videoW <= 0f || videoH <= 0f) return
+
+        val viewRatio = vw / vh
+        val videoRatio = videoW / videoH
+        val scaleX: Float
+        val scaleY: Float
+
+        if (videoRatio > viewRatio) {
+            scaleX = 1f
+            scaleY = viewRatio / videoRatio
+        } else {
+            scaleX = videoRatio / viewRatio
+            scaleY = 1f
+        }
+
+        val matrix = Matrix().apply {
+            setScale(scaleX, scaleY, vw / 2f, vh / 2f)
+        }
+        textureView.setTransform(matrix)
+    }
 
     LaunchedEffect(controlsVisible) {
         onControlsVisibleChange(controlsVisible)
@@ -664,6 +694,9 @@ private fun AssetVideoPlayer(
             val volume = if (soundEnabled) 1f else 0f
             mediaPlayer.setVolume(volume, volume)
             mediaPlayer.setOnPreparedListener { player ->
+                videoWidth = player.videoWidth
+                videoHeight = player.videoHeight
+                currentTextureView?.let(::applyVideoFitTransform)
                 isPrepared = true
                 if (autoPlayEnabled) {
                     player.start()
@@ -679,6 +712,11 @@ private fun AssetVideoPlayer(
                 playbackError = "Khong mo duoc video mau"
                 isPlaying = false
                 true
+            }
+            mediaPlayer.setOnVideoSizeChangedListener { _, width, height ->
+                videoWidth = width
+                videoHeight = height
+                currentTextureView?.let(::applyVideoFitTransform)
             }
             context.assets.openFd(assetPath).use { descriptor ->
                 mediaPlayer.setDataSource(
@@ -712,6 +750,7 @@ private fun AssetVideoPlayer(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
                     TextureView(it).apply {
+                        currentTextureView = this
                         surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                             private var surface: Surface? = null
 
@@ -722,6 +761,7 @@ private fun AssetVideoPlayer(
                             ) {
                                 val newSurface = Surface(surfaceTexture)
                                 surface = newSurface
+                                applyVideoFitTransform(this@apply)
                                 prepare(newSurface)
                             }
 
@@ -729,13 +769,18 @@ private fun AssetVideoPlayer(
                                 surfaceTexture: android.graphics.SurfaceTexture,
                                 width: Int,
                                 height: Int
-                            ) = Unit
+                            ) {
+                                applyVideoFitTransform(this@apply)
+                            }
 
                             override fun onSurfaceTextureDestroyed(
                                 surfaceTexture: android.graphics.SurfaceTexture
                             ): Boolean {
                                 runCatching { mediaPlayer.pause() }
                                 isPlaying = false
+                                if (currentTextureView === this@apply) {
+                                    currentTextureView = null
+                                }
                                 surface?.release()
                                 surface = null
                                 return true
@@ -746,6 +791,10 @@ private fun AssetVideoPlayer(
                             ) = Unit
                         }
                     }
+                },
+                update = { textureView ->
+                    currentTextureView = textureView
+                    applyVideoFitTransform(textureView)
                 }
             )
         }

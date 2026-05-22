@@ -11,6 +11,7 @@ RUN apt-get update \
         curl \
         gcc \
         g++ \
+        fonts-dejavu-core \
         gnupg \
         unixodbc \
         unixodbc-dev \

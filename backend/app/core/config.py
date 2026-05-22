@@ -4,7 +4,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-TTNM_GAME_ENV = BACKEND_DIR.parent.parent / "TTNM-Game" / "be" / ".env"
 
 class Settings(BaseSettings):
     DATABASE_URL: str
@@ -20,7 +19,7 @@ class Settings(BaseSettings):
     EMAIL_PASS: str | None = None
 
     model_config = SettingsConfigDict(
-        env_file=(TTNM_GAME_ENV, BACKEND_DIR / ".env"),
+        env_file=(BACKEND_DIR / ".env",),
         extra="ignore",
     )
 

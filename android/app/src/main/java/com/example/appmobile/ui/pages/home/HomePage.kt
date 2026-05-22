@@ -2,23 +2,16 @@ package com.example.appmobile.ui.pages.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,17 +21,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,23 +44,17 @@ import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgTab
 import com.example.appmobile.ui.components.egEmotionDisplayName
 import com.example.appmobile.ui.components.egEmotionIcon
-import com.example.appmobile.ui.components.egEmotionPastelColor
-import com.example.appmobile.ui.viewmodel.HomeEmotionUi
-import com.example.appmobile.ui.viewmodel.HomeMetricUi
 import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
+import com.example.appmobile.ui.viewmodel.ReportSummary
+import com.example.appmobile.ui.viewmodel.HomeUiState
 import com.example.appmobile.ui.viewmodel.HomeViewModel
 
-private val HomeBackgroundGradient: Color get() = EgDesign.background
-private val HomePrimaryGradient: Color get() = EgDesign.primary
 private val HomeCard: Color get() = EgDesign.card
 private val HomeCardSoft: Color get() = EgDesign.cardSoft
 private val HomeCardBorder: Color get() = EgDesign.cardBorder
 private val HomeTextPrimary: Color get() = EgDesign.textPrimary
 private val HomeTextSecondary: Color get() = EgDesign.textSecondary
-private val HomeBlue: Color get() = EgDesign.blue
-private val HomeRadiusCard = 18.dp
-private val HomeRadiusPill = 999.dp
-private val HomeScreenPadding = 16.dp
+private val HomeBlue: Color get() = EgDesign.primary
 
 @Composable
 fun HomePage(
@@ -78,31 +64,34 @@ fun HomePage(
     onNavigateToProfile: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToLevel: (String) -> Unit = {},
+    onNavigateToLearnEmotion: ((String) -> Unit)? = null,
+    onStartEmotionChallenge: ((String) -> Unit)? = null,
     vm: HomeViewModel = viewModel()
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    val loading by vm.isLoading
-    val errorMessage by vm.errorMessage
-    val childName by vm.childName
-    val recommendedEmotion = recommendedHomeEmotion(vm.emotions)
-    val learnedEmotionCount = vm.emotions.count { it.correct + it.incorrect > 0 }.coerceAtMost(6)
-    val gamesPlayedCount = vm.recentGames.size
-    val averageAccuracy = vm.emotions.takeIf { it.isNotEmpty() }?.map { it.accuracy }?.average()?.toInt()
-    val totalEmotionAttempts = vm.emotions.sumOf { it.correct + it.incorrect }
-    val strongestEmotion = vm.emotions
-        .filter { it.correct + it.incorrect > 0 }
-        .maxByOrNull { it.accuracy }
-        ?.name
-    val topGameRatio = vm.gameRatios.firstOrNull()
+    val state by vm.state.collectAsState()
 
     DisposableEffect(lifecycleOwner, vm) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                vm.refresh()
-            }
+            if (event == Lifecycle.Event.ON_RESUME) vm.refresh()
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val suggestedEmotionId = state.weakEmotionId ?: state.recommendedEmotionId
+    val startLearningAction = {
+        if (onNavigateToLearnEmotion != null) onNavigateToLearnEmotion(state.recommendedEmotionId) else onNavigateToLearn()
+    }
+    val suggestionAction = {
+        if (onNavigateToLearnEmotion != null) onNavigateToLearnEmotion(suggestedEmotionId) else onNavigateToLearn()
+    }
+    val challengeAction = {
+        if (onStartEmotionChallenge != null) {
+            onStartEmotionChallenge(state.recommendedEmotionId)
+        } else {
+            onNavigateToLevel(GameUiCatalog.GAME_CV_REQUEST)
+        }
     }
 
     EgCollapsibleMainScaffold(
@@ -111,65 +100,39 @@ fun HomePage(
         onLearn = onNavigateToLearn,
         onGames = { onNavigateToGame("all") },
         onProfile = onNavigateToProfile,
-        onSettings = onNavigateToSettings,
-        horizontalAlignment = Alignment.CenterHorizontally
+        onSettings = onNavigateToSettings
     ) {
-        errorMessage?.let { message ->
+        state.errorMessage?.let { message ->
             ErrorBanner(message = message, onRetry = vm::refresh)
         }
 
-        if (loading) {
+        if (state.isLoading) {
             LoadingStrip("Đang chuẩn bị bài học cho bé...")
         }
 
-        GreetingSection(childName = childName)
+        GreetingSection(childName = state.childName)
 
         TodayLearningCard(
-            emotionName = recommendedEmotion,
-            onStartLearn = onNavigateToLearn,
-            onStartChallenge = { onNavigateToLevel(GameUiCatalog.GAME_CV_REQUEST) }
+            emotionId = state.recommendedEmotionId,
+            onStartLearn = startLearningAction,
+            onStartChallenge = challengeAction
         )
 
-        QuickActionRow(
-            onLearn = onNavigateToLearn,
-            onGames = { onNavigateToGame("all") },
-            onReport = onNavigateToReport
+        ReportCtaCard(
+            reportSummary = state.reportSummary,
+            actionText = state.reportActionText,
+            onOpenReport = onNavigateToReport
         )
 
-        ProgressSummaryCard(
-            learnedEmotionCount = learnedEmotionCount,
-            gamesPlayedCount = gamesPlayedCount,
-            averageAccuracy = averageAccuracy,
-            onPlay = { onNavigateToGame("all") }
+        TodaySuggestionCard(
+            state = state,
+            onOpenSuggestion = suggestionAction
         )
-
-        HomeInsightCard(
-            totalEmotionAttempts = totalEmotionAttempts,
-            strongestEmotion = strongestEmotion,
-            topGameRatio = topGameRatio
-        )
-
-        if (vm.improvements.isNotEmpty() || vm.gameRatios.isNotEmpty()) {
-            HomeAnalyticsCard(
-                improvements = vm.improvements,
-                gameRatios = vm.gameRatios,
-                onReport = onNavigateToReport
-            )
-        }
-
-        RecommendationCard(
-            emotionName = recommendedEmotion,
-            hasProgress = vm.emotions.isNotEmpty(),
-            onStartLearn = onNavigateToLearn
-        )
-
-        if (vm.emotions.isNotEmpty()) {
-            EmotionAccuracySection(emotions = vm.emotions)
-        }
 
         RecentGamesSection(
-            games = vm.recentGames,
+            games = state.recentGames,
             onPlayNow = { onNavigateToGame("all") },
+            onViewAll = { onNavigateToGame("all") },
             onOpenGame = { game ->
                 if (!game.id.isNullOrBlank()) {
                     onNavigateToLevel(game.id)
@@ -178,18 +141,19 @@ fun HomePage(
                 }
             }
         )
-
-        ProgressReportCard(onNavigateToReport = onNavigateToReport)
     }
 }
 
 @Composable
 private fun GreetingSection(childName: String?) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         Text(
             text = childName?.takeIf { it.isNotBlank() }?.let { "Chào bé $it 👋" } ?: "Chào bé yêu 👋",
             color = HomeTextPrimary,
-            fontSize = 22.sp,
+            fontSize = 24.sp,
             fontWeight = FontWeight.ExtraBold
         )
         Text(
@@ -203,11 +167,10 @@ private fun GreetingSection(childName: String?) {
 
 @Composable
 private fun TodayLearningCard(
-    emotionName: String,
+    emotionId: String,
     onStartLearn: () -> Unit,
     onStartChallenge: () -> Unit
 ) {
-    val emoji = egEmotionIcon(emotionName)
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
@@ -219,18 +182,26 @@ private fun TodayLearningCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Hôm nay bé học gì?", color = HomeBlue, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(emoji, fontSize = 42.sp)
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "Hôm nay bé học gì?",
+                color = HomeTextPrimary,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(egEmotionIcon(emotionId), fontSize = 38.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        "Cùng luyện cảm xúc ${egEmotionDisplayName(emotionName)}",
+                        text = "Cùng luyện cảm xúc ${egEmotionDisplayName(emotionId)} ${egEmotionIcon(emotionId)}",
                         color = HomeTextPrimary,
-                        fontSize = 17.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
                     Text(
-                        "Xem mẫu cảm xúc và thử làm khuôn mặt trước camera nhé.",
+                        text = "Xem mẫu cảm xúc rồi thử làm khuôn mặt trước camera nhé.",
                         color = HomeTextSecondary,
                         fontSize = 13.sp,
                         lineHeight = 18.sp
@@ -246,208 +217,191 @@ private fun TodayLearningCard(
 }
 
 @Composable
-private fun QuickActionRow(
-    onLearn: () -> Unit,
-    onGames: () -> Unit,
-    onReport: () -> Unit
-) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        QuickActionCard("📚", "Học cảm xúc", onLearn, Modifier.weight(1f))
-        QuickActionCard("🎮", "Chơi game", onGames, Modifier.weight(1f))
-        QuickActionCard("📋", "Báo cáo", onReport, Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun QuickActionCard(icon: String, text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier
-            .height(74.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        color = HomeCard,
-        border = BorderStroke(1.dp, HomeCardBorder),
-        shadowElevation = 1.dp
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(icon, fontSize = 23.sp)
-            Text(text, color = HomeBlue, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun ProgressSummaryCard(
-    learnedEmotionCount: Int,
-    gamesPlayedCount: Int,
-    averageAccuracy: Int?,
-    onPlay: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(HomeRadiusCard),
-        colors = CardDefaults.cardColors(containerColor = HomeCard),
-        border = BorderStroke(1.dp, HomeCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionTitle("Tiến độ nhanh")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ProgressMiniStat("$learnedEmotionCount/6", "Cảm xúc đã học", Modifier.weight(1f))
-                ProgressMiniStat(if (gamesPlayedCount > 0) "$gamesPlayedCount" else "Chưa chơi", "Lượt chơi", Modifier.weight(1f))
-                ProgressMiniStat(averageAccuracy?.let { "$it%" } ?: "Chưa có", "Độ chính xác", Modifier.weight(1f))
-            }
-            if (gamesPlayedCount == 0) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Bé chơi thử một màn để xem tiến độ nhé!",
-                        modifier = Modifier.weight(1f),
-                        color = HomeTextSecondary,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp
-                    )
-                    HomeActionPill("Chơi ngay", onPlay, primary = false)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomeInsightCard(
-    totalEmotionAttempts: Int,
-    strongestEmotion: String?,
-    topGameRatio: HomeMetricUi?
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(HomeRadiusCard),
-        colors = CardDefaults.cardColors(containerColor = HomeCard),
-        border = BorderStroke(1.dp, HomeCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionTitle("Chỉ số hôm nay")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ProgressMiniStat(
-                    if (totalEmotionAttempts > 0) totalEmotionAttempts.toString() else "Chưa có",
-                    "Lượt cảm xúc",
-                    Modifier.weight(1f)
-                )
-                ProgressMiniStat(
-                    strongestEmotion?.let { egEmotionDisplayName(it) } ?: "Chưa có",
-                    "Cảm xúc mạnh",
-                    Modifier.weight(1f)
-                )
-                ProgressMiniStat(
-                    topGameRatio?.name?.let(::homeMetricDisplayName) ?: "Chưa có",
-                    "Game chơi nhiều",
-                    Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomeAnalyticsCard(
-    improvements: List<HomeMetricUi>,
-    gameRatios: List<HomeMetricUi>,
-    onReport: () -> Unit
-) {
-    val bestImprovement = improvements.firstOrNull()
-    val topGame = gameRatios.firstOrNull()
-    HomeEmptyStateCard(
-        title = "Dữ liệu luyện tập",
-        subtitle = when {
-            bestImprovement != null && topGame != null ->
-                "Tiến bộ rõ nhất: ${egEmotionDisplayName(bestImprovement.name)}. Game chơi nhiều: ${homeMetricDisplayName(topGame.name)}."
-            bestImprovement != null ->
-                "Tiến bộ rõ nhất: ${egEmotionDisplayName(bestImprovement.name)}."
-            topGame != null ->
-                "Game bé chơi nhiều nhất gần đây: ${homeMetricDisplayName(topGame.name)}."
-            else ->
-                "Chơi thêm vài lượt để hệ thống có chỉ số luyện tập."
-        },
-        icon = "📈",
-        actionText = "Xem báo cáo",
-        onAction = onReport
-    )
-}
-
-@Composable
-private fun ProgressMiniStat(value: String, label: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.height(64.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = HomeCardSoft,
-        border = BorderStroke(1.dp, HomeCardBorder)
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text(
-                value,
-                color = HomeBlue,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                label,
-                color = HomeTextSecondary,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun RecommendationCard(emotionName: String, hasProgress: Boolean, onStartLearn: () -> Unit) {
-    HomeEmptyStateCard(
-        title = "Gợi ý cho bé",
-        subtitle = if (hasProgress) {
-            "Bé có thể luyện thêm cảm xúc ${egEmotionDisplayName(emotionName)} ${egEmotionIcon(emotionName)}."
-        } else {
-            "Bắt đầu với cảm xúc Vui vẻ 😊 để mở thống kê đầu tiên."
-        },
-        icon = "🌟",
-        actionText = "Xem bài học",
-        onAction = onStartLearn
-    )
-}
-
-@Composable
-private fun HomeEmptyStateCard(
-    title: String,
-    subtitle: String,
-    icon: String,
+private fun ReportCtaCard(
+    reportSummary: ReportSummary?,
     actionText: String,
-    onAction: () -> Unit
+    onOpenReport: () -> Unit
 ) {
-    Surface(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(HomeRadiusCard),
-        color = HomeCard,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = HomeCard),
         border = BorderStroke(1.dp, HomeCardBorder),
-        shadowElevation = 1.dp
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(icon, fontSize = 28.sp)
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, color = HomeTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                Text(subtitle, color = HomeTextSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+            Text("📋", fontSize = 28.sp)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Báo cáo của bé",
+                    color = HomeTextPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 17.sp
+                )
+                Text(
+                    text = "Xem thành tích tuần này và gửi cho bố mẹ.",
+                    color = HomeTextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+                reportSummary?.let { summary ->
+                    val scoreText = summary.averageScore?.let { "$it/100" } ?: "Chưa có điểm"
+                    Text(
+                        text = "${summary.sessionsCount} lượt luyện · $scoreText · ${summary.learnedEmotionCount}/${summary.totalEmotionCount} cảm xúc",
+                        color = HomeTextSecondary,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
-            HomeActionPill(actionText, onAction, primary = false)
+            HomeActionPill(actionText, onOpenReport, primary = true)
+        }
+    }
+}
+
+@Composable
+private fun TodaySuggestionCard(state: HomeUiState, onOpenSuggestion: () -> Unit) {
+    val message = when {
+        state.weakEmotionId != null -> {
+            "Bé có thể luyện thêm cảm xúc ${egEmotionDisplayName(state.weakEmotionId)} ${egEmotionIcon(state.weakEmotionId)}"
+        }
+        state.learnedEmotionCount == 0 -> {
+            "Bắt đầu với cảm xúc Vui vẻ 😊"
+        }
+        else -> {
+            "Bé đang làm tốt, hãy thử một thử thách mới nhé!"
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = HomeCard),
+        border = BorderStroke(1.dp, HomeCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("✨", fontSize = 28.sp)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Gợi ý hôm nay",
+                    color = HomeTextPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = message,
+                    color = HomeTextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+            }
+            HomeActionPill("Xem bài học", onOpenSuggestion, primary = false)
+        }
+    }
+}
+
+@Composable
+private fun RecentGamesSection(
+    games: List<HomeRecentGameUi>,
+    onPlayNow: () -> Unit,
+    onViewAll: () -> Unit,
+    onOpenGame: (HomeRecentGameUi) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SectionTitle("Trò chơi gần đây", modifier = Modifier.weight(1f))
+            if (games.size > 2) {
+                TextButton(onClick = onViewAll) {
+                    Text("Xem tất cả", color = HomeBlue, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        if (games.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = HomeCard),
+                border = BorderStroke(1.dp, HomeCardBorder)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Bé chưa chơi game nào gần đây.",
+                        color = HomeTextSecondary,
+                        fontSize = 14.sp
+                    )
+                    HomeActionPill("Chơi ngay", onPlayNow, primary = true)
+                }
+            }
+            return
+        }
+
+        games.take(2).forEach { game ->
+            RecentGameRowCard(game = game, onClick = { onOpenGame(game) })
+        }
+    }
+}
+
+@Composable
+private fun RecentGameRowCard(game: HomeRecentGameUi, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 82.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = HomeCard),
+        border = BorderStroke(1.dp, HomeCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Image(
+                painter = painterResource(id = gameImageRes(game)),
+                contentDescription = game.name,
+                modifier = Modifier
+                    .size(62.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Crop
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = game.name,
+                    color = HomeTextPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = if (game.lastPlayed.isNotBlank()) "Chơi gần đây" else "Tiếp tục",
+                    color = HomeTextSecondary,
+                    fontSize = 12.sp
+                )
+            }
+            Text(">", color = HomeTextSecondary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -461,17 +415,20 @@ private fun HomeActionPill(
 ) {
     Surface(
         modifier = modifier
-            .height(42.dp)
+            .height(40.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(HomeRadiusPill),
-        color = if (primary) HomePrimaryGradient else HomeCard,
+        shape = RoundedCornerShape(999.dp),
+        color = if (primary) HomeBlue else HomeCard,
         border = if (primary) null else BorderStroke(1.dp, HomeCardBorder),
-        shadowElevation = if (primary) 2.dp else 1.dp
+        shadowElevation = if (primary) 2.dp else 0.dp
     ) {
-        Box(modifier = Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier.padding(horizontal = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
             Text(
-                text,
-                color = if (primary) Color.White else HomeBlue,
+                text = text,
+                color = if (primary) Color.White else HomeTextPrimary,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1
@@ -480,289 +437,14 @@ private fun HomeActionPill(
     }
 }
 
-private fun recommendedHomeEmotion(emotions: List<HomeEmotionUi>): String {
-    if (emotions.isEmpty()) return "happy"
-    return emotions.minByOrNull { it.accuracy }?.name ?: "happy"
-}
-
 @Composable
-private fun HomeHeader(
-    onProfile: () -> Unit,
-    onSettings: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        HeaderIconButton(icon = "👤", onClick = onProfile)
-        Spacer(modifier = Modifier.weight(1f))
-        HeaderIconButton(icon = "⚙️", onClick = onSettings)
-    }
-}
-
-@Composable
-private fun HeaderIconButton(icon: String, onClick: () -> Unit) {
-    Surface(
-        modifier = Modifier
-            .size(42.dp)
-            .clickable(onClick = onClick),
-        shape = CircleShape,
-        color = HomeCard,
-        border = BorderStroke(1.dp, HomeCardBorder),
-        shadowElevation = 2.dp
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(text = icon, fontSize = 19.sp)
-        }
-    }
-}
-
-@Composable
-private fun SegmentedTabs(
-    onHome: () -> Unit,
-    onLearn: () -> Unit,
-    onGames: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        SegmentedTab(text = "Trang chủ", active = true, onClick = onHome, modifier = Modifier.weight(1f))
-        SegmentedTab(text = "Học", active = false, onClick = onLearn, modifier = Modifier.weight(1f))
-        SegmentedTab(text = "Chơi game", active = false, onClick = onGames, modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun SegmentedTab(
-    text: String,
-    active: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .height(44.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(HomeRadiusPill),
-        color = Color.Transparent,
-        border = if (active) null else BorderStroke(1.dp, HomeCardBorder),
-        shadowElevation = if (active) 2.dp else 1.dp
-    ) {
-        Box(
-            modifier = Modifier
-                .background(if (active) HomePrimaryGradient else HomeCardSoft)
-                .padding(horizontal = 8.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                color = if (active) Color.White else HomeBlue,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmotionAccuracySection(emotions: List<HomeEmotionUi>) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        SectionTitle("Tỉ lệ đúng của các cảm xúc")
-
-        if (emotions.isEmpty()) {
-            EmptyHomeCard(
-                message = "Chơi thử thách đầu tiên để mở thống kê.",
-                subtitle = "Bé sẽ thấy cảm xúc nào mình làm tốt nhất.",
-                icon = "📊"
-            )
-            return
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            emotions.take(6).chunked(3).forEach { rowEmotions ->
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    rowEmotions.forEach { emotion ->
-                        EmotionStatCard(
-                            emotion = emotion,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    repeat(3 - rowEmotions.size) {
-                        Box(modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmotionStatCard(emotion: HomeEmotionUi, modifier: Modifier = Modifier) {
-    val emotionName = egEmotionDisplayName(emotion.name)
-    val emotionColor = egEmotionPastelColor(emotion.name)
-
-    Card(
-        modifier = modifier.height(104.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = HomeCard),
-        border = BorderStroke(1.dp, HomeCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(emotionColor)
-                .padding(horizontal = 8.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(text = egEmotionIcon(emotion.name), fontSize = 25.sp)
-            Text(
-                emotionName,
-                color = HomeTextPrimary,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                "${formatPercent(emotion.accuracy)}%",
-                color = HomeBlue,
-                fontWeight = FontWeight.Black,
-                fontSize = 21.sp,
-                lineHeight = 24.sp
-            )
-        }
-    }
-}
-
-@Composable
-private fun RecentGamesSection(
-    games: List<HomeRecentGameUi>,
-    onPlayNow: () -> Unit,
-    onOpenGame: (HomeRecentGameUi) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionTitle("Trò chơi đã chơi gần đây")
-
-        if (games.isEmpty()) {
-            HomeEmptyStateCard(
-                title = "Bé chưa chơi game nào",
-                subtitle = "Thử một trò chơi nhỏ để luyện cảm xúc nhé.",
-                icon = "🎮",
-                actionText = "Chơi ngay",
-                onAction = onPlayNow
-            )
-            return
-        }
-
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(games.take(6)) { game ->
-                RecentGameCard(game = game, onClick = { onOpenGame(game) })
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecentGameCard(game: HomeRecentGameUi, onClick: () -> Unit) {
-    val localizedName = game.id?.let { GameUiCatalog.gameById(it)?.title } ?: game.name
-    Card(
-        modifier = Modifier
-            .width(148.dp)
-            .height(132.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = HomeCard),
-        border = BorderStroke(1.dp, HomeCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Image(
-                painter = painterResource(id = gameImageRes(game)),
-                contentDescription = localizedName,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(78.dp)
-                    .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)),
-                contentScale = ContentScale.Crop
-            )
-            Text(
-                text = localizedName,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                color = HomeTextPrimary,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 12.sp,
-                lineHeight = 15.sp,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProgressReportCard(onNavigateToReport: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 104.dp)
-            .clickable(onClick = onNavigateToReport),
-        shape = RoundedCornerShape(HomeRadiusCard),
-        colors = CardDefaults.cardColors(containerColor = HomeCard),
-        border = BorderStroke(1.dp, HomeCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Surface(
-                modifier = Modifier.size(48.dp),
-                shape = CircleShape,
-                color = EgDesign.accentSoft,
-                border = BorderStroke(1.dp, HomeCardBorder)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("📋", fontSize = 27.sp)
-                }
-            }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    "Báo cáo tiến bộ",
-                    color = HomeBlue,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 17.sp
-                )
-                Text(
-                    "Xem tổng kết luyện tập và gợi ý cảm xúc cần ôn thêm.",
-                    color = HomeTextSecondary,
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp
-                )
-            }
-            Text("›", color = HomeBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
-private fun SectionTitle(title: String) {
+private fun SectionTitle(title: String, modifier: Modifier = Modifier) {
     Text(
         text = title,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
+        color = HomeTextPrimary,
         fontSize = 18.sp,
-        fontWeight = FontWeight.ExtraBold,
-        color = HomeBlue,
-        textAlign = TextAlign.Start
+        fontWeight = FontWeight.ExtraBold
     )
 }
 
@@ -772,7 +454,6 @@ private fun LoadingStrip(message: String) {
         shape = RoundedCornerShape(14.dp),
         color = HomeCard,
         border = BorderStroke(1.dp, HomeCardBorder),
-        shadowElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -780,7 +461,11 @@ private fun LoadingStrip(message: String) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = HomeBlue)
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = HomeBlue
+            )
             Text(message, color = HomeTextSecondary, fontSize = 13.sp)
         }
     }
@@ -790,9 +475,8 @@ private fun LoadingStrip(message: String) {
 private fun ErrorBanner(message: String, onRetry: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = EgDesign.cardSoft,
-        border = BorderStroke(1.dp, EgDesign.cardBorder),
-        shadowElevation = 1.dp,
+        color = HomeCardSoft,
+        border = BorderStroke(1.dp, HomeCardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -802,64 +486,15 @@ private fun ErrorBanner(message: String, onRetry: () -> Unit) {
         ) {
             Text("⚠️", fontSize = 15.sp)
             Text(
-                message,
-                color = EgDesign.textPrimary,
+                text = message,
+                color = HomeTextPrimary,
                 modifier = Modifier.weight(1f),
                 fontSize = 12.sp,
-                lineHeight = 15.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            TextButton(onClick = onRetry, modifier = Modifier.height(32.dp)) {
+            TextButton(onClick = onRetry) {
                 Text("Thử lại", color = HomeBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyHomeCard(
-    message: String,
-    subtitle: String? = null,
-    icon: String = "🎮"
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(HomeRadiusCard),
-        colors = CardDefaults.cardColors(containerColor = HomeCard),
-        border = BorderStroke(1.dp, HomeCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Surface(
-                modifier = Modifier.size(42.dp),
-                shape = CircleShape,
-                color = EgDesign.accentSoft,
-                border = BorderStroke(1.dp, HomeCardBorder)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(icon, fontSize = 22.sp)
-                }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    text = message,
-                    color = HomeTextSecondary,
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp
-                )
-                subtitle?.let {
-                    Text(
-                        text = it,
-                        color = HomeTextSecondary,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp
-                    )
-                }
             }
         }
     }
@@ -868,32 +503,22 @@ private fun EmptyHomeCard(
 private fun gameImageRes(game: HomeRecentGameUi): Int {
     val key = normalizeGameKey(game.gameType ?: game.name)
     return when {
-        game.id.equals(GameUiCatalog.GAME_RECOGNIZE_EMOTION, ignoreCase = true) || key.contains("recognize") || key.contains("chiec") -> R.drawable.recognize_emotion
-        game.id.equals(GameUiCatalog.GAME_FACE_ASSEMBLY, ignoreCase = true) || key.contains("click2") || key.contains("lap") || key.contains("xuong") -> R.drawable.game_click_2
-        game.id.equals(GameUiCatalog.GAME_EMOTION_MATCH, ignoreCase = true) || key.contains("click3") || key.contains("dungcho") || key.contains("ai") -> R.drawable.game_click_3
-        game.id.equals(GameUiCatalog.GAME_DETECTIVE, ignoreCase = true) || key.contains("click4") || key.contains("tham") -> R.drawable.game_click_4
-        game.id.equals(GameUiCatalog.GAME_CV_REQUEST, ignoreCase = true) || key.contains("cv2") || key.contains("thu") -> R.drawable.game_cv_2
-        game.id.equals(GameUiCatalog.GAME_CV_STORY, ignoreCase = true) || key.contains("cv") -> R.drawable.game_cv
+        game.id == GameUiCatalog.GAME_RECOGNIZE_EMOTION || key.contains("recognize") || key.contains("chiec") -> R.drawable.recognize_emotion
+        game.id == GameUiCatalog.GAME_FACE_ASSEMBLY || key.contains("click2") || key.contains("lap") || key.contains("xuong") -> R.drawable.game_click_2
+        game.id == GameUiCatalog.GAME_EMOTION_MATCH || key.contains("click3") || key.contains("dungcho") || key.contains("ai") -> R.drawable.game_click_3
+        game.id == GameUiCatalog.GAME_DETECTIVE || key.contains("click4") || key.contains("tham") -> R.drawable.game_click_4
+        game.id == GameUiCatalog.GAME_CV_REQUEST || key.contains("cv2") || key.contains("thu") -> R.drawable.game_cv_2
+        game.id == GameUiCatalog.GAME_CV_STORY || key.contains("cv") -> R.drawable.game_cv
         else -> R.drawable.logo_emo
     }
 }
 
 private fun gameCategory(game: HomeRecentGameUi): String {
     val key = normalizeGameKey("${game.gameType.orEmpty()} ${game.name}")
-    return if (key.contains("cv") || key.contains("camera") || key.contains("bieucam")) "camera_game" else "click_game"
-}
-
-private fun homeMetricDisplayName(rawName: String): String {
-    GameUiCatalog.gameById(rawName)?.let { return it.title }
-    val key = normalizeGameKey(rawName)
-    return when {
-        key.contains("recognize") || key.contains("chiec") || key.contains("hop") -> "Chiếc hộp"
-        key.contains("click2") || key.contains("lap") || key.contains("xuong") -> "Lắp ghép"
-        key.contains("click3") || key.contains("dungcho") -> "Đúng chỗ"
-        key.contains("click4") || key.contains("tham") -> "Thám tử"
-        key.contains("cv2") || key.contains("thuthach") -> "Thử thách"
-        key.contains("cv") || key.contains("khuonmat") -> "Khuôn mặt"
-        else -> rawName.ifBlank { "Chưa có" }
+    return if (key.contains("cv") || key.contains("camera") || key.contains("bieucam")) {
+        "camera_game"
+    } else {
+        "click_game"
     }
 }
 
@@ -905,18 +530,3 @@ private fun normalizeGameKey(value: String): String {
         .replace("_", "")
         .replace("-", "")
 }
-
-private fun emotionIcon(name: String): String {
-    val key = name.lowercase()
-    return when {
-        key.contains("vui") || key.contains("happy") -> "😊"
-        key.contains("buồn") || key.contains("buon") || key.contains("sad") -> "😢"
-        key.contains("tức") || key.contains("tuc") || key.contains("angry") -> "😠"
-        key.contains("sợ") || key.contains("so") || key.contains("fear") -> "😨"
-        key.contains("ngạc") || key.contains("ngac") || key.contains("surprise") -> "😲"
-        key.contains("ghê") || key.contains("ghe") || key.contains("disgust") -> "🤢"
-        else -> "🙂"
-    }
-}
-
-private fun formatPercent(value: Double): String = String.format("%.1f", value)

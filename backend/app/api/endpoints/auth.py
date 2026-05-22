@@ -164,13 +164,28 @@ def _ensure_report_preferences_capacity(db: Session) -> None:
     bind = db.get_bind()
     if getattr(bind.dialect, "name", "") != "mssql":
         return
+
+    column = db.execute(
+        text(
+            """
+            SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = 'children'
+              AND COLUMN_NAME = 'report_preferences'
+            """
+        )
+    ).mappings().first()
+    if column is None:
+        return
+    data_type = str(column["DATA_TYPE"]).lower()
+    max_length = column["CHARACTER_MAXIMUM_LENGTH"]
+    if data_type == "nvarchar" and (max_length == -1 or max_length >= 512):
+        return
+
     db.execute(
         text(
             """
-            IF COL_LENGTH('children', 'report_preferences') IS NOT NULL
-            BEGIN
-                ALTER TABLE children ALTER COLUMN report_preferences NVARCHAR(512) NULL
-            END
+            ALTER TABLE children ALTER COLUMN report_preferences NVARCHAR(512) NULL
             """
         )
     )
