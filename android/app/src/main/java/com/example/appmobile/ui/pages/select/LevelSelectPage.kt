@@ -113,7 +113,7 @@ fun LevelSelectPage(
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
 
-    if (gameId == GameUiCatalog.GAME_CV_REQUEST) {
+    if (gameId.equals(GameUiCatalog.GAME_CV_REQUEST, ignoreCase = true)) {
         CvEmotionSelectPage(
             userId = userId,
             repository = repository,
@@ -129,7 +129,7 @@ fun LevelSelectPage(
         })
     }
     val hasCachedProgress = remember(gameId, userId) {
-        if (gameId == GameUiCatalog.GAME_CV_STORY) {
+        if (gameId.equals(GameUiCatalog.GAME_CV_STORY, ignoreCase = true)) {
             repository.peekCvCompletedLevels(userId) != null
         } else {
             repository.peekGameProgress(gameId = gameId, userId = userId) != null
@@ -138,7 +138,7 @@ fun LevelSelectPage(
     var isLoading by remember(gameId, userId) { mutableStateOf(false) }
     var progressText by remember(gameId) {
         mutableStateOf(
-            if (gameId == GameUiCatalog.GAME_CV_STORY) {
+            if (gameId.equals(GameUiCatalog.GAME_CV_STORY, ignoreCase = true)) {
                 "Mỗi cấp độ có 5 tình huống cảm xúc."
             } else {
                 "Cấp độ 1 đang mở"
@@ -152,7 +152,7 @@ fun LevelSelectPage(
             isLoading = true
         }
 
-        if (gameId == GameUiCatalog.GAME_CV_STORY) {
+        if (gameId.equals(GameUiCatalog.GAME_CV_STORY, ignoreCase = true)) {
             val levels = GameUiCatalog.levelsForGame(gameId)
             val completedLevels = repository.getCvCompletedLevels(userId = userId, forceRefresh = forceRefresh)
             val backendLevelsById = completedLevels?.levels.orEmpty().associateBy { it.level }
@@ -192,7 +192,7 @@ fun LevelSelectPage(
         val catalogMaxLevel = GameUiCatalog.gameById(gameId)?.maxLevel ?: 0
         val backendMaxLevel = runCatching {
             repository.getGames()
-                .firstOrNull { it.id == gameId }
+                .firstOrNull { it.id.equals(gameId, ignoreCase = true) }
                 ?.level
                 ?: 0
         }.getOrDefault(0)
@@ -236,7 +236,7 @@ fun LevelSelectPage(
                 available = available
             )
         }
-        progressText = if (gameId == GameUiCatalog.GAME_CV_STORY) {
+        progressText = if (gameId.equals(GameUiCatalog.GAME_CV_STORY, ignoreCase = true)) {
             "Mỗi cấp độ có 5 tình huống cảm xúc."
         } else {
             "Cấp độ $unlockedLevel đang mở"
@@ -269,9 +269,9 @@ fun LevelSelectPage(
 
     GameScreenShell(
         contentMaxWidth = 520,
-        onOpenAssistant = if (gameId == GameUiCatalog.GAME_CV_STORY) null else onOpenAssistant,
+        onOpenAssistant = if (gameId.equals(GameUiCatalog.GAME_CV_STORY, ignoreCase = true)) null else onOpenAssistant,
         scrollEnabled = true,
-        bottomSpacerHeight = if (gameId == GameUiCatalog.GAME_CV_STORY) 0.dp else 96.dp
+        bottomSpacerHeight = if (gameId.equals(GameUiCatalog.GAME_CV_STORY, ignoreCase = true)) 0.dp else 96.dp
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -803,14 +803,12 @@ private fun LevelCard(
     val containerColor = if (state.unlocked) EgDesign.card else EgDesign.cardSoft
     val titleColor = if (state.unlocked) EgDesign.textPrimary else EgDesign.textSecondary
     val statusText = when {
-        !state.available -> "Đang cập nhật"
         state.resumable -> "Đang chơi dở"
         state.completed -> "Đã hoàn thành"
         state.unlocked -> "Đã mở khóa"
-        else -> "Đã khóa"
+        else -> "Chưa mở khóa"
     }
     val statusColor = when {
-        !state.available -> Color(0xFFB7791F)
         state.resumable -> Color(0xFF0369A1)
         state.completed -> Color(0xFF2E7D32)
         state.unlocked -> EgDesign.blue
@@ -861,7 +859,7 @@ private fun LevelCard(
                         state.completed -> "Đã hoàn thành"
                         state.unlocked && state.score != null -> "Đã mở khóa · Điểm gần nhất ${state.score}/100"
                         state.unlocked -> "Đã mở khóa"
-                        else -> level.description
+                        else -> ""
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = EgDesign.textSecondary

@@ -672,6 +672,7 @@ private fun RecentGamesSection(
 
 @Composable
 private fun RecentGameCard(game: HomeRecentGameUi, onClick: () -> Unit) {
+    val localizedName = game.id?.let { GameUiCatalog.gameById(it)?.title } ?: game.name
     Card(
         modifier = Modifier
             .width(148.dp)
@@ -685,7 +686,7 @@ private fun RecentGameCard(game: HomeRecentGameUi, onClick: () -> Unit) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Image(
                 painter = painterResource(id = gameImageRes(game)),
-                contentDescription = game.name,
+                contentDescription = localizedName,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(78.dp)
@@ -693,7 +694,7 @@ private fun RecentGameCard(game: HomeRecentGameUi, onClick: () -> Unit) {
                 contentScale = ContentScale.Crop
             )
             Text(
-                text = game.name,
+                text = localizedName,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                 color = HomeTextPrimary,
                 fontWeight = FontWeight.ExtraBold,
@@ -867,12 +868,12 @@ private fun EmptyHomeCard(
 private fun gameImageRes(game: HomeRecentGameUi): Int {
     val key = normalizeGameKey(game.gameType ?: game.name)
     return when {
-        game.id == GameUiCatalog.GAME_RECOGNIZE_EMOTION || key.contains("recognize") || key.contains("chiec") -> R.drawable.recognize_emotion
-        game.id == GameUiCatalog.GAME_FACE_ASSEMBLY || key.contains("click2") || key.contains("lap") || key.contains("xuong") -> R.drawable.game_click_2
-        game.id == GameUiCatalog.GAME_EMOTION_MATCH || key.contains("click3") || key.contains("dungcho") || key.contains("ai") -> R.drawable.game_click_3
-        game.id == GameUiCatalog.GAME_DETECTIVE || key.contains("click4") || key.contains("tham") -> R.drawable.game_click_4
-        game.id == GameUiCatalog.GAME_CV_REQUEST || key.contains("cv2") || key.contains("thu") -> R.drawable.game_cv_2
-        game.id == GameUiCatalog.GAME_CV_STORY || key.contains("cv") -> R.drawable.game_cv
+        game.id.equals(GameUiCatalog.GAME_RECOGNIZE_EMOTION, ignoreCase = true) || key.contains("recognize") || key.contains("chiec") -> R.drawable.recognize_emotion
+        game.id.equals(GameUiCatalog.GAME_FACE_ASSEMBLY, ignoreCase = true) || key.contains("click2") || key.contains("lap") || key.contains("xuong") -> R.drawable.game_click_2
+        game.id.equals(GameUiCatalog.GAME_EMOTION_MATCH, ignoreCase = true) || key.contains("click3") || key.contains("dungcho") || key.contains("ai") -> R.drawable.game_click_3
+        game.id.equals(GameUiCatalog.GAME_DETECTIVE, ignoreCase = true) || key.contains("click4") || key.contains("tham") -> R.drawable.game_click_4
+        game.id.equals(GameUiCatalog.GAME_CV_REQUEST, ignoreCase = true) || key.contains("cv2") || key.contains("thu") -> R.drawable.game_cv_2
+        game.id.equals(GameUiCatalog.GAME_CV_STORY, ignoreCase = true) || key.contains("cv") -> R.drawable.game_cv
         else -> R.drawable.logo_emo
     }
 }

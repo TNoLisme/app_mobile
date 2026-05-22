@@ -17,5 +17,8 @@ data class ChildEntity(
     val gender: String?,
     @ColumnInfo(name = "date_of_birth") val dateOfBirth: String?,
     @ColumnInfo(name = "phone_number") val phoneNumber: String?,
-    @ColumnInfo(name = "report_preferences") val reportPreferences: String?
+    @ColumnInfo(name = "report_preferences") val reportPreferences: String?,
+    @ColumnInfo(name = "created_at") val createdAt: String? = null,
+    @ColumnInfo(name = "last_login") val lastLogin: String? = null,
+    @ColumnInfo(name = "last_played") val lastPlayed: String? = null
 )

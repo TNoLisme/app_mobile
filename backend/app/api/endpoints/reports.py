@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.analytics import ChildProgress, Report
-from app.models.game import Game, GameContent, PlaySession, SessionQuestion
+from app.models.game import Game, GameContent, PlaySession, SessionQuestion, Question
 from app.models.user import Child, User
 from app.services.report_data import build_report_data, build_summary_text
 from app.services.report_pdf import REPORTLAB_AVAILABLE, ReportPdfService
@@ -207,7 +207,8 @@ def _build_emotion_stats(db: Session, child_user_id: str, start_at: datetime, en
 
     rows = (
         db.query(GameContent.emotion, SessionQuestion.is_correct, func.count(SessionQuestion.id))
-        .join(SessionQuestion, SessionQuestion.question_id == GameContent.content_id)
+        .outerjoin(Question, Question.question_id == SessionQuestion.question_id)
+        .join(GameContent, GameContent.content_id == func.coalesce(Question.content_id, SessionQuestion.question_id))
         .join(PlaySession, PlaySession.session_id == SessionQuestion.session_id)
         .filter(PlaySession.user_id == child_user_id)
         .filter(PlaySession.start_time >= start_at)

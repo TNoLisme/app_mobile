@@ -13,5 +13,11 @@ data class SessionEntity(
     @ColumnInfo(name = "end_time") val endTime: String?,
     val score: Int,
     val level: Int,
-    @ColumnInfo(name = "emotion_errors") val emotionErrors: String?
+    @ColumnInfo(name = "emotion_errors") val emotionErrors: String?,
+    val state: String? = "playing",
+    @ColumnInfo(name = "max_errors") val maxErrors: Int? = 3,
+    @ColumnInfo(name = "level_threshold") val levelThreshold: Float? = 70.0f,
+    val ratio: String? = null,
+    @ColumnInfo(name = "time_limit") val timeLimit: Int? = null,
+    @ColumnInfo(name = "question_ids") val questionIds: String? = null
 )

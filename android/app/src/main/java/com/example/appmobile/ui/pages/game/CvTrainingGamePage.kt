@@ -1454,8 +1454,14 @@ fun CvTrainingGamePage(
                     )
                 } else {
                     GameLevelSummaryCard(
+                        summaryData = null,
                         summary = summary.value.orEmpty(),
                         onBack = {
+                            abandonSessionIfNeeded {
+                                onBack()
+                            }
+                        },
+                        onReplay = {
                             abandonSessionIfNeeded {
                                 onBack()
                             }

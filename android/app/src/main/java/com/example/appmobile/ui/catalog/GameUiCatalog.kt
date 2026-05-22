@@ -110,19 +110,20 @@ object GameUiCatalog {
 
     fun gamesByType(type: String): List<GameUiItem> = games.filter { it.type == type }
 
-    fun gameById(id: String): GameUiItem? = games.firstOrNull { it.id == id }
+    fun gameById(id: String): GameUiItem? = games.firstOrNull { it.id.equals(id, ignoreCase = true) }
 
     fun isClickGame(id: String): Boolean = gameById(id)?.type == "click_game"
 
     fun emotionById(id: String): EmotionUiItem? = emotions.firstOrNull { it.id == id }
 
     fun gameFromBackend(id: String, title: String, type: String, maxLevel: Int): GameUiItem {
-        val fallback = gameById(id)
+        val normalizedId = id.lowercase()
+        val fallback = gameById(normalizedId)
         return GameUiItem(
-            id = id,
-            title = title.ifBlank { fallback?.title ?: "Trò chơi" },
+            id = normalizedId,
+            title = fallback?.title ?: title.ifBlank { "Trò chơi" },
             description = fallback?.description ?: "",
-            type = type.ifBlank { fallback?.type ?: "click_game" },
+            type = fallback?.type ?: type.ifBlank { "click_game" },
             imageRes = fallback?.imageRes ?: R.drawable.logo_emo,
             maxLevel = maxLevel.takeIf { it > 0 } ?: fallback?.maxLevel ?: 1
         )
@@ -139,8 +140,8 @@ object GameUiCatalog {
     }
 
     fun levelsForGame(gameId: String): List<LevelUiItem> {
-        if (gameId == GAME_CV_STORY) return cvStoryLevels()
-        val maxLevel = games.firstOrNull { it.id == gameId }?.maxLevel ?: return emptyList()
+        if (gameId.equals(GAME_CV_STORY, ignoreCase = true)) return cvStoryLevels()
+        val maxLevel = games.firstOrNull { it.id.equals(gameId, ignoreCase = true) }?.maxLevel ?: return emptyList()
         return levelsForMaxLevel(maxLevel)
     }
 
@@ -166,13 +167,8 @@ object GameUiCatalog {
         return (1..maxLevel).map { level ->
             LevelUiItem(
                 id = level,
-                name = when (level) {
-                    1 -> "Dễ"
-                    2 -> "Trung bình"
-                    3 -> "Khó"
-                    else -> "Cấp độ $level"
-                },
-                description = "5 cau hoi",
+                name = "Cấp độ $level",
+                description = "",
                 colorHex = when (level) {
                     1 -> 0xFF81C784
                     2 -> 0xFFFFB74D

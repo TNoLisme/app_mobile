@@ -92,7 +92,34 @@ def apply_additive_migrations() -> None:
         _add_column_if_missing(connection, "users", "password", "NVARCHAR(255) NULL")
         _add_column_if_missing(connection, "session_questions", "question_id", "NVARCHAR(64) NULL")
         _add_column_if_missing(connection, "session_questions", "used_hint", "INT NULL")
-        _alter_column_if_exists(connection, "games", "name", "NVARCHAR(255) NOT NULL")
+        _add_column_if_missing(connection, "game_data", "created_at", "DATETIME2 DEFAULT (GETUTCDATE()) NULL")
+        # Drop FK from session_questions to sessions if exists
+        connection.execute(text("""
+            IF OBJECT_ID('FK__session_q__sessi__7E37BEF6') IS NOT NULL
+                ALTER TABLE session_questions DROP CONSTRAINT FK__session_q__sessi__7E37BEF6;
+        """))
+        # Recreate sessions table to match ORM model ordering
+        connection.execute(text("""
+            IF OBJECT_ID('sessions', 'U') IS NOT NULL DROP TABLE sessions;
+            CREATE TABLE sessions (
+                session_id UNIQUEIDENTIFIER PRIMARY KEY,
+                user_id VARCHAR(128) NOT NULL,
+                game_id UNIQUEIDENTIFIER NOT NULL,
+                start_time DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
+                end_time DATETIME2 NULL,
+                state VARCHAR(30) NOT NULL DEFAULT ('playing'),
+                score INT NOT NULL DEFAULT (0),
+                level INT NOT NULL DEFAULT (1),
+                emotion_errors NVARCHAR(MAX) NULL,
+                max_errors INT NOT NULL DEFAULT (3),
+                level_threshold FLOAT NOT NULL DEFAULT (70.0),
+                ratio NVARCHAR(MAX) NULL,
+                time_limit INT NULL,
+                question_ids NVARCHAR(MAX) NULL,
+                CONSTRAINT FK_sessions_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                CONSTRAINT FK_sessions_game FOREIGN KEY (game_id) REFERENCES games(game_id) ON DELETE CASCADE
+            );
+        """))
         _alter_column_if_exists(connection, "games", "difficulty_level", "NVARCHAR(50) NULL")
         _alter_column_if_exists(connection, "game_content", "content_type", "NVARCHAR(50) NOT NULL")
         _alter_column_if_exists(connection, "game_content", "media_path", "NVARCHAR(500) NULL")
@@ -106,7 +133,17 @@ def apply_additive_migrations() -> None:
         _alter_column_if_exists(connection, "emotion_concepts", "video_path", "NVARCHAR(500) NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "image_path", "NVARCHAR(500) NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "audio_path", "NVARCHAR(500) NULL")
-        _alter_column_if_exists(connection, "emotion_concepts", "description", "NVARCHAR(MAX) NULL")
+        # Drop old FK referencing 'questions' table if it exists and add correct FK to game_content
+        connection.execute(text("""
+            DECLARE @fk_name NVARCHAR(128);
+            SELECT @fk_name = name FROM sys.foreign_keys
+            WHERE parent_object_id = OBJECT_ID('game_data_question')
+              AND referenced_object_id = OBJECT_ID('game_content');
+            IF @fk_name IS NULL
+            BEGIN
+                ALTER TABLE game_data_question ADD CONSTRAINT FK_game_data_question_content_id FOREIGN KEY (question_id) REFERENCES game_content(content_id);
+            END
+        """))
         # Backfill legacy rows so progress payload is always JSON-shaped for FE.
         connection.execute(
             text(
