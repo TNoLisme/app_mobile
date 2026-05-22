@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -68,16 +70,16 @@ private data class AssemblyQuestionUi(
 )
 
 private val faceEmotions = listOf(
-    FaceEmotionUi("happy", "Vui vẻ", "ðŸ˜Š", R.drawable.face_ensemble_happy),
-    FaceEmotionUi("sad", "Buồn bã", "ðŸ˜¢", R.drawable.face_ensemble_sad),
-    FaceEmotionUi("angry", "Tức giận", "ðŸ˜ ", R.drawable.face_ensemble_angry),
-    FaceEmotionUi("fear", "Sợ hãi", "ðŸ˜¨", R.drawable.face_ensemble_fear),
-    FaceEmotionUi("surprise", "Ngạc nhiên", "ðŸ˜²", R.drawable.face_ensemble_surprise),
-    FaceEmotionUi("disgust", "Ghê tởm", "ðŸ¤¢", R.drawable.face_ensemble_disgust)
+    FaceEmotionUi("happy", "Vui vẻ", "😊", R.drawable.face_ensemble_happy),
+    FaceEmotionUi("sad", "Buồn bã", "😢", R.drawable.face_ensemble_sad),
+    FaceEmotionUi("angry", "Tức giận", "😠", R.drawable.face_ensemble_angry),
+    FaceEmotionUi("fear", "Sợ hãi", "😨", R.drawable.face_ensemble_fear),
+    FaceEmotionUi("surprise", "Ngạc nhiên", "😲", R.drawable.face_ensemble_surprise),
+    FaceEmotionUi("disgust", "Ghê tởm", "🤢", R.drawable.face_ensemble_disgust)
 )
 
 @Composable
-fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
+fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
     val selectedEyebrow = remember(level) { mutableIntStateOf(-1) }
     val selectedEyes = remember(level) { mutableIntStateOf(-1) }
     val selectedMouth = remember(level) { mutableIntStateOf(-1) }
@@ -93,8 +95,10 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
     val questionStartMs = remember(level) { mutableStateOf(System.currentTimeMillis()) }
     val maxErrors = remember(level) { mutableIntStateOf(3) }
     val emotionErrors = remember(level) { mutableStateMapOf<String, Int>() }
+    val accumulatedErrors = remember(level) { mutableStateMapOf<String, Int>() }
     val learnedEmotions = remember(level) { mutableStateListOf<String>() }
     val learningEmotionId = remember(level) { mutableStateOf<String?>(null) }
+    val pendingLearnEmotion = remember(level) { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
@@ -121,14 +125,12 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                         correctCount = finalResults.count { it.isCorrect },
                         totalQuestions = finalResults.size
                     )
+                    repository.invalidateProgressCache(GameUiCatalog.GAME_FACE_ASSEMBLY, userId)
                     val status = if (response.passed) "Đã qua level" else "Chưa qua level"
                     summary.value = "$status. Điểm: ${response.score}/50."
                 } else {
                     summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
                 }
-                response?.reviewEmotionsToLearn
-                    ?.firstOrNull()
-                    ?.let { learningEmotionId.value = normalizeEmotionForLearning(it) }
             } catch (_: Exception) {
                 summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
             } finally {
@@ -151,10 +153,13 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
         if (isCorrect) score.intValue += 10
         val reviewEmotion = normalizeEmotionForLearning(target.id)
         if (!isCorrect) {
-            val nextErrorCount = (emotionErrors[reviewEmotion] ?: 0) + 1
-            emotionErrors[reviewEmotion] = nextErrorCount
-            if (nextErrorCount >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
+            emotionErrors[reviewEmotion] = (emotionErrors[reviewEmotion] ?: 0) + 1
+            val sessionErrors = emotionErrors[reviewEmotion] ?: 0
+            val totalErrors = sessionErrors + (accumulatedErrors[reviewEmotion] ?: 0)
+            if (totalErrors >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
                 learnedEmotions.add(reviewEmotion)
+                pendingLearnEmotion.value = reviewEmotion
+                learningEmotionId.value = reviewEmotion
             }
         }
 
@@ -212,16 +217,21 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
         summary.value = null
         summaryData.value = null
         emotionErrors.clear()
+        accumulatedErrors.clear()
+        started?.reviewEmotions?.forEach { (emotion, count) ->
+            accumulatedErrors[normalizeEmotionForLearning(emotion)] = count
+        }
         learnedEmotions.clear()
         learningEmotionId.value = null
+        pendingLearnEmotion.value = null
         resetCurrentQuestion()
     }
 
     val question = questions.value[currentIndex.intValue % questions.value.size]
-    val target = faceEmotions.firstOrNull { it.id == question.targetEmotion } ?: faceEmotions.first()
+    val target = faceEmotions.firstOrNull { it.id == question.targetEmotion } ?: faceEmotions.get(0)
 
-    GameScreenShell(contentMaxWidth = 900, onOpenAssistant = onOpenAssistant) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+    GameScreenShell(contentMaxWidth = 900, onOpenAssistant = onOpenAssistant, scrollEnabled = false, bottomSpacerHeight = 0.dp) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← Quay lại") }
                 Spacer(modifier = Modifier.weight(1f))
@@ -236,71 +246,102 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             }
 
             if (summary.value != null) {
-                Spacer(modifier = Modifier.height(20.dp))
-                GameLevelSummaryCard(
-                    summaryData = summaryData.value,
-                    summary = summary.value.orEmpty(),
-                    onBack = onBack,
-                    onReplay = { replayCount.intValue++ }
-                )
-                emotionErrors.clear()
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    GameLevelSummaryCard(
+                        summaryData = summaryData.value,
+                        summary = summary.value.orEmpty(),
+                        onBack = onBack,
+                        onReplay = { replayCount.intValue++ }
+                    )
+                }
             } else {
-                Spacer(modifier = Modifier.height(20.dp))
-                BoxWithConstraints {
-                    val isMobile = maxWidth < 750.dp
-                    if (isMobile) {
-                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            PreviewCard(selectedEyebrow.intValue, selectedEyes.intValue, selectedMouth.intValue)
-                            AssemblyControls(
-                                question = question,
-                                target = target,
-                                selectedEyebrow = selectedEyebrow.intValue,
-                                selectedEyes = selectedEyes.intValue,
-                                selectedMouth = selectedMouth.intValue,
-                                feedback = feedback.value,
-                                isSubmitting = isSubmitting.value,
-                                isLastQuestion = currentIndex.intValue >= questions.value.lastIndex,
-                                onCycleEyebrow = { selectedEyebrow.intValue = nextEmotionIndex(selectedEyebrow.intValue) },
-                                onCycleEyes = { selectedEyes.intValue = nextEmotionIndex(selectedEyes.intValue) },
-                                onCycleMouth = { selectedMouth.intValue = nextEmotionIndex(selectedMouth.intValue) },
-                                onReset = { resetCurrentQuestion() },
-                                onCheck = { recordCurrentAnswer(target) },
-                                onNext = { goNextOrFinish() }
-                            )
-                        }
-                    } else {
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Box(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val isMobile = maxWidth < 750.dp
+                        if (isMobile) {
+                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                 PreviewCard(selectedEyebrow.intValue, selectedEyes.intValue, selectedMouth.intValue)
-                            }
-                            Box(modifier = Modifier.weight(1f)) {
                                 AssemblyControls(
                                     question = question,
                                     target = target,
                                     selectedEyebrow = selectedEyebrow.intValue,
                                     selectedEyes = selectedEyes.intValue,
                                     selectedMouth = selectedMouth.intValue,
-                                    feedback = feedback.value,
+                                    hasFeedback = feedback.value != null,
                                     isSubmitting = isSubmitting.value,
-                                    isLastQuestion = currentIndex.intValue >= questions.value.lastIndex,
                                     onCycleEyebrow = { selectedEyebrow.intValue = nextEmotionIndex(selectedEyebrow.intValue) },
                                     onCycleEyes = { selectedEyes.intValue = nextEmotionIndex(selectedEyes.intValue) },
                                     onCycleMouth = { selectedMouth.intValue = nextEmotionIndex(selectedMouth.intValue) },
                                     onReset = { resetCurrentQuestion() },
-                                    onCheck = { recordCurrentAnswer(target) },
-                                    onNext = { goNextOrFinish() }
+                                    onCheck = { recordCurrentAnswer(target) }
                                 )
+                            }
+                        } else {
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    PreviewCard(selectedEyebrow.intValue, selectedEyes.intValue, selectedMouth.intValue)
+                                }
+                                Box(modifier = Modifier.weight(1f)) {
+                                    AssemblyControls(
+                                        question = question,
+                                        target = target,
+                                        selectedEyebrow = selectedEyebrow.intValue,
+                                        selectedEyes = selectedEyes.intValue,
+                                        selectedMouth = selectedMouth.intValue,
+                                        hasFeedback = feedback.value != null,
+                                        isSubmitting = isSubmitting.value,
+                                        onCycleEyebrow = { selectedEyebrow.intValue = nextEmotionIndex(selectedEyebrow.intValue) },
+                                        onCycleEyes = { selectedEyes.intValue = nextEmotionIndex(selectedEyes.intValue) },
+                                        onCycleMouth = { selectedMouth.intValue = nextEmotionIndex(selectedMouth.intValue) },
+                                        onReset = { resetCurrentQuestion() },
+                                        onCheck = { recordCurrentAnswer(target) }
+                                    )
+                                }
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(70.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (feedback.value != null) {
+                        GameFeedbackCard(feedback.value.orEmpty())
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Button(
+                    onClick = { goNextOrFinish() },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    enabled = feedback.value != null && !isSubmitting.value && learningEmotionId.value == null
+                ) {
+                    Text(
+                        when {
+                            isSubmitting.value -> "Đang lưu..."
+                            currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
+                            else -> "Câu tiếp theo"
+                        }
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
             }
             EmotionLearningDialog(
                 emotionId = learningEmotionId.value,
                 onDismiss = {
                     val emotion = learningEmotionId.value
                     learningEmotionId.value = null
+                    pendingLearnEmotion.value = null
                     if (emotion != null) {
+                        emotionErrors[emotion] = 0
+                        accumulatedErrors[emotion] = 0
                         scope.launch {
                             try {
                                 repository.resetReviewEmotions(GameUiCatalog.GAME_FACE_ASSEMBLY, userId, listOf(emotion))
@@ -355,7 +396,7 @@ private fun FacePartBand(emotionIndex: Int, partIndex: Int, label: String) {
             return@Box
         }
 
-        val bitmap = ImageBitmap.imageResource(id = faceEmotions[emotionIndex].spriteRes)
+        val bitmap = ImageBitmap.imageResource(id = faceEmotions.get(emotionIndex).spriteRes)
         Canvas(modifier = Modifier.fillMaxSize()) {
             val partHeight = bitmap.height / 3
             drawImage(
@@ -384,17 +425,15 @@ private fun AssemblyControls(
     selectedEyebrow: Int,
     selectedEyes: Int,
     selectedMouth: Int,
-    feedback: String?,
+    hasFeedback: Boolean,
     isSubmitting: Boolean,
-    isLastQuestion: Boolean,
     onCycleEyebrow: () -> Unit,
     onCycleEyes: () -> Unit,
     onCycleMouth: () -> Unit,
     onReset: () -> Unit,
-    onCheck: () -> Unit,
-    onNext: () -> Unit
+    onCheck: () -> Unit
 ) {
-    val canCheck = selectedEyebrow >= 0 && selectedEyes >= 0 && selectedMouth >= 0 && feedback == null
+    val canCheck = selectedEyebrow >= 0 && selectedEyes >= 0 && selectedMouth >= 0 && !hasFeedback
 
     Card(
         shape = MaterialTheme.shapes.extraLarge,
@@ -413,36 +452,17 @@ private fun AssemblyControls(
                 )
             }
 
-            ControlItem("Lông mày", selectedEyebrow, onCycleEyebrow, enabled = feedback == null)
-            ControlItem("Mắt", selectedEyes, onCycleEyes, enabled = feedback == null)
-            ControlItem("Miệng", selectedMouth, onCycleMouth, enabled = feedback == null)
+            ControlItem("Lông mày", selectedEyebrow, onCycleEyebrow, enabled = !hasFeedback && !isSubmitting)
+            ControlItem("Mắt", selectedEyes, onCycleEyes, enabled = !hasFeedback && !isSubmitting)
+            ControlItem("Miệng", selectedMouth, onCycleMouth, enabled = !hasFeedback && !isSubmitting)
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = onReset, modifier = Modifier.weight(1f), enabled = feedback == null) {
+                OutlinedButton(onClick = onReset, modifier = Modifier.weight(1f), enabled = !hasFeedback && !isSubmitting) {
                     Text("Chọn lại")
                 }
-                Button(onClick = onCheck, modifier = Modifier.weight(1f), enabled = canCheck) {
+                Button(onClick = onCheck, modifier = Modifier.weight(1f), enabled = canCheck && !isSubmitting) {
                     Text("Kiểm tra")
                 }
-            }
-
-            Button(
-                onClick = onNext,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = feedback != null && !isSubmitting
-            ) {
-                Text(
-                    when {
-                        isSubmitting -> "Đang lưu..."
-                        isLastQuestion -> "Hoàn thành"
-                        else -> "Câu tiếp theo"
-                    }
-                )
-            }
-
-            if (feedback != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                GameFeedbackCard(feedback)
             }
         }
     }
@@ -486,4 +506,3 @@ private fun resetSelections(
     selectedEyes.intValue = -1
     selectedMouth.intValue = -1
 }
-
