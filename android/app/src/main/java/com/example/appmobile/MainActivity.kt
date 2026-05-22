@@ -230,10 +230,10 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             val emotion = backStackEntry.arguments?.getString("emotion")?.takeIf { it.isNotBlank() }
             when (id) {
                 // Các game Nhận diện
-                "3bcb2108-721c-4a15-a585-31f3084ed000" -> RecognizeEmotionPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("recognize_emotion", level)) })
-                "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051" -> GameClick2Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_click_2", level)) })
-                "08bbffbf-d147-4556-bccb-b7621cafbf15" -> GameClick3Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_click_3", level)) })
-                "aacaf79e-e15e-42a9-a3d1-a522720d919b" -> GameClick4Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_click_4", level)) })
+                "3bcb2108-721c-4a15-a585-31f3084ed000" -> EmotionsBoxPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("emotions_box", level)) })
+                "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051" -> FaceAssemblyPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("face_assembly", level)) })
+                "08bbffbf-d147-4556-bccb-b7621cafbf15" -> EmotionMatchPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("emotion_match", level)) })
+                "aacaf79e-e15e-42a9-a3d1-a522720d919b" -> DetectiveGamePage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("detective_game", level)) })
                 // Các game Biểu cảm
                 "e05909f3-3dee-42a6-9a75-fd985b1bdf47" -> GameCVPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("gameCV", level)) })
                 "61f5e09e-eefa-44c1-86e1-87dfceac3b8e" -> GameCV2Page(

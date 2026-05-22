@@ -70,16 +70,16 @@ private data class AssemblyQuestionUi(
 )
 
 private val faceEmotions = listOf(
-    FaceEmotionUi("happy", "Vui vẻ", "ðŸ˜Š", R.drawable.face_ensemble_happy),
-    FaceEmotionUi("sad", "Buồn bã", "ðŸ˜¢", R.drawable.face_ensemble_sad),
-    FaceEmotionUi("angry", "Tức giận", "ðŸ˜ ", R.drawable.face_ensemble_angry),
-    FaceEmotionUi("fear", "Sợ hãi", "ðŸ˜¨", R.drawable.face_ensemble_fear),
-    FaceEmotionUi("surprise", "Ngạc nhiên", "ðŸ˜²", R.drawable.face_ensemble_surprise),
-    FaceEmotionUi("disgust", "Ghê tởm", "ðŸ¤¢", R.drawable.face_ensemble_disgust)
+    FaceEmotionUi("happy", "Vui vẻ", "😊", R.drawable.face_ensemble_happy),
+    FaceEmotionUi("sad", "Buồn bã", "😢", R.drawable.face_ensemble_sad),
+    FaceEmotionUi("angry", "Tức giận", "😠", R.drawable.face_ensemble_angry),
+    FaceEmotionUi("fear", "Sợ hãi", "😨", R.drawable.face_ensemble_fear),
+    FaceEmotionUi("surprise", "Ngạc nhiên", "😲", R.drawable.face_ensemble_surprise),
+    FaceEmotionUi("disgust", "Ghê tởm", "🤢", R.drawable.face_ensemble_disgust)
 )
 
 @Composable
-fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
+fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
     val selectedEyebrow = remember(level) { mutableIntStateOf(-1) }
     val selectedEyes = remember(level) { mutableIntStateOf(-1) }
     val selectedMouth = remember(level) { mutableIntStateOf(-1) }
@@ -228,7 +228,7 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
     }
 
     val question = questions.value[currentIndex.intValue % questions.value.size]
-    val target = faceEmotions.firstOrNull { it.id == question.targetEmotion } ?: faceEmotions.first()
+    val target = faceEmotions.firstOrNull { it.id == question.targetEmotion } ?: faceEmotions.get(0)
 
     GameScreenShell(contentMaxWidth = 900, onOpenAssistant = onOpenAssistant, scrollEnabled = false, bottomSpacerHeight = 0.dp) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -256,8 +256,8 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                     )
                 }
             } else {
-                Spacer(modifier = Modifier.height(20.dp))
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    Spacer(modifier = Modifier.height(20.dp))
                     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                         val isMobile = maxWidth < 750.dp
                         if (isMobile) {
@@ -302,28 +302,36 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
 
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(70.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     if (feedback.value != null) {
-                        Spacer(modifier = Modifier.height(20.dp))
                         GameFeedbackCard(feedback.value.orEmpty())
                     }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Button(
-                        onClick = { goNextOrFinish() },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        enabled = feedback.value != null && !isSubmitting.value && learningEmotionId.value == null
-                    ) {
-                        Text(
-                            when {
-                                isSubmitting.value -> "Đang lưu..."
-                                currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
-                                else -> "Câu tiếp theo"
-                            }
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
                 }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Button(
+                    onClick = { goNextOrFinish() },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    enabled = feedback.value != null && !isSubmitting.value && learningEmotionId.value == null
+                ) {
+                    Text(
+                        when {
+                            isSubmitting.value -> "Đang lưu..."
+                            currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
+                            else -> "Câu tiếp theo"
+                        }
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
             }
             EmotionLearningDialog(
                 emotionId = learningEmotionId.value,
@@ -388,7 +396,7 @@ private fun FacePartBand(emotionIndex: Int, partIndex: Int, label: String) {
             return@Box
         }
 
-        val bitmap = ImageBitmap.imageResource(id = faceEmotions[emotionIndex].spriteRes)
+        val bitmap = ImageBitmap.imageResource(id = faceEmotions.get(emotionIndex).spriteRes)
         Canvas(modifier = Modifier.fillMaxSize()) {
             val partHeight = bitmap.height / 3
             drawImage(
@@ -498,4 +506,3 @@ private fun resetSelections(
     selectedEyes.intValue = -1
     selectedMouth.intValue = -1
 }
-

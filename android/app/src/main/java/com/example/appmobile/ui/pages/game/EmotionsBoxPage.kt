@@ -63,7 +63,7 @@ private data class RecognizeQuestionUi(
 )
 
 @Composable
-fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
+fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
     val currentIndex = remember(level) { mutableIntStateOf(0) }
     val score = remember(level) { mutableIntStateOf(0) }
     val selectedEmotionId = remember(level) { mutableStateOf<String?>(null) }
