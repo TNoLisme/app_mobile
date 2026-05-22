@@ -167,13 +167,8 @@ object GameUiCatalog {
         return (1..maxLevel).map { level ->
             LevelUiItem(
                 id = level,
-                name = when (level) {
-                    1 -> "Dễ"
-                    2 -> "Trung bình"
-                    3 -> "Khó"
-                    else -> "Cấp độ $level"
-                },
-                description = "5 cau hoi",
+                name = "Cấp độ $level",
+                description = "",
                 colorHex = when (level) {
                     1 -> 0xFF81C784
                     2 -> 0xFFFFB74D

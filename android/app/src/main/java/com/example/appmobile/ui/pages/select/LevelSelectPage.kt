@@ -803,14 +803,12 @@ private fun LevelCard(
     val containerColor = if (state.unlocked) EgDesign.card else EgDesign.cardSoft
     val titleColor = if (state.unlocked) EgDesign.textPrimary else EgDesign.textSecondary
     val statusText = when {
-        !state.available -> "Đang cập nhật"
         state.resumable -> "Đang chơi dở"
         state.completed -> "Đã hoàn thành"
         state.unlocked -> "Đã mở khóa"
-        else -> "Đã khóa"
+        else -> "Chưa mở khóa"
     }
     val statusColor = when {
-        !state.available -> Color(0xFFB7791F)
         state.resumable -> Color(0xFF0369A1)
         state.completed -> Color(0xFF2E7D32)
         state.unlocked -> EgDesign.blue
@@ -861,7 +859,7 @@ private fun LevelCard(
                         state.completed -> "Đã hoàn thành"
                         state.unlocked && state.score != null -> "Đã mở khóa · Điểm gần nhất ${state.score}/100"
                         state.unlocked -> "Đã mở khóa"
-                        else -> level.description
+                        else -> ""
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = EgDesign.textSecondary

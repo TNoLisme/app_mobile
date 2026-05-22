@@ -3,7 +3,9 @@ package com.example.appmobile.ui.pages.game
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -16,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.data.remote.dto.GameContentOptionDto
@@ -65,8 +68,22 @@ fun GameFeedbackCard(message: String) {
     }
 }
 
+data class LevelSummaryData(
+    val passed: Boolean,
+    val score: Int,
+    val totalScore: Int,
+    val accuracy: Float,
+    val correctCount: Int,
+    val totalQuestions: Int
+)
+
 @Composable
-fun GameLevelSummaryCard(summary: String, onBack: () -> Unit, onReplay: () -> Unit) {
+fun GameLevelSummaryCard(
+    summaryData: LevelSummaryData?,
+    summary: String,
+    onBack: () -> Unit,
+    onReplay: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -74,8 +91,27 @@ fun GameLevelSummaryCard(summary: String, onBack: () -> Unit, onReplay: () -> Un
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Kết thúc level", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
-            Text(summary, color = EgDesign.textSecondary)
+            Text(
+                text = if (summaryData?.passed == true) "Chúc mừng!" else "Kết thúc level",
+                fontWeight = FontWeight.Bold,
+                color = if (summaryData?.passed == true) Color(0xFF2E7D32) else EgDesign.textPrimary
+            )
+
+            if (summaryData != null) {
+                Text(
+                    text = if (summaryData.passed) "Bạn đã vượt qua level!" else "Bạn chưa qua level, hãy cố gắng hơn nhé!",
+                    color = if (summaryData.passed) Color(0xFF2E7D32) else Color(0xFFE65100),
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                SummaryRow("Điểm số", "${summaryData.score}/${summaryData.totalScore}")
+                SummaryRow("Chính xác", "${summaryData.correctCount}/${summaryData.totalQuestions} câu")
+                SummaryRow("Tỉ lệ đúng", "${summaryData.accuracy.toInt()}%")
+            } else {
+                Text(summary, color = EgDesign.textSecondary)
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = onReplay, modifier = Modifier.weight(1f)) {
                     Text("Chơi lại")
@@ -85,6 +121,17 @@ fun GameLevelSummaryCard(summary: String, onBack: () -> Unit, onReplay: () -> Un
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SummaryRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, color = EgDesign.textSecondary, fontWeight = FontWeight.Medium)
+        Text(value, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
     }
 }
 

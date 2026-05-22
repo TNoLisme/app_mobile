@@ -102,23 +102,38 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
 
+    var summaryData = remember(level) { mutableStateOf<LevelSummaryData?>(null) }
+
     fun finishLevel(finalResults: List<AnswerResultDto>) {
         if (isSubmitting.value || summary.value != null) return
         scope.launch {
-            isSubmitting.value = true
-            val response = sessionId.value?.let {
-                repository.endLevel(it, finalResults, learnedEmotions.distinct())
+            try {
+                isSubmitting.value = true
+                val response = sessionId.value?.let {
+                    repository.endLevel(it, finalResults, learnedEmotions.distinct())
+                }
+                if (response != null) {
+                    summaryData.value = LevelSummaryData(
+                        passed = response.passed,
+                        score = response.score,
+                        totalScore = 50,
+                        accuracy = response.accuracy,
+                        correctCount = finalResults.count { it.isCorrect },
+                        totalQuestions = finalResults.size
+                    )
+                    val status = if (response.passed) "Đã qua level" else "Chưa qua level"
+                    summary.value = "$status. Điểm: ${response.score}/50."
+                } else {
+                    summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
+                }
+                response?.reviewEmotionsToLearn
+                    ?.firstOrNull()
+                    ?.let { learningEmotionId.value = normalizeEmotionForLearning(it) }
+            } catch (_: Exception) {
+                summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
+            } finally {
+                isSubmitting.value = false
             }
-            summary.value = if (response != null) {
-                val status = if (response.passed) "Đã qua level" else "Chưa qua level"
-                "$status. Điểm: ${response.score}/50."
-            } else {
-                "Hoàn thành. Điểm tạm tính: ${score.intValue}."
-            }
-            response?.reviewEmotionsToLearn
-                ?.firstOrNull()
-                ?.let { learningEmotionId.value = normalizeEmotionForLearning(it) }
-            isSubmitting.value = false
         }
     }
 
@@ -195,6 +210,7 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
         score.intValue = 0
         results.value = emptyList()
         summary.value = null
+        summaryData.value = null
         emotionErrors.clear()
         learnedEmotions.clear()
         learningEmotionId.value = null
@@ -222,54 +238,19 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             if (summary.value != null) {
                 Spacer(modifier = Modifier.height(20.dp))
                 GameLevelSummaryCard(
+                    summaryData = summaryData.value,
                     summary = summary.value.orEmpty(),
                     onBack = onBack,
                     onReplay = { replayCount.intValue++ }
                 )
-                EmotionLearningDialog(
-                    emotionId = learningEmotionId.value,
-                    onDismiss = {
-                        val emotion = learningEmotionId.value
-                        learningEmotionId.value = null
-                        if (emotion != null) {
-                            scope.launch {
-                                repository.resetReviewEmotions(GameUiCatalog.GAME_FACE_ASSEMBLY, userId, listOf(emotion))
-                            }
-                        }
-                    }
-                )
-                return@Column
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-            BoxWithConstraints {
-                val isMobile = maxWidth < 750.dp
-                if (isMobile) {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        PreviewCard(selectedEyebrow.intValue, selectedEyes.intValue, selectedMouth.intValue)
-                        AssemblyControls(
-                            question = question,
-                            target = target,
-                            selectedEyebrow = selectedEyebrow.intValue,
-                            selectedEyes = selectedEyes.intValue,
-                            selectedMouth = selectedMouth.intValue,
-                            feedback = feedback.value,
-                            isSubmitting = isSubmitting.value,
-                            isLastQuestion = currentIndex.intValue >= questions.value.lastIndex,
-                            onCycleEyebrow = { selectedEyebrow.intValue = nextEmotionIndex(selectedEyebrow.intValue) },
-                            onCycleEyes = { selectedEyes.intValue = nextEmotionIndex(selectedEyes.intValue) },
-                            onCycleMouth = { selectedMouth.intValue = nextEmotionIndex(selectedMouth.intValue) },
-                            onReset = { resetCurrentQuestion() },
-                            onCheck = { recordCurrentAnswer(target) },
-                            onNext = { goNextOrFinish() }
-                        )
-                    }
-                } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Box(modifier = Modifier.weight(1f)) {
+                emotionErrors.clear()
+            } else {
+                Spacer(modifier = Modifier.height(20.dp))
+                BoxWithConstraints {
+                    val isMobile = maxWidth < 750.dp
+                    if (isMobile) {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             PreviewCard(selectedEyebrow.intValue, selectedEyes.intValue, selectedMouth.intValue)
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
                             AssemblyControls(
                                 question = question,
                                 target = target,
@@ -287,6 +268,30 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                                 onNext = { goNextOrFinish() }
                             )
                         }
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                PreviewCard(selectedEyebrow.intValue, selectedEyes.intValue, selectedMouth.intValue)
+                            }
+                            Box(modifier = Modifier.weight(1f)) {
+                                AssemblyControls(
+                                    question = question,
+                                    target = target,
+                                    selectedEyebrow = selectedEyebrow.intValue,
+                                    selectedEyes = selectedEyes.intValue,
+                                    selectedMouth = selectedMouth.intValue,
+                                    feedback = feedback.value,
+                                    isSubmitting = isSubmitting.value,
+                                    isLastQuestion = currentIndex.intValue >= questions.value.lastIndex,
+                                    onCycleEyebrow = { selectedEyebrow.intValue = nextEmotionIndex(selectedEyebrow.intValue) },
+                                    onCycleEyes = { selectedEyes.intValue = nextEmotionIndex(selectedEyes.intValue) },
+                                    onCycleMouth = { selectedMouth.intValue = nextEmotionIndex(selectedMouth.intValue) },
+                                    onReset = { resetCurrentQuestion() },
+                                    onCheck = { recordCurrentAnswer(target) },
+                                    onNext = { goNextOrFinish() }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -297,7 +302,9 @@ fun GameClick2Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                     learningEmotionId.value = null
                     if (emotion != null) {
                         scope.launch {
-                            repository.resetReviewEmotions(GameUiCatalog.GAME_FACE_ASSEMBLY, userId, listOf(emotion))
+                            try {
+                                repository.resetReviewEmotions(GameUiCatalog.GAME_FACE_ASSEMBLY, userId, listOf(emotion))
+                            } catch (_: Exception) {}
                         }
                     }
                 }
@@ -410,10 +417,6 @@ private fun AssemblyControls(
             ControlItem("Mắt", selectedEyes, onCycleEyes, enabled = feedback == null)
             ControlItem("Miệng", selectedMouth, onCycleMouth, enabled = feedback == null)
 
-            if (feedback != null) {
-                GameFeedbackCard(feedback)
-            }
-
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = onReset, modifier = Modifier.weight(1f), enabled = feedback == null) {
                     Text("Chọn lại")
@@ -435,6 +438,11 @@ private fun AssemblyControls(
                         else -> "Câu tiếp theo"
                     }
                 )
+            }
+
+            if (feedback != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                GameFeedbackCard(feedback)
             }
         }
     }
