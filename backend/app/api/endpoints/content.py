@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.db.session import get_db
 from app.models.analytics import ChildProgress
@@ -529,6 +530,7 @@ def list_games(game_type: str | None = Query(default=None), db: Session = Depend
 
 @router.get("/games/progress/{game_id}")
 def get_game_progress(game_id: str, user_id: str = Query(...), db: Session = Depends(get_db)):
+    game_id = game_id.lower()
     _ensure_user(db, user_id)
     progress = _ensure_progress(db, user_id, game_id)
     shared_review = _merge_click_review_emotions(db, user_id) if game_id in CLICK_GAME_IDS else None
@@ -538,6 +540,7 @@ def get_game_progress(game_id: str, user_id: str = Query(...), db: Session = Dep
 
 @router.get("/game-content/{game_id}", response_model=list[GameContentOut])
 def list_game_content(game_id: str, level: int | None = Query(default=None), db: Session = Depends(get_db)):
+    game_id = game_id.lower()
     query = db.query(GameContent).filter(GameContent.game_id == game_id)
     if level is not None:
         query = query.filter(GameContent.level == level)
@@ -569,6 +572,7 @@ def list_cv_requests(db: Session = Depends(get_db)):
 
 @router.get("/games/{game_id}", response_model=GameOut)
 def get_game(game_id: str, db: Session = Depends(get_db)):
+    game_id = game_id.lower()
     game = db.get(Game, game_id)
     if game is None:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -641,7 +645,7 @@ def end_cv_session(body: CvEndRequest, db: Session = Depends(get_db)):
 def get_cv_emotion_scores(user_id: str, db: Session = Depends(get_db)):
     scores = {"happy": 0.0, "sad": 0.0, "surprise": 0.0, "angry": 0.0, "fear": 0.0, "disgust": 0.0}
     rows = (
-        db.query(GameContent.emotion, SessionQuestion.cv_confidence)
+        db.query(func.coalesce(GameContent.emotion, GameContent.correct_answer), SessionQuestion.cv_confidence)
         .join(SessionQuestion, SessionQuestion.question_id == GameContent.content_id)
         .join(PlaySession, PlaySession.session_id == SessionQuestion.session_id)
         .filter(PlaySession.user_id == user_id)
@@ -708,6 +712,7 @@ def audio_proxy(url: str):
 
 @router.post("/games/start/{game_id}")
 def start_game(game_id: str, body: StartGameRequest, db: Session = Depends(get_db)):
+    game_id = game_id.lower()
     game = db.get(Game, game_id)
     if game is None:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -772,6 +777,7 @@ def start_game(game_id: str, body: StartGameRequest, db: Session = Depends(get_d
 
 @router.post("/games/start-dynamic/{game_id}")
 def start_game_dynamic(game_id: str, body: StartGameRequest, db: Session = Depends(get_db)):
+    game_id = game_id.lower()
     return start_game(game_id, body, db)
 
 
@@ -897,6 +903,7 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
 
 @router.post("/games/progress/{game_id}/review/reset")
 def reset_review_emotions(game_id: str, body: ResetReviewRequest, db: Session = Depends(get_db)):
+    game_id = game_id.lower()
     _ensure_user(db, body.user_id)
     progress = _ensure_progress(db, body.user_id, game_id)
     review_emotions = _merge_click_review_emotions(db, body.user_id) if game_id in CLICK_GAME_IDS else _normalized_review(progress.review_emotions)

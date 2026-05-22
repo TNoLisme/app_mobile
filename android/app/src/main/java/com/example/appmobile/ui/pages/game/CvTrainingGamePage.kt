@@ -1459,6 +1459,11 @@ fun CvTrainingGamePage(
                             abandonSessionIfNeeded {
                                 onBack()
                             }
+                        },
+                        onReplay = {
+                            abandonSessionIfNeeded {
+                                onBack()
+                            }
                         }
                     )
                 }

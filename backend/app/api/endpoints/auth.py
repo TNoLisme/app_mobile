@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.analytics import ChildProgress
-from app.models.game import Game, GameContent, PlaySession, SessionQuestion
+from app.models.game import Game, GameContent, PlaySession, SessionQuestion, Question
 from app.models.user import Child, User
 from app.schemas.user import UserDto, UserSyncRequest
 
@@ -371,12 +371,13 @@ async def get_recent_games(user_id: str, limit: int = 4, db: Session = Depends(g
 async def get_emotion_accuracy_stats(user_id: str, db: Session = Depends(get_db)):
     stats = {name: {"correct": 0, "incorrect": 0, "accuracy": 0.0} for name in EMOTION_MAP.values()}
     rows = (
-        db.query(GameContent.emotion, SessionQuestion.is_correct, func.count(SessionQuestion.id))
-        .join(SessionQuestion, SessionQuestion.question_id == GameContent.content_id)
+        db.query(func.coalesce(GameContent.emotion, GameContent.correct_answer), SessionQuestion.is_correct, func.count(SessionQuestion.id))
+        .outerjoin(Question, Question.question_id == SessionQuestion.question_id)
+        .join(GameContent, GameContent.content_id == func.coalesce(Question.content_id, SessionQuestion.question_id))
         .join(PlaySession, PlaySession.session_id == SessionQuestion.session_id)
         .filter(PlaySession.user_id == user_id)
         .filter(PlaySession.end_time.isnot(None))
-        .group_by(GameContent.emotion, SessionQuestion.is_correct)
+        .group_by(func.coalesce(GameContent.emotion, GameContent.correct_answer), SessionQuestion.is_correct)
         .all()
     )
     for emotion, is_correct, count in rows:

@@ -140,8 +140,8 @@ object GameUiCatalog {
     }
 
     fun levelsForGame(gameId: String): List<LevelUiItem> {
-        if (gameId == GAME_CV_STORY) return cvStoryLevels()
-        val maxLevel = games.firstOrNull { it.id == gameId }?.maxLevel ?: return emptyList()
+        if (gameId.equals(GAME_CV_STORY, ignoreCase = true)) return cvStoryLevels()
+        val maxLevel = games.firstOrNull { it.id.equals(gameId, ignoreCase = true) }?.maxLevel ?: return emptyList()
         return levelsForMaxLevel(maxLevel)
     }
 

@@ -66,7 +66,7 @@ fun GameFeedbackCard(message: String) {
 }
 
 @Composable
-fun GameLevelSummaryCard(summary: String, onBack: () -> Unit) {
+fun GameLevelSummaryCard(summary: String, onBack: () -> Unit, onReplay: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -76,8 +76,13 @@ fun GameLevelSummaryCard(summary: String, onBack: () -> Unit) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Kết thúc level", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
             Text(summary, color = EgDesign.textSecondary)
-            Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-                Text("Quay lại chọn level")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onReplay, modifier = Modifier.weight(1f)) {
+                    Text("Chơi lại")
+                }
+                Button(onClick = onBack, modifier = Modifier.weight(1f)) {
+                    Text("Chọn level")
+                }
             }
         }
     }

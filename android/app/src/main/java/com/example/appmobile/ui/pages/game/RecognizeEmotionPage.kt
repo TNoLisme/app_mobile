@@ -1,4 +1,4 @@
-﻿package com.example.appmobile.ui.pages.game
+package com.example.appmobile.ui.pages.game
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -68,6 +68,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
     val sessionId = remember(level) { mutableStateOf<String?>(null) }
     val results = remember(level) { mutableStateOf<List<AnswerResultDto>>(emptyList()) }
     val summary = remember(level) { mutableStateOf<String?>(null) }
+    val replayCount = remember { mutableIntStateOf(0) }
     val isSubmitting = remember(level) { mutableStateOf(false) }
     val questionStartMs = remember(level) { mutableStateOf(System.currentTimeMillis()) }
     val maxErrors = remember(level) { mutableIntStateOf(3) }
@@ -89,10 +90,10 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                 repository.endLevel(it, finalResults, learnedEmotions.distinct())
             }
             summary.value = if (response != null) {
-                val status = if (response.passed) "ÄÃ£ qua level" else "ChÆ°a qua level"
+                val status = if (response.passed) "Đã qua level" else "Chưa qua level"
                 "$status. Điểm: ${response.score}/50."
             } else {
-                "Hoàn thành. Điểm táº¡m tÃ­nh: ${score.intValue}."
+                "Hoàn thành. Điểm tạm tính: ${score.intValue}."
             }
             response?.reviewEmotionsToLearn
                 ?.firstOrNull()
@@ -101,7 +102,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
         }
     }
 
-    LaunchedEffect(level, userId) {
+    LaunchedEffect(level, userId, replayCount.intValue) {
         val started = repository.startGame(GameUiCatalog.GAME_RECOGNIZE_EMOTION, userId, level)
         sessionId.value = started?.sessionId
         maxErrors.intValue = started?.maxErrors ?: 3
@@ -110,7 +111,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                 val emotion = normalizeEmotionForLearning((content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null })
                 RecognizeQuestionUi(
                     questionId = content.contentId,
-                    questionText = content.questionText?.ifBlank { "ÄÃ¢y lÃ  cảm xúc gÃ¬?" } ?: "ÄÃ¢y lÃ  cảm xúc gÃ¬?",
+                    questionText = content.questionText?.ifBlank { "Đây là cảm xúc gì?" } ?: "Đây là cảm xúc gì?",
                     imageRes = emotionImageResource(emotion),
                     correctEmotion = emotion,
                     optionEmotionIds = optionEmotionIdsFromBackend(content.options, emotion)
@@ -139,7 +140,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
     GameScreenShell(contentMaxWidth = 800, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onBack) { Text("â† ThoÃ¡t") }
+                TextButton(onClick = onBack) { Text("← Thoát") }
                 Spacer(modifier = Modifier.weight(1f))
                 Surface(
                     shape = MaterialTheme.shapes.large,
@@ -169,14 +170,18 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                 color = EgDesign.textPrimary
             )
             Text(
-                "Bé hãy nhÃ¬n hÃ¬nh vÃ  chá»n cảm xúc đúng nhất nhé",
+                "Bé hãy nhìn hình và chọn cảm xúc đúng nhất nhé",
                 style = MaterialTheme.typography.bodyMedium,
                 color = EgDesign.textSecondary
             )
 
             if (summary.value != null) {
                 Spacer(modifier = Modifier.height(20.dp))
-                LevelSummaryCard(summary = summary.value.orEmpty(), onBack = onBack)
+                GameLevelSummaryCard(
+                    summary = summary.value.orEmpty(),
+                    onBack = onBack,
+                    onReplay = { replayCount.intValue++ }
+                )
                 EmotionLearningDialog(
                     emotionId = learningEmotionId.value,
                     onDismiss = {
@@ -283,7 +288,7 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
                         results.value = updatedResults
                         val targetName = GameUiCatalog.emotionById(currentQuestion.correctEmotion)?.name
                             ?: currentQuestion.correctEmotion
-                        feedback.value = if (isCorrect) "ÄÃºng rá»“i." else "ChÆ°a đúng. Đáp án lÃ  $targetName."
+                        feedback.value = if (isCorrect) "Đúng rồi." else "Chưa đúng. Đáp án là $targetName."
                         return@Button
                     }
 
@@ -302,32 +307,20 @@ fun RecognizeEmotionPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: ()
             ) {
                 Text(
                     when {
-                        isSubmitting.value -> "Äang lÆ°u..."
+                        isSubmitting.value -> "Đang lưu..."
                         feedback.value == null -> "Trả lời"
                         currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
                         else -> "Câu tiếp theo"
                     }
                 )
             }
-            EmotionLearningDialog(
-                emotionId = learningEmotionId.value,
-                onDismiss = {
-                    val emotion = learningEmotionId.value
-                    learningEmotionId.value = null
-                    if (emotion != null) {
-                        scope.launch {
-                            repository.resetReviewEmotions(GameUiCatalog.GAME_RECOGNIZE_EMOTION, userId, listOf(emotion))
-                        }
-                    }
-                }
-            )
         }
     }
 }
 
 @Composable
 private fun FeedbackCard(message: String) {
-    val isCorrect = message.startsWith("ÄÃºng")
+    val isCorrect = message.startsWith("Đúng")
     val isDark = AppSettingsState.activeDarkTheme.value
     Surface(
         shape = MaterialTheme.shapes.large,
@@ -350,32 +343,11 @@ private fun FeedbackCard(message: String) {
     }
 }
 
-@Composable
-private fun LevelSummaryCard(summary: String, onBack: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Káº¿t thÃºc level", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
-            Text(summary, color = EgDesign.textSecondary)
-            Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-                Text("Quay lại chá»n level")
-            }
-        }
-    }
-}
-
 private fun fallbackRecognizeQuestions(): List<RecognizeQuestionUi> {
     return listOf(
-        RecognizeQuestionUi("fallback-recognize-happy", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.happy_1, "happy"),
-        RecognizeQuestionUi("fallback-recognize-sad", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.sad_1, "sad"),
-        RecognizeQuestionUi("fallback-recognize-surprise", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.surprise_1, "surprise"),
-        RecognizeQuestionUi("fallback-recognize-angry", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.angry_1, "angry"),
-        RecognizeQuestionUi("fallback-recognize-fear", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.fear_1, "fear"),
-        RecognizeQuestionUi("fallback-recognize-disgust", "ÄÃ¢y lÃ  cảm xúc gÃ¬?", R.drawable.disgust_1, "disgust")
+        RecognizeQuestionUi("fallback-recognize-angry", "Đây là cảm xúc gì?", R.drawable.angry_1, "angry"),
+        RecognizeQuestionUi("fallback-recognize-fear", "Đây là cảm xúc gì?", R.drawable.fear_1, "fear"),
+        RecognizeQuestionUi("fallback-recognize-disgust", "Đây là cảm xúc gì?", R.drawable.disgust_1, "disgust")
     )
 }
 

@@ -1,4 +1,4 @@
-﻿package com.example.appmobile.ui.pages.game
+package com.example.appmobile.ui.pages.game
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -63,6 +63,7 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
     val sessionId = remember(level) { mutableStateOf<String?>(null) }
     val results = remember(level) { mutableStateOf<List<AnswerResultDto>>(emptyList()) }
     val summary = remember(level) { mutableStateOf<String?>(null) }
+    val replayCount = remember { mutableIntStateOf(0) }
     val isSubmitting = remember(level) { mutableStateOf(false) }
     val questionStartMs = remember(level) { mutableStateOf(System.currentTimeMillis()) }
     val maxErrors = remember(level) { mutableIntStateOf(3) }
@@ -84,10 +85,10 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                 repository.endLevel(it, finalResults, learnedEmotions.distinct())
             }
             summary.value = if (response != null) {
-                val status = if (response.passed) "ÄÃ£ qua level" else "ChÆ°a qua level"
+                val status = if (response.passed) "Đã qua level" else "Chưa qua level"
                 "$status. Điểm: ${response.score}/50."
             } else {
-                "Hoàn thành. Điểm táº¡m tÃ­nh: ${score.intValue}."
+                "Hoàn thành. Điểm tạm tính: ${score.intValue}."
             }
             response?.reviewEmotionsToLearn
                 ?.firstOrNull()
@@ -96,7 +97,7 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
         }
     }
 
-    LaunchedEffect(level, userId) {
+    LaunchedEffect(level, userId, replayCount.intValue) {
         val started = repository.startGame(GameUiCatalog.GAME_DETECTIVE, userId, level)
         sessionId.value = started?.sessionId
         maxErrors.intValue = started?.maxErrors ?: 3
@@ -105,7 +106,7 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                 val emotion = normalizeEmotionForLearning((content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null })
                 DetectiveQuestionUi(
                     questionId = content.contentId,
-                    story = content.questionText?.ifBlank { "Cảm xúc nÃ o Ä‘ang áº©n giáº¥u?" } ?: "Cảm xúc nÃ o Ä‘ang áº©n giáº¥u?",
+                    story = content.questionText?.ifBlank { "Cảm xúc nào đang ẩn giấu?" } ?: "Cảm xúc nào đang ẩn giấu?",
                     correctEmotion = emotion,
                     optionEmotionIds = optionEmotionIdsFromBackend(content.options, emotion)
                 )
@@ -133,9 +134,9 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
     GameScreenShell(contentMaxWidth = 700, onOpenAssistant = onOpenAssistant) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onBack) { Text("â† Quay lại") }
+                TextButton(onClick = onBack) { Text("← Quay lại") }
                 Spacer(modifier = Modifier.weight(1f))
-                Text("Thám tử­ cảm xúc", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
+                Text("Thám tử cảm xúc", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -147,7 +148,11 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
 
             if (summary.value != null) {
                 Spacer(modifier = Modifier.height(20.dp))
-                GameLevelSummaryCard(summary = summary.value.orEmpty(), onBack = onBack)
+                GameLevelSummaryCard(
+                    summary = summary.value.orEmpty(),
+                    onBack = onBack,
+                    onReplay = { replayCount.intValue++ }
+                )
                 EmotionLearningDialog(
                     emotionId = learningEmotionId.value,
                     onDismiss = {
@@ -251,7 +256,7 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                         )
                         results.value = updatedResults
                         val targetName = GameUiCatalog.emotionById(question.correctEmotion)?.name ?: question.correctEmotion
-                        feedback.value = if (isCorrect) "PhÃ¡ Ã¡n đúng rá»“i." else "ChÆ°a đúng. Đáp án lÃ  $targetName."
+                        feedback.value = if (isCorrect) "Phá án đúng rồi." else "Chưa đúng. Đáp án là $targetName."
                         return@Button
                     }
 
@@ -270,10 +275,10 @@ fun GameClick4Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             ) {
                 Text(
                     when {
-                        isSubmitting.value -> "Äang lÆ°u..."
+                        isSubmitting.value -> "Đang lưu..."
                         feedback.value == null -> "Trả lời"
                         currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
-                        else -> "Manh má»‘i tiếp theo"
+                        else -> "Manh mối tiếp theo"
                     }
                 )
             }
@@ -297,7 +302,7 @@ private fun fallbackDetectiveQuestions(): List<DetectiveQuestionUi> {
     return listOf(
         DetectiveQuestionUi(
             "fallback-detective-fear",
-            "Minh bÃ¡m cháº·t tay máº¹ khi tháº¥y chÃ³ lá»›n. Cảm xúc nÃ o Ä‘ang áº©n giáº¥u?",
+            "Minh bám chặt tay mẹ khi thấy chó lớn. Cảm xúc nào đang ẩn giấu?",
             "fear"
         )
     )
