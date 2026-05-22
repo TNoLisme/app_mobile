@@ -196,7 +196,7 @@ fun LevelSelectPage(
                 ?.level
                 ?: 0
         }.getOrDefault(0)
-        val maxLevel = maxOf(backendMaxLevel, catalogMaxLevel)
+        val maxLevel = if (backendMaxLevel > 0) backendMaxLevel else catalogMaxLevel
 
         val levels = GameUiCatalog.levelsForMaxLevel(maxLevel)
             .ifEmpty { GameUiCatalog.levelsForGame(gameId) }

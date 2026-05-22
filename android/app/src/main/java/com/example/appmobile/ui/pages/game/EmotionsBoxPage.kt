@@ -19,7 +19,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,6 +40,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.appmobile.R
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
@@ -50,7 +50,6 @@ import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.GameScreenShell
-import com.example.appmobile.ui.state.AppSettingsState
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
@@ -58,6 +57,7 @@ private data class RecognizeQuestionUi(
     val questionId: String,
     val questionText: String,
     val imageRes: Int,
+    val mediaPath: String?,
     val correctEmotion: String,
     val optionEmotionIds: List<String> = GameUiCatalog.emotions.map { it.id }
 )
@@ -98,21 +98,45 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                 val response = sessionId.value?.let {
                     repository.endLevel(it, finalResults, learnedEmotions.distinct())
                 }
-                    if (response != null) {
-                        summaryData.value = LevelSummaryData(
-                            passed = response.passed,
-                            score = response.score,
-                            totalScore = 50,
-                            accuracy = response.accuracy,
-                            correctCount = finalResults.count { it.isCorrect },
-                            totalQuestions = finalResults.size
-                        )
-                        repository.invalidateProgressCache(GameUiCatalog.GAME_RECOGNIZE_EMOTION, userId)
-                        val status = if (response.passed) "Đã qua level" else "Chưa qua level"
-                        summary.value = "$status. Điểm: ${response.score}/50."
-                    }
+                if (response != null) {
+                    summaryData.value = LevelSummaryData(
+                        passed = response.passed,
+                        score = response.score,
+                        totalScore = 50,
+                        accuracy = response.accuracy,
+                        correctCount = finalResults.count { it.isCorrect },
+                        totalQuestions = finalResults.size
+                    )
+                    repository.invalidateProgressCache(GameUiCatalog.GAME_RECOGNIZE_EMOTION, userId)
+                    val status = if (response.passed) "Đã qua level" else "Chưa qua level"
+                    summary.value = "$status. Điểm: ${response.score}/50."
+                } else {
+                    val totalQ = finalResults.size
+                    val correctC = finalResults.count { it.isCorrect }
+                    val acc = if (totalQ > 0) (correctC.toFloat() / totalQ) * 100f else 0f
+                    summaryData.value = LevelSummaryData(
+                        passed = acc >= 50f,
+                        score = score.intValue,
+                        totalScore = totalQ * 10,
+                        accuracy = acc,
+                        correctCount = correctC,
+                        totalQuestions = totalQ
+                    )
+                    summary.value = "Hoàn thành."
+                }
             } catch (_: Exception) {
-                summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
+                val totalQ = finalResults.size
+                val correctC = finalResults.count { it.isCorrect }
+                val acc = if (totalQ > 0) (correctC.toFloat() / totalQ) * 100f else 0f
+                summaryData.value = LevelSummaryData(
+                    passed = acc >= 50f,
+                    score = score.intValue,
+                    totalScore = totalQ * 10,
+                    accuracy = acc,
+                    correctCount = correctC,
+                    totalQuestions = totalQ
+                )
+                summary.value = "Hoàn thành."
             } finally {
                 isSubmitting.value = false
             }
@@ -130,6 +154,7 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                     questionId = content.contentId,
                     questionText = content.questionText?.ifBlank { "Đây là cảm xúc gì?" } ?: "Đây là cảm xúc gì?",
                     imageRes = emotionDrawableResource(emotion),
+                    mediaPath = content.mediaPath,
                     correctEmotion = emotion,
                     optionEmotionIds = optionEmotionIdsFromBackend(content.options, emotion)
                 )
@@ -156,9 +181,7 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
     }
 
     val currentQuestion = questions.value[currentIndex.intValue % questions.value.size]
-    val options = currentQuestion.optionEmotionIds
-        .mapNotNull { GameUiCatalog.emotionById(it) }
-        .ifEmpty { GameUiCatalog.emotions }
+    val options = GameUiCatalog.emotions
 
     GameScreenShell(
         contentMaxWidth = 800,
@@ -167,56 +190,75 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
         bottomSpacerHeight = 0.dp
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onBack) { Text("← Thoát") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onBack) { Text("← Quay lại") }
                 Spacer(modifier = Modifier.weight(1f))
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = EgDesign.cardSoft,
-                    border = BorderStroke(1.dp, EgDesign.cardBorder)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        LinearProgressIndicator(
-                            progress = { (currentIndex.intValue + 1).toFloat() / questions.value.size },
-                            modifier = Modifier.width(60.dp).height(6.dp),
-                            color = Color(0xFF3B82F6)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Câu ${currentIndex.intValue + 1}/${questions.value.size}", color = EgDesign.textPrimary)
-                    }
-                }
+                Text("Chiếc hộp cảm xúc", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                GameStatChip("Câu ${currentIndex.intValue + 1}/${questions.value.size}")
+                GameStatChip("Điểm ${score.intValue}")
+                GameStatChip("Level $level")
             }
 
             if (summary.value != null) {
                 Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                     Spacer(modifier = Modifier.height(20.dp))
+                    GameLevelSummaryCard(
+                        summaryData = summaryData.value,
+                        summary = summary.value.orEmpty(),
+                        onBack = onBack,
+                        onReplay = { replayCount.intValue++ }
+                    )
+                }
+            } else {
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    Spacer(modifier = Modifier.height(12.dp))
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.extraLarge,
                         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
                         elevation = CardDefaults.cardElevation(2.dp)
                     ) {
-                        Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Image(
-                                painter = painterResource(id = currentQuestion.imageRes),
-                                contentDescription = null,
-                                modifier = Modifier.size(150.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                currentQuestion.questionText,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = EgDesign.textPrimary
-                            )
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(160.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (!currentQuestion.mediaPath.isNullOrBlank()) {
+                                    val assetPath = if (currentQuestion.mediaPath.startsWith("/")) {
+                                        "file:///android_asset${currentQuestion.mediaPath}"
+                                    } else {
+                                        "file:///android_asset/${currentQuestion.mediaPath}"
+                                    }
+                                    AsyncImage(
+                                        model = assetPath,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                } else {
+                                    Image(
+                                        painter = painterResource(id = currentQuestion.imageRes),
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
+                            }
+                            Text(currentQuestion.questionText, style = MaterialTheme.typography.titleMedium, color = EgDesign.textSecondary)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         options.chunked(2).forEach { rowItems ->
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -241,34 +283,33 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                                         )
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(12.dp),
+                                            modifier = Modifier.padding(10.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(item.emoji, fontSize = 24.sp)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(item.name, color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold)
+                                            Text(item.emoji, fontSize = 20.sp)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(item.name, color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                // Vùng phản hồi cố định chiều cao để button không bị nhảy
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(70.dp),
+                        .height(56.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     if (feedback.value != null) {
-                        FeedbackCard(feedback.value.orEmpty())
+                        GameFeedbackCard(feedback.value.orEmpty())
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Button(
                     onClick = {
@@ -333,154 +374,6 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                 }
                 Spacer(modifier = Modifier.height(4.dp))
             }
-            else {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Chiếc hộp cảm xúc",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = EgDesign.textPrimary
-                )
-                Text(
-                    "Bé hãy nhìn hình và chọn cảm xúc đúng nhất nhé",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = EgDesign.textSecondary
-                )
-
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.extraLarge,
-                        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
-                        elevation = CardDefaults.cardElevation(2.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Image(
-                                painter = painterResource(id = currentQuestion.imageRes),
-                                contentDescription = null,
-                                modifier = Modifier.size(150.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                currentQuestion.questionText,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = EgDesign.textPrimary
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        options.chunked(2).forEach { rowItems ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                rowItems.forEach { item ->
-                                    val visualState = answerVisualState(
-                                        optionId = item.id,
-                                        correctEmotion = currentQuestion.correctEmotion,
-                                        selectedEmotionId = selectedEmotionId.value,
-                                        hasFeedback = feedback.value != null
-                                    )
-                                    Card(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clickable(enabled = feedback.value == null) { selectedEmotionId.value = item.id },
-                                        shape = MaterialTheme.shapes.large,
-                                        border = BorderStroke(
-                                            2.dp,
-                                            visualState.borderColor
-                                        ),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = visualState.containerColor
-                                        )
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(item.emoji, fontSize = 24.sp)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(item.name, color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (feedback.value != null) {
-                        Spacer(modifier = Modifier.height(20.dp))
-                        FeedbackCard(feedback.value.orEmpty())
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Button(
-                        onClick = {
-                            if (feedback.value == null) {
-                                val selected = selectedEmotionId.value ?: return@Button
-                                val isCorrect = selected == currentQuestion.correctEmotion
-                                if (isCorrect) score.intValue += 10
-                                val reviewEmotion = normalizeEmotionForLearning(currentQuestion.correctEmotion)
-                                if (!isCorrect) {
-                                    emotionErrors[reviewEmotion] = (emotionErrors[reviewEmotion] ?: 0) + 1
-                                    val sessionErrors = emotionErrors[reviewEmotion] ?: 0
-                                    val totalErrors = sessionErrors + (accumulatedErrors[reviewEmotion] ?: 0)
-                                    if (totalErrors >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
-                                        learnedEmotions.add(reviewEmotion)
-                                        pendingLearnEmotion.value = reviewEmotion
-                                        learningEmotionId.value = reviewEmotion
-                                    }
-                                }
-                                val updatedResults = results.value + AnswerResultDto(
-                                    questionId = currentQuestion.questionId,
-                                    answer = selected,
-                                    isCorrect = isCorrect,
-                                    responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
-                                )
-                                results.value = updatedResults
-                                val targetName = GameUiCatalog.emotionById(currentQuestion.correctEmotion)?.name
-                                    ?: currentQuestion.correctEmotion
-                                feedback.value = if (isCorrect) "Đúng rồi." else "Chưa đúng. Đáp án là $targetName."
-                                return@Button
-                            }
-
-                            if (pendingLearnEmotion.value != null) {
-                                learningEmotionId.value = pendingLearnEmotion.value
-                                return@Button
-                            }
-
-                            val isLastQuestion = currentIndex.intValue >= questions.value.lastIndex
-                            if (isLastQuestion) {
-                                finishLevel(results.value)
-                            } else {
-                                currentIndex.intValue += 1
-                                selectedEmotionId.value = null
-                                feedback.value = null
-                                questionStartMs.value = System.currentTimeMillis()
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        enabled = selectedEmotionId.value != null && !isSubmitting.value && learningEmotionId.value == null
-                    ) {
-                        val learnTarget = pendingLearnEmotion.value?.let {
-                            GameUiCatalog.emotionById(it)?.name ?: it
-                        }
-                        Text(
-                            when {
-                                isSubmitting.value -> "Đang lưu..."
-                                feedback.value == null -> "Trả lời"
-                                pendingLearnEmotion.value != null -> "Học về $learnTarget"
-                                currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
-                                else -> "Câu tiếp theo"
-                            }
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-                Spacer(modifier = Modifier.weight(1f))
-            }
             EmotionLearningDialog(
                 emotionId = learningEmotionId.value,
                 onDismiss = {
@@ -502,36 +395,10 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
     }
 }
 
-@Composable
-private fun FeedbackCard(message: String) {
-    val isCorrect = message.startsWith("Đúng")
-    val isDark = AppSettingsState.activeDarkTheme.value
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        color = if (isCorrect) {
-            if (isDark) Color(0xFF153E2A) else Color(0xFFE8F5E9)
-        } else {
-            if (isDark) Color(0xFF4A2D12) else Color(0xFFFFF3E0)
-        }
-    ) {
-        Text(
-            text = message,
-            modifier = Modifier.padding(12.dp),
-            color = if (isCorrect) {
-                if (isDark) Color(0xFF86EFAC) else Color(0xFF2E7D32)
-            } else {
-                if (isDark) Color(0xFFFBBF24) else Color(0xFFE65100)
-            },
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-
 private fun fallbackRecognizeQuestions(): List<RecognizeQuestionUi> {
     return listOf(
-        RecognizeQuestionUi("fallback-recognize-angry", "Đây là cảm xúc gì?", R.drawable.angry_1, "angry"),
-        RecognizeQuestionUi("fallback-recognize-fear", "Đây là cảm xúc gì?", R.drawable.fear_1, "fear"),
-        RecognizeQuestionUi("fallback-recognize-disgust", "Đây là cảm xúc gì?", R.drawable.disgust_1, "disgust")
+        RecognizeQuestionUi("fallback-recognize-angry", "Đây là cảm xúc gì?", R.drawable.angry_1, null, "angry"),
+        RecognizeQuestionUi("fallback-recognize-fear", "Đây là cảm xúc gì?", R.drawable.fear_1, null, "fear"),
+        RecognizeQuestionUi("fallback-recognize-disgust", "Đây là cảm xúc gì?", R.drawable.disgust_1, null, "disgust")
     )
 }
-

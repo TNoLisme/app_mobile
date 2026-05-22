@@ -31,7 +31,7 @@ data class CvPromptUiItem(
 )
 
 object GameUiCatalog {
-    const val GAME_RECOGNIZE_EMOTION = "3bcb2108-721c-4a15-a585-31f3084ed000"
+    const val GAME_RECOGNIZE_EMOTION = "3bcb2108-721c-4a15-a585-31f084ed0000"
     const val GAME_FACE_ASSEMBLY = "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051"
     const val GAME_EMOTION_MATCH = "08bbffbf-d147-4556-bccb-b7621cafbf15"
     const val GAME_DETECTIVE = "aacaf79e-e15e-42a9-a3d1-a522720d919b"
