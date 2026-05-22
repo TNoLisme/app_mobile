@@ -138,6 +138,11 @@ class GameRepository(
         }
     }
 
+    fun invalidateProgressCache(gameId: String, userId: String) {
+        val key = cacheKey(gameId, userId)
+        progressCache.remove(key)
+    }
+
     fun peekGameProgress(gameId: String, userId: String): GameProgressDto? {
         val key = cacheKey(gameId, userId)
         val cached = progressCache[key] ?: return null

@@ -6,10 +6,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -65,8 +68,10 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
     val questionStartMs = remember(level) { mutableStateOf(System.currentTimeMillis()) }
     val maxErrors = remember(level) { mutableIntStateOf(3) }
     val emotionErrors = remember(level) { mutableStateMapOf<String, Int>() }
+    val accumulatedErrors = remember(level) { mutableStateMapOf<String, Int>() }
     val learnedEmotions = remember(level) { mutableStateListOf<String>() }
     val learningEmotionId = remember(level) { mutableStateOf<String?>(null) }
+    val pendingLearnEmotion = remember(level) { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
@@ -93,14 +98,12 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                         correctCount = finalResults.count { it.isCorrect },
                         totalQuestions = finalResults.size
                     )
+                    repository.invalidateProgressCache(GameUiCatalog.GAME_EMOTION_MATCH, userId)
                     val status = if (response.passed) "Đã qua level" else "Chưa qua level"
                     summary.value = "$status. Điểm: ${response.score}/50."
                 } else {
                     summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
                 }
-                response?.reviewEmotionsToLearn
-                    ?.firstOrNull()
-                    ?.let { learningEmotionId.value = normalizeEmotionForLearning(it) }
             } catch (_: Exception) {
                 summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
             } finally {
@@ -134,8 +137,13 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
         summary.value = null
         summaryData.value = null
         emotionErrors.clear()
+        accumulatedErrors.clear()
+        started?.reviewEmotions?.forEach { (emotion, count) ->
+            accumulatedErrors[normalizeEmotionForLearning(emotion)] = count
+        }
         learnedEmotions.clear()
         learningEmotionId.value = null
+        pendingLearnEmotion.value = null
         questionStartMs.value = System.currentTimeMillis()
     }
 
@@ -144,8 +152,11 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
         .mapNotNull { GameUiCatalog.emotionById(it) }
         .ifEmpty { GameUiCatalog.emotions }
 
-    GameScreenShell(contentMaxWidth = 800, onOpenAssistant = onOpenAssistant) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+    GameScreenShell(
+        contentMaxWidth = 800, onOpenAssistant = onOpenAssistant,
+        scrollEnabled = false, bottomSpacerHeight = 0.dp
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← Quay lại") }
                 Spacer(modifier = Modifier.weight(1f))
@@ -160,115 +171,127 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
             }
 
             if (summary.value != null) {
-                Spacer(modifier = Modifier.height(20.dp))
-                GameLevelSummaryCard(
-                    summaryData = summaryData.value,
-                    summary = summary.value.orEmpty(),
-                    onBack = onBack,
-                    onReplay = { replayCount.intValue++ }
-                )
-            } else {
-                Spacer(modifier = Modifier.height(20.dp))
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = EgDesign.card),
-                    elevation = CardDefaults.cardElevation(2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Text("Tình huống", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
-                        Text(question.text, style = MaterialTheme.typography.titleMedium, color = EgDesign.textSecondary)
-                    }
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    GameLevelSummaryCard(
+                        summaryData = summaryData.value,
+                        summary = summary.value.orEmpty(),
+                        onBack = onBack,
+                        onReplay = { replayCount.intValue++ }
+                    )
                 }
+            } else {
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+                        elevation = CardDefaults.cardElevation(2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Text("Tình huống", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
+                            Text(question.text, style = MaterialTheme.typography.titleMedium, color = EgDesign.textSecondary)
+                        }
+                    }
 
-                Spacer(modifier = Modifier.height(20.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    options.chunked(2).forEach { rowItems ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            rowItems.forEach { emotion ->
-                                val visualState = answerVisualState(
-                                    optionId = emotion.id,
-                                    correctEmotion = question.correctEmotion,
-                                    selectedEmotionId = selectedEmotionId.value,
-                                    hasFeedback = feedback.value != null
-                                )
-                                Card(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable(enabled = feedback.value == null) { selectedEmotionId.value = emotion.id },
-                                    shape = MaterialTheme.shapes.large,
-                                    border = BorderStroke(
-                                        2.dp,
-                                        visualState.borderColor
-                                    ),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = visualState.containerColor
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        options.chunked(2).forEach { rowItems ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                rowItems.forEach { emotion ->
+                                    val visualState = answerVisualState(
+                                        optionId = emotion.id,
+                                        correctEmotion = question.correctEmotion,
+                                        selectedEmotionId = selectedEmotionId.value,
+                                        hasFeedback = feedback.value != null
                                     )
-                                ) {
-                                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Text(emotion.emoji, fontSize = 24.sp)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(emotion.name, color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold)
+                                    Card(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable(enabled = feedback.value == null) { selectedEmotionId.value = emotion.id },
+                                        shape = MaterialTheme.shapes.large,
+                                        border = BorderStroke(
+                                            2.dp,
+                                            visualState.borderColor
+                                        ),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = visualState.containerColor
+                                        )
+                                    ) {
+                                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Text(emotion.emoji, fontSize = 24.sp)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(emotion.name, color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(20.dp))
-                Button(
-                    onClick = {
-                        if (feedback.value == null) {
-                            val selected = selectedEmotionId.value ?: return@Button
-                            val isCorrect = selected == question.correctEmotion
-                            if (isCorrect) score.intValue += 10
-                            val reviewEmotion = normalizeEmotionForLearning(question.correctEmotion)
-                            if (!isCorrect) {
-                                val nextErrorCount = (emotionErrors[reviewEmotion] ?: 0) + 1
-                                emotionErrors[reviewEmotion] = nextErrorCount
-                                if (nextErrorCount >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
-                                    learnedEmotions.add(reviewEmotion)
+                    if (feedback.value != null) {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        GameFeedbackCard(feedback.value.orEmpty())
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Button(
+                        onClick = {
+                            if (feedback.value == null) {
+                                val selected = selectedEmotionId.value ?: return@Button
+                                val isCorrect = selected == question.correctEmotion
+                                if (isCorrect) score.intValue += 10
+                                val reviewEmotion = normalizeEmotionForLearning(question.correctEmotion)
+                                if (!isCorrect) {
+                                    emotionErrors[reviewEmotion] = (emotionErrors[reviewEmotion] ?: 0) + 1
+                                    val sessionErrors = emotionErrors[reviewEmotion] ?: 0
+                                    val totalErrors = sessionErrors + (accumulatedErrors[reviewEmotion] ?: 0)
+                                    if (totalErrors >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
+                                        learnedEmotions.add(reviewEmotion)
+                                        pendingLearnEmotion.value = reviewEmotion
+                                        learningEmotionId.value = reviewEmotion
+                                    }
                                 }
+                                val updatedResults = results.value + AnswerResultDto(
+                                    questionId = question.questionId,
+                                    answer = selected,
+                                    isCorrect = isCorrect,
+                                    responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
+                                )
+                                results.value = updatedResults
+                                val targetName = GameUiCatalog.emotionById(question.correctEmotion)?.name ?: question.correctEmotion
+                                feedback.value = if (isCorrect) "Đúng rồi." else "Chưa đúng. Đáp án là $targetName."
+                                return@Button
                             }
-                            val updatedResults = results.value + AnswerResultDto(
-                                questionId = question.questionId,
-                                answer = selected,
-                                isCorrect = isCorrect,
-                                responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
-                            )
-                            results.value = updatedResults
-                            val targetName = GameUiCatalog.emotionById(question.correctEmotion)?.name ?: question.correctEmotion
-                            feedback.value = if (isCorrect) "Đúng rồi." else "Chưa đúng. Đáp án là $targetName."
-                            return@Button
-                        }
 
-                        val isLastQuestion = currentIndex.intValue >= questions.value.lastIndex
-                        if (isLastQuestion) {
-                            finishLevel(results.value)
-                        } else {
-                            currentIndex.intValue += 1
-                            selectedEmotionId.value = null
-                            feedback.value = null
-                            questionStartMs.value = System.currentTimeMillis()
+                            val isLastQuestion = currentIndex.intValue >= questions.value.lastIndex
+                            if (isLastQuestion) {
+                                finishLevel(results.value)
+                            } else {
+                                currentIndex.intValue += 1
+                                selectedEmotionId.value = null
+                                feedback.value = null
+                                questionStartMs.value = System.currentTimeMillis()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        enabled = selectedEmotionId.value != null && !isSubmitting.value && learningEmotionId.value == null
+                    ) {
+                        val learnTarget = pendingLearnEmotion.value?.let {
+                            GameUiCatalog.emotionById(it)?.name ?: it
                         }
-                    },
-                    enabled = selectedEmotionId.value != null && !isSubmitting.value,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        when {
-                            isSubmitting.value -> "Đang lưu..."
-                            feedback.value == null -> "Trả lời"
-                            currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
-                            else -> "Câu tiếp theo"
-                        }
-                    )
-                }
-
-                if (feedback.value != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    GameFeedbackCard(feedback.value.orEmpty())
+                        Text(
+                            when {
+                                isSubmitting.value -> "Đang lưu..."
+                                feedback.value == null -> "Trả lời"
+                                pendingLearnEmotion.value != null -> "Học về $learnTarget"
+                                currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
+                                else -> "Câu tiếp theo"
+                            }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
             EmotionLearningDialog(
@@ -276,7 +299,10 @@ fun GameClick3Page(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Un
                 onDismiss = {
                     val emotion = learningEmotionId.value
                     learningEmotionId.value = null
+                    pendingLearnEmotion.value = null
                     if (emotion != null) {
+                        emotionErrors[emotion] = 0
+                        accumulatedErrors[emotion] = 0
                         scope.launch {
                             repository.resetReviewEmotions(GameUiCatalog.GAME_EMOTION_MATCH, userId, listOf(emotion))
                         }
