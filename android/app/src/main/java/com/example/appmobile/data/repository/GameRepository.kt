@@ -30,24 +30,30 @@ class GameRepository(
         private fun cacheKey(gameId: String, userId: String): String = "$userId::$gameId"
     }
 
-    suspend fun getGames(type: String? = null): List<Game> {
-        val local = if (type.isNullOrBlank()) {
-            gameDao.getAllGames()
-        } else {
-            gameDao.getGamesByType(type)
+    suspend fun getGames(type: String? = null, forceRefresh: Boolean = false): List<Game> {
+        if (!forceRefresh) {
+            val local = if (type.isNullOrBlank()) {
+                gameDao.getAllGames()
+            } else {
+                gameDao.getGamesByType(type)
+            }
+            if (local.isNotEmpty()) return local.map { it.toDomain() }
         }
-        if (local.isNotEmpty()) return local.map { it.toDomain() }
 
         return try {
             val response = apiService.getGames()
             if (!response.isSuccessful) return emptyList()
 
             val entities = (response.body() ?: emptyList()).map { it.toEntity() }
-            gameDao.insertGames(entities)
+            if (entities.isNotEmpty()) {
+                gameDao.deleteAllGames()
+                gameDao.insertGames(entities)
+            }
             val filtered = if (type.isNullOrBlank()) entities else entities.filter { it.gameType == type }
             filtered.map { it.toDomain() }
         } catch (e: Exception) {
-            emptyList()
+            val local = if (type.isNullOrBlank()) gameDao.getAllGames() else gameDao.getGamesByType(type)
+            local.map { it.toDomain() }
         }
     }
 

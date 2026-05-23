@@ -14,6 +14,9 @@ interface GameContentDao {
     @Query("SELECT * FROM games")
     suspend fun getAllGames(): List<GameEntity>
 
+    @Query("DELETE FROM games")
+    suspend fun deleteAllGames()
+
     @Query("SELECT * FROM games WHERE game_type = :gameType")
     suspend fun getGamesByType(gameType: String): List<GameEntity>
 

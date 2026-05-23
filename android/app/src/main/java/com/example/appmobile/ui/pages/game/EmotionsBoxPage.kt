@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,6 +39,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -59,7 +61,8 @@ private data class RecognizeQuestionUi(
     val imageRes: Int,
     val mediaPath: String?,
     val correctEmotion: String,
-    val optionEmotionIds: List<String> = GameUiCatalog.emotions.map { it.id }
+    val optionEmotionIds: List<String> = GameUiCatalog.emotions.map { it.id },
+    val explanation: String? = null
 )
 
 @Composable
@@ -156,7 +159,8 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                     imageRes = emotionDrawableResource(emotion),
                     mediaPath = content.mediaPath,
                     correctEmotion = emotion,
-                    optionEmotionIds = optionEmotionIdsFromBackend(content.options, emotion)
+                    optionEmotionIds = optionEmotionIdsFromBackend(content.options, emotion),
+                    explanation = content.explanation
                 )
             }
             .orEmpty()
@@ -298,81 +302,133 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    contentAlignment = Alignment.Center
+                val hintVisible = remember(currentIndex.intValue) { mutableStateOf(false) }
+                val usedHint = remember(currentIndex.intValue) { mutableStateOf(false) }
+
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (feedback.value != null) {
-                        GameFeedbackCard(feedback.value.orEmpty())
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Button(
-                    onClick = {
-                        if (feedback.value == null) {
-                            val selected = selectedEmotionId.value ?: return@Button
-                            val isCorrect = selected == currentQuestion.correctEmotion
-                            if (isCorrect) score.intValue += 10
-                            val reviewEmotion = normalizeEmotionForLearning(currentQuestion.correctEmotion)
-                            if (!isCorrect) {
-                                emotionErrors[reviewEmotion] = (emotionErrors[reviewEmotion] ?: 0) + 1
-                                val sessionErrors = emotionErrors[reviewEmotion] ?: 0
-                                val totalErrors = sessionErrors + (accumulatedErrors[reviewEmotion] ?: 0)
-                                if (totalErrors >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
-                                    learnedEmotions.add(reviewEmotion)
-                                    pendingLearnEmotion.value = reviewEmotion
-                                    learningEmotionId.value = reviewEmotion
-                                }
+                    // Vùng chứa Text Gợi ý & Phản hồi (Cố định chiều cao)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(84.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            if (hintVisible.value) {
+                                Text(
+                                    text = currentQuestion.explanation ?: "Gợi ý: Hãy quan sát kỹ ánh mắt và khuôn miệng của người trong ảnh nhé!",
+                                    color = EgDesign.textPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                )
                             }
-                            val updatedResults = results.value + AnswerResultDto(
-                                questionId = currentQuestion.questionId,
-                                answer = selected,
-                                isCorrect = isCorrect,
-                                responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
-                            )
-                            results.value = updatedResults
-                            val targetName = GameUiCatalog.emotionById(currentQuestion.correctEmotion)?.name
-                                ?: currentQuestion.correctEmotion
-                            feedback.value = if (isCorrect) "Đúng rồi." else "Chưa đúng. Đáp án là $targetName."
-                            return@Button
+                            if (feedback.value != null) {
+                                GameFeedbackCard(feedback.value.orEmpty())
+                            }
                         }
-
-                        if (pendingLearnEmotion.value != null) {
-                            learningEmotionId.value = pendingLearnEmotion.value
-                            return@Button
-                        }
-
-                        val isLastQuestion = currentIndex.intValue >= questions.value.lastIndex
-                        if (isLastQuestion) {
-                            finishLevel(results.value)
-                        } else {
-                            currentIndex.intValue += 1
-                            selectedEmotionId.value = null
-                            feedback.value = null
-                            questionStartMs.value = System.currentTimeMillis()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    enabled = selectedEmotionId.value != null && !isSubmitting.value && learningEmotionId.value == null
-                ) {
-                    val learnTarget = pendingLearnEmotion.value?.let {
-                        GameUiCatalog.emotionById(it)?.name ?: it
                     }
-                    Text(
-                        when {
-                            isSubmitting.value -> "Đang lưu..."
-                            feedback.value == null -> "Trả lời"
-                            pendingLearnEmotion.value != null -> "Học về $learnTarget"
-                            currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
-                            else -> "Câu tiếp theo"
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Vùng chứa Nút Hint & Nút Trả Lời
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Nút Hint nằm bên trái
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .size(44.dp)
+                                .clickable {
+                                    hintVisible.value = true
+                                    usedHint.value = true
+                                },
+                            shape = CircleShape,
+                            color = EgDesign.accentSoft,
+                            border = BorderStroke(1.dp, EgDesign.cardBorder)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("💡", fontSize = 20.sp)
+                            }
                         }
-                    )
+
+                        // Nút chính căn giữa
+                        Button(
+                            onClick = {
+                                if (feedback.value == null) {
+                                    val selected = selectedEmotionId.value ?: return@Button
+                                    val isCorrect = selected == currentQuestion.correctEmotion
+                                    if (isCorrect) score.intValue += 10
+                                    val reviewEmotion = normalizeEmotionForLearning(currentQuestion.correctEmotion)
+                                    if (!isCorrect) {
+                                        emotionErrors[reviewEmotion] = (emotionErrors[reviewEmotion] ?: 0) + 1
+                                        val sessionErrors = emotionErrors[reviewEmotion] ?: 0
+                                        val totalErrors = sessionErrors + (accumulatedErrors[reviewEmotion] ?: 0)
+                                        if (totalErrors >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
+                                            learnedEmotions.add(reviewEmotion)
+                                            pendingLearnEmotion.value = reviewEmotion
+                                            learningEmotionId.value = reviewEmotion
+                                        }
+                                    }
+                                    val updatedResults = results.value + AnswerResultDto(
+                                        questionId = currentQuestion.questionId,
+                                        answer = selected,
+                                        isCorrect = isCorrect,
+                                        responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt(),
+                                        usedHint = usedHint.value
+                                    )
+                                    results.value = updatedResults
+                                    val targetName = GameUiCatalog.emotionById(currentQuestion.correctEmotion)?.name
+                                        ?: currentQuestion.correctEmotion
+                                    feedback.value = if (isCorrect) "Đúng rồi." else "Chưa đúng. Đáp án là $targetName."
+                                    return@Button
+                                }
+
+                                if (pendingLearnEmotion.value != null) {
+                                    learningEmotionId.value = pendingLearnEmotion.value
+                                    return@Button
+                                }
+
+                                val isLastQuestion = currentIndex.intValue >= questions.value.lastIndex
+                                if (isLastQuestion) {
+                                    finishLevel(results.value)
+                                } else {
+                                    currentIndex.intValue += 1
+                                    selectedEmotionId.value = null
+                                    feedback.value = null
+                                    questionStartMs.value = System.currentTimeMillis()
+                                    hintVisible.value = false
+                                    usedHint.value = false
+                                }
+                            },
+                            modifier = Modifier.width(220.dp).height(50.dp),
+                            enabled = selectedEmotionId.value != null && !isSubmitting.value && learningEmotionId.value == null
+                        ) {
+                            val learnTarget = pendingLearnEmotion.value?.let {
+                                GameUiCatalog.emotionById(it)?.name ?: it
+                            }
+                            Text(
+                                when {
+                                    isSubmitting.value -> "Đang lưu..."
+                                    feedback.value == null -> "Trả lời"
+                                    pendingLearnEmotion.value != null -> "Học về $learnTarget"
+                                    currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
+                                    else -> "Câu tiếp theo"
+                                }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
-                Spacer(modifier = Modifier.height(4.dp))
             }
             EmotionLearningDialog(
                 emotionId = learningEmotionId.value,
