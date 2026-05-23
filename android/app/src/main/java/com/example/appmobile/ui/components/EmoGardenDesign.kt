@@ -1,11 +1,15 @@
 package com.example.appmobile.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -18,6 +22,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,14 +46,19 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -122,12 +132,24 @@ fun EgCollapsibleMainScaffold(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     var navHeightPx by remember(density) { mutableIntStateOf(with(density) { 128.dp.roundToPx() }) }
     var navOffsetPx by remember { mutableFloatStateOf(0f) }
     var horizontalDragPx by remember { mutableFloatStateOf(0f) }
     val navHeightDp = with(density) { navHeightPx.toDp() }
-    val swipeThresholdPx = with(density) { 72.dp.toPx() }
+    val horizontalPaddingPx = with(density) { (EgDesign.screenPadding * 2).toPx() }
+    val tabsTrackWidthPx = with(density) {
+        (configuration.screenWidthDp.dp.toPx() - horizontalPaddingPx)
+            .coerceAtLeast(220.dp.toPx())
+    }
+    val tabSlotWidthPx = (tabsTrackWidthPx / 3f).coerceAtLeast(1f)
+    val swipeCommitRatio = 0.55f
+    val tabIndicatorPosition = mainTabIndicatorPosition(
+        activeTab = activeTab,
+        horizontalDragPx = horizontalDragPx,
+        tabSlotWidthPx = tabSlotWidthPx
+    )
     val navProgress = if (navHeightPx == 0) {
         1f
     } else {
@@ -167,33 +189,37 @@ fun EgCollapsibleMainScaffold(
             .fillMaxSize()
             .background(EgDesign.background)
             .clipToBounds()
+            .pointerInput(activeTab, tabSlotWidthPx) {
+                detectHorizontalDragGestures(
+                    onDragStart = { horizontalDragPx = 0f },
+                    onHorizontalDrag = { change, dragAmount ->
+                        change.consume()
+                        val bounds = mainTabDragBounds(activeTab, tabSlotWidthPx)
+                        horizontalDragPx = (horizontalDragPx + dragAmount)
+                            .coerceIn(bounds.start, bounds.endInclusive)
+                    },
+                    onDragEnd = {
+                        val dragRatio = horizontalDragPx / tabSlotWidthPx
+                        when {
+                            dragRatio >= swipeCommitRatio -> {
+                                navOffsetPx = 0f
+                                handleMainSwipe(activeTab, fingerMovesRight = true, onHome, onLearn, onGames)
+                            }
+                            dragRatio <= -swipeCommitRatio -> {
+                                navOffsetPx = 0f
+                                handleMainSwipe(activeTab, fingerMovesRight = false, onHome, onLearn, onGames)
+                            }
+                        }
+                        horizontalDragPx = 0f
+                    },
+                    onDragCancel = { horizontalDragPx = 0f }
+                )
+            }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(nestedScrollConnection)
-                .pointerInput(activeTab, swipeThresholdPx) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { horizontalDragPx = 0f },
-                        onHorizontalDrag = { _, dragAmount ->
-                            horizontalDragPx += dragAmount
-                        },
-                        onDragEnd = {
-                            when {
-                                horizontalDragPx > swipeThresholdPx -> {
-                                    navOffsetPx = 0f
-                                    handleMainSwipe(activeTab, toRight = true, onHome, onLearn, onGames)
-                                }
-                                horizontalDragPx < -swipeThresholdPx -> {
-                                    navOffsetPx = 0f
-                                    handleMainSwipe(activeTab, toRight = false, onHome, onLearn, onGames)
-                                }
-                            }
-                            horizontalDragPx = 0f
-                        },
-                        onDragCancel = { horizontalDragPx = 0f }
-                    )
-                }
                 .verticalScroll(scrollState)
                 .padding(horizontal = EgDesign.screenPadding)
                 .padding(top = navHeightDp + 10.dp),
@@ -216,6 +242,7 @@ fun EgCollapsibleMainScaffold(
             onProfile = onProfile,
             onSettings = onSettings,
             progress = navProgress,
+            indicatorPosition = tabIndicatorPosition,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset { IntOffset(0, navOffsetPx.roundToInt()) }
@@ -230,17 +257,39 @@ fun EgCollapsibleMainScaffold(
     }
 }
 
+private fun mainTabDragBounds(
+    activeTab: EgTab,
+    tabSlotWidthPx: Float
+): ClosedFloatingPointRange<Float> {
+    return when (activeTab) {
+        EgTab.Home -> -tabSlotWidthPx..0f
+        EgTab.Learn -> -tabSlotWidthPx..tabSlotWidthPx
+        EgTab.Games -> 0f..tabSlotWidthPx
+    }
+}
+
+private fun mainTabIndicatorPosition(
+    activeTab: EgTab,
+    horizontalDragPx: Float,
+    tabSlotWidthPx: Float
+): Float {
+    val baseIndex = activeTab.ordinal.toFloat()
+    if (tabSlotWidthPx <= 0f) return baseIndex
+    val dragDeltaInTabs = -horizontalDragPx / tabSlotWidthPx
+    return (baseIndex + dragDeltaInTabs).coerceIn(0f, 2f)
+}
+
 private fun handleMainSwipe(
     activeTab: EgTab,
-    toRight: Boolean,
+    fingerMovesRight: Boolean,
     onHome: () -> Unit,
     onLearn: () -> Unit,
     onGames: () -> Unit
 ) {
     when (activeTab) {
-        EgTab.Home -> if (toRight) onLearn()
-        EgTab.Learn -> if (toRight) onGames() else onHome()
-        EgTab.Games -> if (!toRight) onLearn()
+        EgTab.Home -> if (!fingerMovesRight) onLearn()
+        EgTab.Learn -> if (fingerMovesRight) onHome() else onGames()
+        EgTab.Games -> if (fingerMovesRight) onLearn()
     }
 }
 
@@ -253,6 +302,7 @@ private fun EgMainTopNavSurface(
     onProfile: (() -> Unit)?,
     onSettings: (() -> Unit)?,
     progress: Float,
+    indicatorPosition: Float,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -275,7 +325,8 @@ private fun EgMainTopNavSurface(
                 activeTab = activeTab,
                 onHome = onHome,
                 onLearn = onLearn,
-                onGames = onGames
+                onGames = onGames,
+                indicatorPosition = indicatorPosition
             )
         }
     }
@@ -317,15 +368,44 @@ fun EgSegmentedTabs(
     onHome: () -> Unit,
     onLearn: () -> Unit,
     onGames: () -> Unit,
+    indicatorPosition: Float,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        EgTabButton(EgTab.Home, activeTab, onHome, Modifier.weight(1f))
-        EgTabButton(EgTab.Learn, activeTab, onLearn, Modifier.weight(1f))
-        EgTabButton(EgTab.Games, activeTab, onGames, Modifier.weight(1f))
+    val animatedIndicatorPosition by animateFloatAsState(
+        targetValue = indicatorPosition,
+        animationSpec = tween(durationMillis = 160),
+        label = "main_tab_indicator"
+    )
+    Box(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            EgTabButton(EgTab.Home, activeTab, onHome, Modifier.weight(1f))
+            EgTabButton(EgTab.Learn, activeTab, onLearn, Modifier.weight(1f))
+            EgTabButton(EgTab.Games, activeTab, onGames, Modifier.weight(1f))
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomStart)
+                .padding(bottom = 1.dp)
+        ) {
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val segmentWidth = maxWidth / 3f
+                val lineWidth = segmentWidth * 0.58f
+                val leftPadding = (segmentWidth - lineWidth) / 2f
+                Box(
+                    modifier = Modifier
+                        .offset(x = (segmentWidth * animatedIndicatorPosition) + leftPadding)
+                        .height(4.dp)
+                        .width(lineWidth)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(EgDesign.primaryDark)
+                )
+            }
+        }
     }
 }
 
@@ -499,30 +579,121 @@ private fun EgTabButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val active = tab == activeTab
-    Surface(
+    val color = if (tab == activeTab) EgDesign.primaryDark else EgDesign.textSecondary
+    Column(
         modifier = modifier
-            .height(44.dp)
+            .height(54.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(EgDesign.pillRadius),
-        color = Color.Transparent,
-        border = if (active) null else BorderStroke(1.dp, EgDesign.cardBorder),
-        shadowElevation = if (active) 1.dp else 0.dp
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Box(
             modifier = Modifier
-                .background(if (active) EgDesign.primary else EgDesign.cardSoft)
-                .padding(horizontal = 8.dp),
+                .fillMaxWidth()
+                .weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = tab.title,
-                color = if (active) Color.White else EgDesign.blue,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            EgMainTabIcon(tab = tab, color = color, modifier = Modifier.size(30.dp))
+        }
+    }
+}
+
+@Composable
+private fun EgMainTabIcon(tab: EgTab, color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = Stroke(
+            width = (w * 0.09f).coerceAtLeast(2.2f),
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round
+        )
+        when (tab) {
+            EgTab.Home -> {
+                val roof = Path().apply {
+                    moveTo(w * 0.16f, h * 0.48f)
+                    lineTo(w * 0.50f, h * 0.18f)
+                    lineTo(w * 0.84f, h * 0.48f)
+                }
+                drawPath(roof, color = color, style = stroke)
+                drawRoundRect(
+                    color = color,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.25f, h * 0.44f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.50f, h * 0.38f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f),
+                    style = stroke
+                )
+                drawLine(
+                    color = color,
+                    start = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.82f),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.64f),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round
+                )
+            }
+            EgTab.Learn -> {
+                drawRoundRect(
+                    color = color,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.16f, h * 0.22f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.68f, h * 0.58f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f),
+                    style = stroke
+                )
+                drawLine(
+                    color = color,
+                    start = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.25f),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.78f),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round
+                )
+                drawLine(
+                    color = color,
+                    start = androidx.compose.ui.geometry.Offset(w * 0.25f, h * 0.38f),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.42f, h * 0.38f),
+                    strokeWidth = stroke.width * 0.72f,
+                    cap = StrokeCap.Round
+                )
+                drawLine(
+                    color = color,
+                    start = androidx.compose.ui.geometry.Offset(w * 0.58f, h * 0.38f),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.75f, h * 0.38f),
+                    strokeWidth = stroke.width * 0.72f,
+                    cap = StrokeCap.Round
+                )
+            }
+            EgTab.Games -> {
+                drawRoundRect(
+                    color = color,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.14f, h * 0.34f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.72f, h * 0.34f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.16f, w * 0.16f),
+                    style = stroke
+                )
+                drawCircle(
+                    color = color,
+                    radius = w * 0.045f,
+                    center = androidx.compose.ui.geometry.Offset(w * 0.62f, h * 0.48f)
+                )
+                drawCircle(
+                    color = color,
+                    radius = w * 0.045f,
+                    center = androidx.compose.ui.geometry.Offset(w * 0.74f, h * 0.54f)
+                )
+                drawLine(
+                    color = color,
+                    start = androidx.compose.ui.geometry.Offset(w * 0.28f, h * 0.51f),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.42f, h * 0.51f),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round
+                )
+                drawLine(
+                    color = color,
+                    start = androidx.compose.ui.geometry.Offset(w * 0.35f, h * 0.44f),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.35f, h * 0.58f),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round
+                )
+            }
         }
     }
 }
