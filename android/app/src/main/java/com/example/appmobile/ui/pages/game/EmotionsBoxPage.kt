@@ -218,8 +218,8 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                     )
                 }
             } else {
-                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Spacer(modifier = Modifier.height(8.dp))
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.extraLarge,
@@ -227,14 +227,14 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                         elevation = CardDefaults.cardElevation(2.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(160.dp),
+                                    .height(120.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (!currentQuestion.mediaPath.isNullOrBlank()) {
@@ -262,10 +262,10 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         options.chunked(2).forEach { rowItems ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 rowItems.forEach { item ->
                                     val visualState = answerVisualState(
                                         optionId = item.id,
@@ -287,7 +287,7 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                                         )
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(10.dp),
+                                            modifier = Modifier.padding(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(item.emoji, fontSize = 20.sp)
@@ -299,7 +299,7 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 val hintVisible = remember(currentIndex.intValue) { mutableStateOf(false) }
@@ -307,61 +307,56 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
 
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Vùng chứa Text Gợi ý & Phản hồi (Cố định chiều cao)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(84.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            if (hintVisible.value) {
-                                Text(
-                                    text = currentQuestion.explanation ?: "Gợi ý: Hãy quan sát kỹ ánh mắt và khuôn miệng của người trong ảnh nhé!",
-                                    color = EgDesign.textPrimary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 4.dp)
-                                )
+                        if (!hintVisible.value) {
+                            Surface(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clickable {
+                                        hintVisible.value = true
+                                        usedHint.value = true
+                                    },
+                                shape = CircleShape,
+                                color = EgDesign.accentSoft,
+                                border = BorderStroke(1.dp, EgDesign.cardBorder)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("💡", fontSize = 20.sp)
+                                }
                             }
-                            if (feedback.value != null) {
-                                GameFeedbackCard(feedback.value.orEmpty())
-                            }
+                        } else {
+                            Text(
+                                text = currentQuestion.explanation ?: "Gợi ý: Hãy quan sát kỹ ánh mắt và khuôn miệng của người trong ảnh nhé!",
+                                color = EgDesign.textPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Vùng chứa Nút Hint & Nút Trả Lời
                     Box(
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Nút Hint nằm bên trái
-                        Surface(
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .size(44.dp)
-                                .clickable {
-                                    hintVisible.value = true
-                                    usedHint.value = true
-                                },
-                            shape = CircleShape,
-                            color = EgDesign.accentSoft,
-                            border = BorderStroke(1.dp, EgDesign.cardBorder)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text("💡", fontSize = 20.sp)
-                            }
+                        if (feedback.value != null) {
+                            GameFeedbackCard(feedback.value.orEmpty())
                         }
+                    }
 
-                        // Nút chính căn giữa
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Button(
                             onClick = {
                                 if (feedback.value == null) {
@@ -410,7 +405,7 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                                     usedHint.value = false
                                 }
                             },
-                            modifier = Modifier.width(220.dp).height(50.dp),
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
                             enabled = selectedEmotionId.value != null && !isSubmitting.value && learningEmotionId.value == null
                         ) {
                             val learnTarget = pendingLearnEmotion.value?.let {
@@ -427,7 +422,7 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
             }
             EmotionLearningDialog(
