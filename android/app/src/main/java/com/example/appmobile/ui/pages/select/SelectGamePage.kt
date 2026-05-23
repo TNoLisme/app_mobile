@@ -258,9 +258,9 @@ private fun displayGameTitle(game: GameUiItem): String {
         GameUiCatalog.GAME_EMOTION_MATCH -> "Cảm xúc đúng chỗ"
         GameUiCatalog.GAME_RECOGNIZE_EMOTION -> "Chiếc hộp cảm xúc"
         GameUiCatalog.GAME_DETECTIVE -> "Thám tử cảm xúc"
-        GameUiCatalog.GAME_FACE_ASSEMBLY -> "Xưởng lắp ghép"
-        GameUiCatalog.GAME_CV_STORY -> "Câu chuyện khuôn mặt"
-        GameUiCatalog.GAME_CV_REQUEST -> "Thử thách biểu cảm"
+        GameUiCatalog.GAME_FACE_ASSEMBLY -> "Xưởng lắp ghép cảm xúc"
+        GameUiCatalog.GAME_CV_STORY -> "Câu chuyện trên khuôn mặt"
+        GameUiCatalog.GAME_CV_REQUEST -> "Thử thách cảm xúc"
         else -> game.title
     }
 }

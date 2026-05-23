@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import smtplib
 import unicodedata
@@ -31,6 +32,7 @@ from app.services.report_pdf import REPORTLAB_AVAILABLE, ReportPdfService
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 pdf_service = ReportPdfService()
+logger = logging.getLogger(__name__)
 
 
 class GenerateReportRequest(BaseModel):
@@ -639,6 +641,14 @@ def _send_report_email(recipient: str, payload: dict) -> tuple[bool, str]:
     smtp_from = (settings.SMTP_FROM_EMAIL or smtp_username).strip()
 
     if not smtp_username or not smtp_password or not smtp_host or not smtp_from:
+        logger.warning(
+            "Report email skipped because SMTP config is incomplete: "
+            "username=%s password=%s host=%s from=%s",
+            bool(smtp_username),
+            bool(smtp_password),
+            bool(smtp_host),
+            bool(smtp_from),
+        )
         return False, "Chưa thể gửi email lúc này. Vui lòng thử lại sau."
 
     pdf_bytes = _build_pdf_bytes(payload, parent_email=recipient)
@@ -680,7 +690,14 @@ def _send_report_email(recipient: str, payload: dict) -> tuple[bool, str]:
         if pdf_bytes:
             return True, f"Đã gửi báo cáo tới {recipient}."
         return True, f"Đã gửi nội dung báo cáo tới {recipient}."
-    except Exception:  # pragma: no cover - external service
+    except Exception as exc:  # pragma: no cover - external service
+        recipient_domain = recipient.split("@")[-1] if "@" in recipient else "unknown"
+        logger.warning(
+            "Report email send failed for recipient domain %s: %s",
+            recipient_domain,
+            exc.__class__.__name__,
+            exc_info=True,
+        )
         return False, "Chưa gửi được email. Vui lòng thử lại."
 
 

@@ -615,16 +615,17 @@ def _str_to_uuid(val: str) -> str:
 
 def _upsert(db: Session, model: type, key_name: str, rows: list[dict]) -> None:
     seen = set()
-    for row in rows:
+    for source in rows:
+        row = dict(source)
         for k, v in row.items():
             if k.endswith('_id') and isinstance(v, str):
                 row[k] = _str_to_uuid(v)
-        
+
         pk_val = row[key_name]
         if pk_val in seen:
             continue
         seen.add(pk_val)
-        
+
         instance = db.get(model, pk_val)
         if instance is None:
             db.add(model(**row))

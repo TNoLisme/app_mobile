@@ -20,17 +20,22 @@ import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.data.repository.AnalysisRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.text.SimpleDateFormat
 import java.text.Normalizer
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -47,6 +52,7 @@ data class ProgressReportUiState(
     val currentReport: GeneratedReportUi? = null,
     val currentWeekReport: GeneratedReportUi? = null,
     val generatedReports: List<GeneratedReportUi> = emptyList(),
+    val sentReports: List<SentReportUi> = emptyList(),
     val pdfPreviewPages: List<Bitmap> = emptyList(),
     val isPreviewVisible: Boolean = false,
     val hasRecipientEmail: Boolean = false,
@@ -58,6 +64,13 @@ data class SendReportResultDialogUi(
     val title: String,
     val message: String
 )
+
+sealed class ReportOneTimeEvent {
+    object ShowConfirmSendDialog : ReportOneTimeEvent()
+    data class ShowSnackbar(val message: String) : ReportOneTimeEvent()
+    object NavigateToAddParentEmail : ReportOneTimeEvent()
+    object OpenReportPreview : ReportOneTimeEvent()
+}
 
 data class WeeklySummary(
     val sessionsCount: Int,
@@ -86,6 +99,15 @@ data class GeneratedReportUi(
     val isCurrentPeriod: Boolean = false
 )
 
+data class SentReportUi(
+    val reportId: String,
+    val title: String,
+    val weekRange: String,
+    val sentAtText: String,
+    val recipientEmail: String?,
+    val summaryText: String
+)
+
 sealed class PdfState {
     object NotGenerated : PdfState()
     object Generating : PdfState()
@@ -104,8 +126,16 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
     )
     private val _state = MutableStateFlow(ProgressReportUiState(isLoading = true))
     val state: StateFlow<ProgressReportUiState> = _state.asStateFlow()
+    private val _oneTimeEvents = MutableSharedFlow<ReportOneTimeEvent>(extraBufferCapacity = 1)
+    val oneTimeEvents: SharedFlow<ReportOneTimeEvent> = _oneTimeEvents.asSharedFlow()
 
     private var reportPayloads: List<ReportPayloadDto> = emptyList()
+
+    companion object {
+        private const val REPORT_UI_PREF = "report_ui_state"
+        private const val KEY_LAST_SENT_WEEKLY_PREFIX = "last_sent_weekly_"
+        private const val KEY_SENT_REPORT_HISTORY_PREFIX = "sent_report_history_"
+    }
 
     init {
         onRefreshReports(showFullLoading = true)
@@ -157,11 +187,17 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                     emotionStats = emotions,
                     parentSuggestion = buildParentSuggestion(weeklySummary, emotions),
                     generatedReports = generated,
+                    sentReports = sentReportsForUi(userId, generated),
                     currentReport = currentReport,
                     currentWeekReport = currentWeekReport,
                     hasRecipientEmail = parentEmail != null,
                     parentEmail = parentEmail,
-                    pdfState = keepPdfStateIfPossible(it.pdfState, generated)
+                    pdfState = restorePdfStateForCurrentWeek(
+                        previousState = it.pdfState,
+                        reports = generated,
+                        currentWeekReport = currentWeekReport,
+                        userId = userId
+                    )
                 )
             }
         }
@@ -201,6 +237,7 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
 
             val payload = created!!
             val generatedReport = payload.toGeneratedReport()
+            clearLastSentWeeklyMarker(currentUserId(), generatedReport)
             applyReportPayload(
                 payload = payload,
                 pdfState = PdfState.Generated(generatedReport.id),
@@ -243,6 +280,7 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 pdfState = PdfState.Generated(targetId),
                 statusMessage = "Đang mở báo cáo..."
             )
+            clearLastSentWeeklyMarker(currentUserId(), payload.toGeneratedReport())
             openPdfPreview(targetId)
         }
     }
@@ -316,17 +354,32 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             val result = repository.sendReport(targetId, state.value.parentEmail)
             val sent = result?.emailSent == true
             result?.data?.let { payload -> applyReportPayload(payload) }
+            if (sent) {
+                val sentReport = result?.data?.toGeneratedReport()
+                    ?: state.value.currentWeekReport
+                markLastSentWeeklyReport(currentUserId(), sentReport)
+                recordSentReport(currentUserId(), sentReport, state.value.parentEmail)
+            }
             _state.update {
                 it.copy(
                     pdfState = PdfState.NotGenerated,
                     statusMessage = null,
+                    sentReports = sentReportsForUi(currentUserId(), it.generatedReports),
                     sendResultDialog = buildSendResultDialog(sent, result?.message)
                 )
             }
         }
     }
 
-    fun onSendReportToParent(reportId: String? = null) {
+    fun onSendReportToParent() {
+        if (state.value.hasRecipientEmail) {
+            _oneTimeEvents.tryEmit(ReportOneTimeEvent.ShowConfirmSendDialog)
+        } else {
+            onAddParentEmail()
+        }
+    }
+
+    fun onConfirmSendReport(reportId: String? = null) {
         if (!state.value.hasRecipientEmail) {
             _state.update {
                 it.copy(pdfState = PdfState.EmailError("Chưa có email của bố mẹ. Nhờ bố mẹ thêm email để nhận báo cáo hằng tuần nhé."))
@@ -347,10 +400,17 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 val result = repository.sendReport(reportId, state.value.parentEmail)
                 val sent = result?.emailSent == true
                 result?.data?.let { payload -> applyReportPayload(payload) }
+                if (sent) {
+                    val sentReport = result?.data?.toGeneratedReport()
+                        ?: state.value.currentWeekReport
+                    markLastSentWeeklyReport(currentUserId(), sentReport)
+                    recordSentReport(currentUserId(), sentReport, state.value.parentEmail)
+                }
                 _state.update {
                     it.copy(
                         pdfState = PdfState.NotGenerated,
                         statusMessage = null,
+                        sentReports = sentReportsForUi(currentUserId(), it.generatedReports),
                         sendResultDialog = buildSendResultDialog(sent, result?.message)
                     )
                 }
@@ -371,7 +431,7 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                         sendResultDialog = SendReportResultDialogUi(
                             isSuccess = false,
                             title = "Chưa gửi được báo cáo",
-                            message = result?.message ?: "Chưa tạo được báo cáo. Vui lòng thử lại."
+                            message = sanitizeSendFailureMessage(result?.message)
                         )
                     )
                 }
@@ -380,14 +440,32 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
 
             applyReportPayload(payload!!, pdfState = PdfState.EmailSending, statusMessage = null)
             val sent = result.emailSent == true
+            if (sent) {
+                markLastSentWeeklyReport(currentUserId(), payload.toGeneratedReport())
+                recordSentReport(currentUserId(), payload.toGeneratedReport(), state.value.parentEmail)
+            }
             _state.update {
                 it.copy(
                     pdfState = PdfState.NotGenerated,
                     statusMessage = null,
+                    sentReports = sentReportsForUi(currentUserId(), it.generatedReports),
                     sendResultDialog = buildSendResultDialog(sent, result.message)
                 )
             }
         }
+    }
+
+    fun onViewReport() {
+        onPreviewCurrentReport()
+        _oneTimeEvents.tryEmit(ReportOneTimeEvent.OpenReportPreview)
+    }
+
+    fun onAddParentEmail() {
+        _oneTimeEvents.tryEmit(ReportOneTimeEvent.NavigateToAddParentEmail)
+    }
+
+    fun onStartPractice() {
+        _oneTimeEvents.tryEmit(ReportOneTimeEvent.ShowSnackbar("Cùng luyện tập thêm nhé!"))
     }
 
     fun onRetryPdf() {
@@ -414,16 +492,24 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
         return if (sent) {
             SendReportResultDialogUi(
                 isSuccess = true,
-                title = "Đã gửi báo cáo!",
-                message = "Báo cáo đã được gửi cho bố mẹ."
+                title = "Đã gửi báo cáo cho bố mẹ",
+                message = "Báo cáo tuần này đã được gửi thành công."
             )
         } else {
             SendReportResultDialogUi(
                 isSuccess = false,
                 title = "Chưa gửi được báo cáo",
-                message = message?.takeIf { it.isNotBlank() }
-                    ?: "Vui lòng thử lại sau."
+                message = sanitizeSendFailureMessage(message)
             )
+        }
+    }
+
+    private fun sanitizeSendFailureMessage(message: String?): String {
+        val clean = message?.trim().orEmpty()
+        return if (clean.isBlank()) {
+            "Chưa gửi được báo cáo. Vui lòng thử lại."
+        } else {
+            clean
         }
     }
 
@@ -581,6 +667,93 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun restorePdfStateForCurrentWeek(
+        previousState: PdfState,
+        reports: List<GeneratedReportUi>,
+        currentWeekReport: GeneratedReportUi?,
+        userId: String
+    ): PdfState {
+        val keptState = keepPdfStateIfPossible(previousState, reports)
+        if (keptState is PdfState.Generated || keptState is PdfState.PreviewError) {
+            return keptState
+        }
+        if (keptState == PdfState.Generating || keptState == PdfState.EmailSending) {
+            return keptState
+        }
+        val weeklyReport = currentWeekReport ?: return PdfState.NotGenerated
+        val lastSentWeeklyKey = getLastSentWeeklyKey(userId)
+        val wasSent = weeklyReport.reportKey.isNotBlank() && weeklyReport.reportKey == lastSentWeeklyKey
+        return if (wasSent) {
+            PdfState.NotGenerated
+        } else {
+            PdfState.Generated(weeklyReport.id)
+        }
+    }
+
+    private fun markLastSentWeeklyReport(userId: String, report: GeneratedReportUi?) {
+        if (report?.type != "weekly") return
+        val key = report.reportKey.takeIf { it.isNotBlank() } ?: return
+        reportUiPrefs().edit().putString(lastSentWeeklyPrefKey(userId), key).apply()
+    }
+
+    private fun recordSentReport(userId: String, report: GeneratedReportUi?, recipientEmail: String?) {
+        val target = report ?: return
+        if (target.id.isBlank() && target.reportKey.isBlank()) return
+        val record = JSONObject().apply {
+            put("report_id", target.id)
+            put("report_key", target.reportKey)
+            put("sent_at_ms", System.currentTimeMillis())
+            put("recipient_email", recipientEmail.orEmpty())
+        }
+        val existing = readSentReportRecords(userId)
+            .filterNot { item ->
+                item.optString("report_id") == target.id ||
+                    (target.reportKey.isNotBlank() && item.optString("report_key") == target.reportKey)
+            }
+        val next = JSONArray()
+        next.put(record)
+        existing.take(11).forEach { next.put(it) }
+        reportUiPrefs().edit().putString(sentReportHistoryPrefKey(userId), next.toString()).apply()
+    }
+
+    private fun clearLastSentWeeklyMarker(userId: String, report: GeneratedReportUi?) {
+        if (report?.type != "weekly") return
+        reportUiPrefs().edit().remove(lastSentWeeklyPrefKey(userId)).apply()
+    }
+
+    private fun getLastSentWeeklyKey(userId: String): String? {
+        return reportUiPrefs().getString(lastSentWeeklyPrefKey(userId), null)
+            ?.takeIf { it.isNotBlank() }
+    }
+
+    private fun sentReportsForUi(userId: String, reports: List<GeneratedReportUi>): List<SentReportUi> {
+        val byId = reports.associateBy { it.id }
+        val byKey = reports.associateBy { it.reportKey }
+        return readSentReportRecords(userId)
+            .mapNotNull { record ->
+                val report = byId[record.optString("report_id")] ?: byKey[record.optString("report_key")]
+                report?.toSentReportUi(
+                    sentAtMs = record.optLong("sent_at_ms", 0L),
+                    recipientEmail = record.optString("recipient_email").takeIf { it.isRealEmail() }
+                )
+            }
+    }
+
+    private fun readSentReportRecords(userId: String): List<JSONObject> {
+        val raw = reportUiPrefs().getString(sentReportHistoryPrefKey(userId), null).orEmpty()
+        val array = runCatching { JSONArray(raw) }.getOrNull() ?: return emptyList()
+        return (0 until array.length()).mapNotNull { index -> array.optJSONObject(index) }
+    }
+
+    private fun reportUiPrefs() =
+        getApplication<Application>().getSharedPreferences(REPORT_UI_PREF, 0)
+
+    private fun lastSentWeeklyPrefKey(userId: String): String =
+        "$KEY_LAST_SENT_WEEKLY_PREFIX$userId"
+
+    private fun sentReportHistoryPrefKey(userId: String): String =
+        "$KEY_SENT_REPORT_HISTORY_PREFIX$userId"
+
     private fun activeReportId(): String? {
         return when (val pdfState = state.value.pdfState) {
             is PdfState.Generated -> pdfState.reportId
@@ -610,10 +783,33 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                 currentReport = generatedReport,
                 currentWeekReport = generatedReport.takeIf { report -> report.type == "weekly" } ?: current.currentWeekReport,
                 generatedReports = generatedReports,
+                sentReports = sentReportsForUi(currentUserId(), generatedReports),
                 pdfState = pdfState ?: current.pdfState,
                 statusMessage = statusMessage
             )
         }
+    }
+
+    private fun GeneratedReportUi.toSentReportUi(sentAtMs: Long, recipientEmail: String?): SentReportUi {
+        return SentReportUi(
+            reportId = id,
+            title = title,
+            weekRange = weekRange,
+            sentAtText = formatSentAt(sentAtMs),
+            recipientEmail = recipientEmail,
+            summaryText = buildReportSummaryLine(summary)
+        )
+    }
+
+    private fun buildReportSummaryLine(summary: WeeklySummary): String {
+        val score = summary.averageScore?.let { "$it/100" } ?: "Chưa có điểm"
+        val emotionCount = summary.learnedEmotionCount?.let { "$it/6 cảm xúc" } ?: "Chưa rõ cảm xúc"
+        return "${summary.sessionsCount} lượt luyện · $score · $emotionCount"
+    }
+
+    private fun formatSentAt(sentAtMs: Long): String {
+        if (sentAtMs <= 0L) return "Vừa gửi"
+        return SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("vi", "VN")).format(Date(sentAtMs))
     }
 
     private suspend fun openPdfPreview(reportId: String) {

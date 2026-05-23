@@ -15,6 +15,7 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import org.json.JSONObject
 
 class AnalysisRepository(
     private val reportDao: ReportDao?,
@@ -73,7 +74,14 @@ class AnalysisRepository(
                     parentEmail = parentEmail
                 )
             )
-            if (response.isSuccessful) response.body() else null
+            if (response.isSuccessful) {
+                response.body()
+            } else {
+                ReportRequestResponseDto(
+                    status = "error",
+                    message = decodeErrorMessage(response.errorBody()?.string())
+                )
+            }
         } catch (_: Exception) {
             null
         }
@@ -82,7 +90,14 @@ class AnalysisRepository(
     suspend fun sendReport(reportId: String, parentEmail: String? = null): ReportRequestResponseDto? {
         return try {
             val response = apiService.sendReport(reportId, SendReportRequestDto(parentEmail = parentEmail))
-            if (response.isSuccessful) response.body() else null
+            if (response.isSuccessful) {
+                response.body()
+            } else {
+                ReportRequestResponseDto(
+                    status = "error",
+                    message = decodeErrorMessage(response.errorBody()?.string())
+                )
+            }
         } catch (_: Exception) {
             null
         }
@@ -107,5 +122,16 @@ class AnalysisRepository(
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun decodeErrorMessage(raw: String?): String {
+        val body = raw?.trim().orEmpty()
+        if (body.isBlank()) return "Chưa gửi được báo cáo. Vui lòng thử lại."
+        return runCatching {
+            val json = JSONObject(body)
+            json.optString("message")
+                .ifBlank { json.optString("detail") }
+                .ifBlank { "Chưa gửi được báo cáo. Vui lòng thử lại." }
+        }.getOrDefault("Chưa gửi được báo cáo. Vui lòng thử lại.")
     }
 }

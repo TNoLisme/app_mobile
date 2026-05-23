@@ -1,6 +1,7 @@
 import json
 import re
 import time
+from urllib.parse import unquote_plus
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -26,11 +27,51 @@ def _validated_database_name(database_name: str | None) -> str:
     return database_name
 
 
+def _database_name_from_url(url) -> str | None:
+    if url.database:
+        return url.database
+
+    odbc_connect = url.query.get("odbc_connect")
+    if not odbc_connect:
+        return None
+
+    for part in unquote_plus(str(odbc_connect)).split(";"):
+        key, _, value = part.partition("=")
+        if key.strip().lower() in {"database", "initial catalog"}:
+            return value.strip()
+    return None
+
+
+def _odbc_connect_with_database(connect_string: str, database_name: str) -> str:
+    parts = []
+    replaced = False
+    for part in unquote_plus(connect_string).split(";"):
+        key, separator, value = part.partition("=")
+        if key.strip().lower() in {"database", "initial catalog"}:
+            parts.append(f"{key}{separator}{database_name}")
+            replaced = True
+        elif part:
+            parts.append(part)
+
+    if not replaced:
+        parts.append(f"DATABASE={database_name}")
+    return ";".join(parts)
+
+
+def _admin_url(url):
+    odbc_connect = url.query.get("odbc_connect")
+    if odbc_connect:
+        return url.update_query_dict(
+            {"odbc_connect": _odbc_connect_with_database(str(odbc_connect), "master")}
+        )
+    return url.set(database="master")
+
+
 def wait_for_database() -> None:
     url = make_url(settings.DATABASE_URL)
-    database_name = _validated_database_name(url.database)
+    database_name = _validated_database_name(_database_name_from_url(url))
     admin_engine = create_engine(
-        url.set(database="master"),
+        _admin_url(url),
         pool_pre_ping=True,
         isolation_level="AUTOCOMMIT",
     )
