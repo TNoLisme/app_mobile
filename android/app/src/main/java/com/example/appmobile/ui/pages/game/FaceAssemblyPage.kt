@@ -3,26 +3,33 @@ package com.example.appmobile.ui.pages.game
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
@@ -34,15 +41,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.appmobile.R
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
@@ -50,6 +63,7 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
@@ -66,47 +80,56 @@ private data class FaceEmotionUi(
 private data class AssemblyQuestionUi(
     val questionId: String,
     val text: String,
-    val targetEmotion: String
+    val targetEmotion: String,
+    val mediaPath: String? = null,
+    val explanation: String? = null
 )
 
 private val faceEmotions = listOf(
-    FaceEmotionUi("happy", "Vui vẻ", "😊", R.drawable.face_ensemble_happy),
-    FaceEmotionUi("sad", "Buồn bã", "😢", R.drawable.face_ensemble_sad),
-    FaceEmotionUi("angry", "Tức giận", "😠", R.drawable.face_ensemble_angry),
-    FaceEmotionUi("fear", "Sợ hãi", "😨", R.drawable.face_ensemble_fear),
-    FaceEmotionUi("surprise", "Ngạc nhiên", "😲", R.drawable.face_ensemble_surprise),
-    FaceEmotionUi("disgust", "Ghê tởm", "🤢", R.drawable.face_ensemble_disgust)
+    FaceEmotionUi("happy",    "Vui vẻ",    "😊", R.drawable.face_ensemble_happy),
+    FaceEmotionUi("sad",      "Buồn bã",   "😢", R.drawable.face_ensemble_sad),
+    FaceEmotionUi("angry",    "Tức giận",  "😠", R.drawable.face_ensemble_angry),
+    FaceEmotionUi("fear",     "Sợ hãi",    "😨", R.drawable.face_ensemble_fear),
+    FaceEmotionUi("surprise", "Ngạc nhiên","😲", R.drawable.face_ensemble_surprise),
+    FaceEmotionUi("disgust",  "Ghê tởm",   "🤢", R.drawable.face_ensemble_disgust)
 )
 
 @Composable
 fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
     val selectedEyebrow = remember(level) { mutableIntStateOf(-1) }
-    val selectedEyes = remember(level) { mutableIntStateOf(-1) }
-    val selectedMouth = remember(level) { mutableIntStateOf(-1) }
-    val currentIndex = remember(level) { mutableIntStateOf(0) }
-    val score = remember(level) { mutableIntStateOf(0) }
-    val feedback = remember(level) { mutableStateOf<String?>(null) }
-    val questions = remember(level) { mutableStateOf(fallbackAssemblyQuestions()) }
-    val sessionId = remember(level) { mutableStateOf<String?>(null) }
-    val results = remember(level) { mutableStateOf<List<AnswerResultDto>>(emptyList()) }
-    val summary = remember(level) { mutableStateOf<String?>(null) }
-    val replayCount = remember { mutableIntStateOf(0) }
-    val isSubmitting = remember(level) { mutableStateOf(false) }
+    val selectedEyes    = remember(level) { mutableIntStateOf(-1) }
+    val selectedMouth   = remember(level) { mutableIntStateOf(-1) }
+    val currentIndex    = remember(level) { mutableIntStateOf(0) }
+    val score           = remember(level) { mutableIntStateOf(0) }
+    val feedback        = remember(level) { mutableStateOf<String?>(null) }
+    val questions       = remember(level) { mutableStateOf(fallbackAssemblyQuestions()) }
+    val sessionId       = remember(level) { mutableStateOf<String?>(null) }
+    val results         = remember(level) { mutableStateOf<List<AnswerResultDto>>(emptyList()) }
+    val summary         = remember(level) { mutableStateOf<String?>(null) }
+    val replayCount     = remember { mutableIntStateOf(0) }
+    val isSubmitting    = remember(level) { mutableStateOf(false) }
     val questionStartMs = remember(level) { mutableStateOf(System.currentTimeMillis()) }
-    val maxErrors = remember(level) { mutableIntStateOf(3) }
-    val emotionErrors = remember(level) { mutableStateMapOf<String, Int>() }
+    val maxErrors       = remember(level) { mutableIntStateOf(3) }
+    val emotionErrors   = remember(level) { mutableStateMapOf<String, Int>() }
     val accumulatedErrors = remember(level) { mutableStateMapOf<String, Int>() }
-    val learnedEmotions = remember(level) { mutableStateListOf<String>() }
+    val learnedEmotions   = remember(level) { mutableStateListOf<String>() }
     val learningEmotionId = remember(level) { mutableStateOf<String?>(null) }
     val pendingLearnEmotion = remember(level) { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
+    val context  = LocalContext.current
+    val scope    = rememberCoroutineScope()
+    val userId   = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
+    val summaryData = remember(level) { mutableStateOf<LevelSummaryData?>(null) }
+    val showHint = remember(currentIndex.intValue) { mutableStateOf(false) }
 
-    var summaryData = remember(level) { mutableStateOf<LevelSummaryData?>(null) }
+    fun resetCurrentQuestion() {
+        resetSelections(selectedEyebrow, selectedEyes, selectedMouth)
+        feedback.value = null
+        questionStartMs.value = System.currentTimeMillis()
+        showHint.value = false
+    }
 
     fun finishLevel(finalResults: List<AnswerResultDto>) {
         if (isSubmitting.value || summary.value != null) return
@@ -118,79 +141,56 @@ fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                 }
                 if (response != null) {
                     summaryData.value = LevelSummaryData(
-                        passed = response.passed,
-                        score = response.score,
-                        totalScore = 50,
+                        passed = response.passed, score = response.score, totalScore = 50,
                         accuracy = response.accuracy,
                         correctCount = finalResults.count { it.isCorrect },
                         totalQuestions = finalResults.size
                     )
                     repository.invalidateProgressCache(GameUiCatalog.GAME_FACE_ASSEMBLY, userId)
-                    val status = if (response.passed) "Đã qua level" else "Chưa qua level"
-                    summary.value = "$status. Điểm: ${response.score}/50."
+                    summary.value = "${if (response.passed) "Đã qua level" else "Chưa qua level"}. Điểm: ${response.score}/50."
                 } else {
                     summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
                 }
             } catch (_: Exception) {
                 summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
-            } finally {
-                isSubmitting.value = false
-            }
+            } finally { isSubmitting.value = false }
         }
-    }
-
-    fun resetCurrentQuestion() {
-        resetSelections(selectedEyebrow, selectedEyes, selectedMouth)
-        feedback.value = null
-        questionStartMs.value = System.currentTimeMillis()
     }
 
     fun recordCurrentAnswer(target: FaceEmotionUi) {
         if (feedback.value != null) return
-        val isCorrect = selectedEyebrow.intValue == targetIndex(target.id) &&
-            selectedEyes.intValue == targetIndex(target.id) &&
-            selectedMouth.intValue == targetIndex(target.id)
+        val targetIdx = targetIndex(target.id)
+        val isCorrect = selectedEyebrow.intValue == targetIdx &&
+            selectedEyes.intValue == targetIdx && selectedMouth.intValue == targetIdx
         if (isCorrect) score.intValue += 10
         val reviewEmotion = normalizeEmotionForLearning(target.id)
         if (!isCorrect) {
             emotionErrors[reviewEmotion] = (emotionErrors[reviewEmotion] ?: 0) + 1
-            val sessionErrors = emotionErrors[reviewEmotion] ?: 0
-            val totalErrors = sessionErrors + (accumulatedErrors[reviewEmotion] ?: 0)
-            if (totalErrors >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
+            val total = (emotionErrors[reviewEmotion] ?: 0) + (accumulatedErrors[reviewEmotion] ?: 0)
+            if (total >= maxErrors.intValue && reviewEmotion !in learnedEmotions) {
                 learnedEmotions.add(reviewEmotion)
                 pendingLearnEmotion.value = reviewEmotion
                 learningEmotionId.value = reviewEmotion
             }
         }
-
         val selectedAnswer = if (
             selectedEyebrow.intValue == selectedEyes.intValue &&
             selectedEyes.intValue == selectedMouth.intValue
-        ) {
-            faceEmotions.getOrNull(selectedEyebrow.intValue)?.id ?: "unknown"
-        } else {
-            "mixed"
-        }
+        ) faceEmotions.getOrNull(selectedEyebrow.intValue)?.id ?: "unknown" else "mixed"
 
         val question = questions.value[currentIndex.intValue]
         results.value = results.value + AnswerResultDto(
-            questionId = question.questionId,
-            answer = selectedAnswer,
-            isCorrect = isCorrect,
+            questionId = question.questionId, answer = selectedAnswer, isCorrect = isCorrect,
             responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
         )
-        feedback.value = if (isCorrect) {
-            "Đúng rồi, con đã ghép khuôn mặt ${target.label}."
-        } else {
-            "Chưa đúng. Đáp án là khuôn mặt ${target.label}."
-        }
+        feedback.value = if (isCorrect)
+            "✅ Đúng rồi! Con đã ghép khuôn mặt ${target.label}."
+        else
+            "❌ Chưa đúng. Đáp án là khuôn mặt ${target.label}."
     }
 
     fun goNextOrFinish() {
-        if (currentIndex.intValue >= questions.value.lastIndex) {
-            finishLevel(results.value)
-            return
-        }
+        if (currentIndex.intValue >= questions.value.lastIndex) { finishLevel(results.value); return }
         currentIndex.intValue += 1
         resetCurrentQuestion()
     }
@@ -199,310 +199,370 @@ fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
         val started = repository.startGame(GameUiCatalog.GAME_FACE_ASSEMBLY, userId, level)
         sessionId.value = started?.sessionId
         maxErrors.intValue = started?.maxErrors ?: 3
-        val backendQuestions = started?.questions
-            ?.mapNotNull { content ->
-                val emotion = normalizeEmotionForLearning((content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null })
-                AssemblyQuestionUi(
-                    questionId = content.contentId,
-                    text = content.questionText?.ifBlank { "Hãy ghép khuôn mặt phù hợp" } ?: "Hãy ghép khuôn mặt phù hợp",
-                    targetEmotion = emotion
-                )
-            }
-            .orEmpty()
-
+        val backendQuestions = started?.questions?.mapNotNull { content ->
+            val emotion = normalizeEmotionForLearning(
+                (content.correctAnswer ?: content.emotion ?: "").ifBlank { return@mapNotNull null }
+            )
+            AssemblyQuestionUi(
+                questionId = content.contentId,
+                text = content.questionText?.ifBlank { "Hình này thể hiện cảm xúc gì?" } ?: "Hình này thể hiện cảm xúc gì?",
+                targetEmotion = emotion, mediaPath = content.mediaPath, explanation = content.explanation
+            )
+        }.orEmpty()
         questions.value = backendQuestions.ifEmpty { fallbackAssemblyQuestions() }
-        currentIndex.intValue = 0
-        score.intValue = 0
-        results.value = emptyList()
-        summary.value = null
-        summaryData.value = null
-        emotionErrors.clear()
-        accumulatedErrors.clear()
+        currentIndex.intValue = 0; score.intValue = 0; results.value = emptyList()
+        summary.value = null; summaryData.value = null
+        emotionErrors.clear(); accumulatedErrors.clear()
         started?.reviewEmotions?.forEach { (emotion, count) ->
             accumulatedErrors[normalizeEmotionForLearning(emotion)] = count
         }
-        learnedEmotions.clear()
-        learningEmotionId.value = null
-        pendingLearnEmotion.value = null
+        learnedEmotions.clear(); learningEmotionId.value = null; pendingLearnEmotion.value = null
         resetCurrentQuestion()
     }
 
-    val question = questions.value[currentIndex.intValue % questions.value.size]
-    val target = faceEmotions.firstOrNull { it.id == question.targetEmotion } ?: faceEmotions.get(0)
+    val question    = questions.value[currentIndex.intValue % questions.value.size]
+    val target      = faceEmotions.firstOrNull { it.id == question.targetEmotion } ?: faceEmotions[0]
+    val totalQ      = questions.value.size
+    val progress    = (currentIndex.intValue + 1).toFloat() / totalQ.toFloat()
+    val hasFeedback = feedback.value != null
+    val canCheck    = selectedEyebrow.intValue >= 0 && selectedEyes.intValue >= 0 &&
+                      selectedMouth.intValue >= 0 && !hasFeedback
 
-    GameScreenShell(contentMaxWidth = 900, onOpenAssistant = onOpenAssistant, scrollEnabled = false, bottomSpacerHeight = 0.dp) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onBack) { Text("← Quay lại") }
-                Spacer(modifier = Modifier.weight(1f))
-                Text("Xưởng lắp ghép", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
-            }
+    // ──────────────────────────────────────────────────────────────────────────
+    GameScreenShell(contentMaxWidth = 900, onOpenAssistant = onOpenAssistant,
+        scrollEnabled = false, bottomSpacerHeight = 0.dp) {
 
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GameStatChip("Câu ${currentIndex.intValue + 1}/${questions.value.size}")
-                GameStatChip("Điểm ${score.intValue}")
-                GameStatChip("Level $level")
-            }
+        Column(modifier = Modifier.fillMaxSize().background(EgDesign.background)) {
 
             if (summary.value != null) {
                 Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(Modifier.height(16.dp))
                     GameLevelSummaryCard(
                         summaryData = summaryData.value,
                         summary = summary.value.orEmpty(),
-                        onBack = onBack,
-                        onReplay = { replayCount.intValue++ }
+                        onBack = onBack, onReplay = { replayCount.intValue++ }
                     )
                 }
             } else {
-                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    Spacer(modifier = Modifier.height(20.dp))
-                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                        val isMobile = maxWidth < 750.dp
-                        if (isMobile) {
-                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                PreviewCard(selectedEyebrow.intValue, selectedEyes.intValue, selectedMouth.intValue)
-                                AssemblyControls(
-                                    question = question,
-                                    target = target,
-                                    selectedEyebrow = selectedEyebrow.intValue,
-                                    selectedEyes = selectedEyes.intValue,
-                                    selectedMouth = selectedMouth.intValue,
-                                    hasFeedback = feedback.value != null,
-                                    isSubmitting = isSubmitting.value,
-                                    onCycleEyebrow = { selectedEyebrow.intValue = nextEmotionIndex(selectedEyebrow.intValue) },
-                                    onCycleEyes = { selectedEyes.intValue = nextEmotionIndex(selectedEyes.intValue) },
-                                    onCycleMouth = { selectedMouth.intValue = nextEmotionIndex(selectedMouth.intValue) },
-                                    onReset = { resetCurrentQuestion() },
-                                    onCheck = { recordCurrentAnswer(target) }
-                                )
-                            }
-                        } else {
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    PreviewCard(selectedEyebrow.intValue, selectedEyes.intValue, selectedMouth.intValue)
-                                }
-                                Box(modifier = Modifier.weight(1f)) {
-                                    AssemblyControls(
-                                        question = question,
-                                        target = target,
-                                        selectedEyebrow = selectedEyebrow.intValue,
-                                        selectedEyes = selectedEyes.intValue,
-                                        selectedMouth = selectedMouth.intValue,
-                                        hasFeedback = feedback.value != null,
-                                        isSubmitting = isSubmitting.value,
-                                        onCycleEyebrow = { selectedEyebrow.intValue = nextEmotionIndex(selectedEyebrow.intValue) },
-                                        onCycleEyes = { selectedEyes.intValue = nextEmotionIndex(selectedEyes.intValue) },
-                                        onCycleMouth = { selectedMouth.intValue = nextEmotionIndex(selectedMouth.intValue) },
-                                        onReset = { resetCurrentQuestion() },
-                                        onCheck = { recordCurrentAnswer(target) }
-                                    )
-                                }
-                            }
-                        }
+
+                /* ═══ TOP BAR ═══ */
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AppBackButton(onClick = onBack)
+                    Spacer(Modifier.weight(1f))
+                    Text("Xưởng Cảm Xúc", fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold, color = EgDesign.textPrimary)
+                    Spacer(Modifier.weight(1f))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("Câu ${currentIndex.intValue + 1}/$totalQ",
+                            fontSize = 11.sp, color = EgDesign.textSecondary)
+                        Spacer(Modifier.height(2.dp))
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.width(64.dp).height(4.dp).clip(CircleShape),
+                            color = EgDesign.primary, trackColor = EgDesign.cardBorder
+                        )
                     }
-                    Spacer(modifier = Modifier.height(20.dp))
                 }
 
+                /* ═══ CARD 1 – Question only (blue, compact) ═══ */
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFD6EEFF)),
+                    elevation = CardDefaults.cardElevation(0.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            question.text,
+                            fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                            color = EgDesign.textPrimary, textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                /* ═══ CARD 2 – Image (white, weight) ═══ */
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).weight(2f),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, EgDesign.cardBorder),
+                    elevation = CardDefaults.cardElevation(1.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(8.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFF8FAFF)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (!question.mediaPath.isNullOrBlank()) {
+                            val assetPath = if (question.mediaPath.startsWith("/"))
+                                "file:///android_asset${question.mediaPath}"
+                            else "file:///android_asset/${question.mediaPath}"
+                            AsyncImage(
+                                model = assetPath, contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Text(target.emoji, fontSize = 64.sp, textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                /* ═══ CARD 3 – Face preview + controls (2 col × 3 row, weight) ═══ */
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).weight(1.8f),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, EgDesign.cardBorder),
+                    elevation = CardDefaults.cardElevation(1.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Row 1 – Lông mày
+                        FaceAssemblyRow(
+                            emotionIndex = selectedEyebrow.intValue,
+                            partIndex = 0,
+                            icon = "👁",
+                            label = "Lông mày",
+                            enabled = !hasFeedback && !isSubmitting.value,
+                            onClick = { selectedEyebrow.intValue = nextEmotionIndex(selectedEyebrow.intValue) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        HorizontalDivider(color = EgDesign.cardBorder, thickness = 0.5.dp)
+                        // Row 2 – Mắt
+                        FaceAssemblyRow(
+                            emotionIndex = selectedEyes.intValue,
+                            partIndex = 1,
+                            icon = "👀",
+                            label = "Mắt",
+                            enabled = !hasFeedback && !isSubmitting.value,
+                            onClick = { selectedEyes.intValue = nextEmotionIndex(selectedEyes.intValue) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        HorizontalDivider(color = EgDesign.cardBorder, thickness = 0.5.dp)
+                        // Row 3 – Miệng
+                        FaceAssemblyRow(
+                            emotionIndex = selectedMouth.intValue,
+                            partIndex = 2,
+                            icon = "👄",
+                            label = "Miệng",
+                            enabled = !hasFeedback && !isSubmitting.value,
+                            onClick = { selectedMouth.intValue = nextEmotionIndex(selectedMouth.intValue) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                /* ═══ HINT ROW ═══ */
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(70.dp),
+                        .height(56.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (feedback.value != null) {
-                        GameFeedbackCard(feedback.value.orEmpty())
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(if (showHint.value) Color(0xFFFFF8E1) else Color.Transparent)
+                            .clickable { showHint.value = !showHint.value }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text("💡", fontSize = 18.sp)
+                        if (showHint.value) {
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = question.explanation ?: "Hãy ghép khuôn mặt phù hợp.",
+                                fontSize = 13.sp,
+                                color = Color(0xFF7D6300),
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(Modifier.height(4.dp))
 
-                Button(
-                    onClick = { goNextOrFinish() },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    enabled = feedback.value != null && !isSubmitting.value && learningEmotionId.value == null
+                /* ═══ FEEDBACK strip (fixed height – does not shift layout) ═══ */
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(72.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        when {
-                            isSubmitting.value -> "Đang lưu..."
-                            currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
-                            else -> "Câu tiếp theo"
+                    if (hasFeedback) GameFeedbackCard(feedback.value.orEmpty())
+                }
+
+                /* ═══ BOTTOM BUTTONS ═══ */
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(60.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Thử lại
+                        OutlinedButton(
+                            onClick = { resetCurrentQuestion() },
+                            enabled = !hasFeedback && !isSubmitting.value,
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(99.dp),
+                            border = BorderStroke(1.5.dp, EgDesign.cardBorder)
+                        ) {
+                            Text("↺ Thử lại", fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold, color = EgDesign.textPrimary,
+                                maxLines = 1)
                         }
+                        // Kiểm tra / Câu tiếp / Hoàn thành
+                        Button(
+                            onClick = {
+                                if (!hasFeedback) {
+                                    recordCurrentAnswer(target)
+                                } else {
+                                    if (pendingLearnEmotion.value != null) {
+                                        learningEmotionId.value = pendingLearnEmotion.value
+                                        return@Button
+                                    }
+                                    goNextOrFinish()
+                                }
+                            },
+                            enabled = (canCheck || hasFeedback) && !isSubmitting.value && learningEmotionId.value == null,
+                            modifier = Modifier.weight(1.5f).height(46.dp),
+                            shape = RoundedCornerShape(99.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primary)
+                        ) {
+                            val learnTarget = pendingLearnEmotion.value?.let { GameUiCatalog.emotionById(it)?.name ?: it }
+                            Text(
+                                when {
+                                    isSubmitting.value -> "Đang lưu..."
+                                    !hasFeedback -> "Kiểm tra ✓"
+                                    pendingLearnEmotion.value != null -> "Học $learnTarget"
+                                    currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
+                                    else -> "Câu tiếp →"
+                                },
+                                fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                                color = Color.White, maxLines = 1
+                            )
+                        }
+                    }
+                }
+
+            } // end else (non-summary)
+        }
+
+        EmotionLearningDialog(
+            emotionId = learningEmotionId.value,
+            onDismiss = {
+                val emotion = learningEmotionId.value
+                learningEmotionId.value = null; pendingLearnEmotion.value = null
+                if (emotion != null) {
+                    emotionErrors[emotion] = 0; accumulatedErrors[emotion] = 0
+                    scope.launch {
+                        try { repository.resetReviewEmotions(GameUiCatalog.GAME_FACE_ASSEMBLY, userId, listOf(emotion)) }
+                        catch (_: Exception) {}
+                    }
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Single row: left = face sprite slice, right = icon + label.
+ * Clicking anywhere cycles that face part.
+ */
+@Composable
+private fun FaceAssemblyRow(
+    emotionIndex: Int,
+    partIndex: Int,
+    icon: String,
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left column – sprite preview (2/3 width)
+        Box(
+            modifier = Modifier.weight(2f).fillMaxHeight().background(Color(0xFFF8FAFF)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (emotionIndex < 0 || emotionIndex >= faceEmotions.size) {
+                Text("?", fontSize = 20.sp, color = EgDesign.cardBorder)
+            } else {
+                val bitmap = ImageBitmap.imageResource(id = faceEmotions[emotionIndex].spriteRes)
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val partH = bitmap.height / 3
+                    drawImage(
+                        image = bitmap,
+                        srcOffset = IntOffset(0, partIndex * partH),
+                        srcSize = IntSize(bitmap.width, partH),
+                        dstOffset = IntOffset.Zero,
+                        dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt())
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-            }
-            EmotionLearningDialog(
-                emotionId = learningEmotionId.value,
-                onDismiss = {
-                    val emotion = learningEmotionId.value
-                    learningEmotionId.value = null
-                    pendingLearnEmotion.value = null
-                    if (emotion != null) {
-                        emotionErrors[emotion] = 0
-                        accumulatedErrors[emotion] = 0
-                        scope.launch {
-                            try {
-                                repository.resetReviewEmotions(GameUiCatalog.GAME_FACE_ASSEMBLY, userId, listOf(emotion))
-                            } catch (_: Exception) {}
-                        }
-                    }
-                }
-            )
-        }
-    }
-}
-
-@Composable
-private fun PreviewCard(selectedEyebrow: Int, selectedEyes: Int, selectedMouth: Int) {
-    Card(
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Khuôn mặt đang ghép", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
-            Spacer(modifier = Modifier.height(12.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = EgDesign.cardSoft),
-                border = BorderStroke(1.dp, EgDesign.cardBorder)
-            ) {
-                Column(modifier = Modifier.fillMaxWidth().height(270.dp)) {
-                    FacePartBand(selectedEyebrow, partIndex = 0, label = "Lông mày")
-                    FacePartBand(selectedEyes, partIndex = 1, label = "Mắt")
-                    FacePartBand(selectedMouth, partIndex = 2, label = "Miệng")
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Chọn cùng một cảm xúc cho cả 3 phần để tạo khuôn mặt đúng.", color = EgDesign.textSecondary)
-        }
-    }
-}
-
-@Composable
-private fun FacePartBand(emotionIndex: Int, partIndex: Int, label: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(90.dp)
-            .background(EgDesign.card),
-        contentAlignment = Alignment.Center
-    ) {
-        if (emotionIndex < 0 || emotionIndex >= faceEmotions.size) {
-            Text(label, color = EgDesign.textSecondary, fontWeight = FontWeight.SemiBold)
-            return@Box
-        }
-
-        val bitmap = ImageBitmap.imageResource(id = faceEmotions.get(emotionIndex).spriteRes)
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val partHeight = bitmap.height / 3
-            drawImage(
-                image = bitmap,
-                srcOffset = IntOffset(0, partIndex * partHeight),
-                srcSize = IntSize(bitmap.width, partHeight),
-                dstOffset = IntOffset.Zero,
-                dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt())
-            )
-            if (partIndex < 2) {
-                drawLine(
-                    color = EgDesign.cardBorder,
-                    start = Offset(0f, size.height),
-                    end = Offset(size.width, size.height),
-                    strokeWidth = 1.dp.toPx()
-                )
             }
         }
-    }
-}
 
-@Composable
-private fun AssemblyControls(
-    question: AssemblyQuestionUi,
-    target: FaceEmotionUi,
-    selectedEyebrow: Int,
-    selectedEyes: Int,
-    selectedMouth: Int,
-    hasFeedback: Boolean,
-    isSubmitting: Boolean,
-    onCycleEyebrow: () -> Unit,
-    onCycleEyes: () -> Unit,
-    onCycleMouth: () -> Unit,
-    onReset: () -> Unit,
-    onCheck: () -> Unit
-) {
-    val canCheck = selectedEyebrow >= 0 && selectedEyes >= 0 && selectedMouth >= 0 && !hasFeedback
+        // Vertical separator
+        VerticalDivider(
+            modifier = Modifier.fillMaxHeight(),
+            thickness = 0.5.dp,
+            color = EgDesign.cardBorder
+        )
 
-    Card(
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Yêu cầu", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary)
-            Text(question.text, style = MaterialTheme.typography.bodyLarge, color = EgDesign.textSecondary)
-            Surface(shape = MaterialTheme.shapes.large, color = EgDesign.cardSoft) {
-                Text(
-                    "${target.emoji} Ghép khuôn mặt: ${target.label}",
-                    modifier = Modifier.padding(12.dp),
-                    color = EgDesign.textPrimary,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            ControlItem("Lông mày", selectedEyebrow, onCycleEyebrow, enabled = !hasFeedback && !isSubmitting)
-            ControlItem("Mắt", selectedEyes, onCycleEyes, enabled = !hasFeedback && !isSubmitting)
-            ControlItem("Miệng", selectedMouth, onCycleMouth, enabled = !hasFeedback && !isSubmitting)
-
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = onReset, modifier = Modifier.weight(1f), enabled = !hasFeedback && !isSubmitting) {
-                    Text("Chọn lại")
-                }
-                Button(onClick = onCheck, modifier = Modifier.weight(1f), enabled = canCheck && !isSubmitting) {
-                    Text("Kiểm tra")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ControlItem(title: String, selectedIndex: Int, onClick: () -> Unit, enabled: Boolean) {
-    val selected = faceEmotions.getOrNull(selectedIndex)
-    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth(), enabled = enabled) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(title, color = EgDesign.textPrimary)
+        // Right column – icon + label (1/3 width)
+        Column(
+            modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 10.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(icon, fontSize = 22.sp)
+            Spacer(Modifier.height(3.dp))
             Text(
-                selected?.let { "${it.emoji} ${it.label}" } ?: "Chưa chọn",
-                color = EgDesign.blue,
-                fontWeight = FontWeight.Bold
+                label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                color = EgDesign.textPrimary, textAlign = TextAlign.Center
             )
+            if (emotionIndex >= 0 && emotionIndex < faceEmotions.size) {
+                Text(
+                    faceEmotions[emotionIndex].emoji,
+                    fontSize = 14.sp, textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
 
-private fun fallbackAssemblyQuestions(): List<AssemblyQuestionUi> {
-    return listOf(
-        AssemblyQuestionUi("fallback-assembly-happy", "Hãy ghép khuôn mặt Vui vẻ.", "happy"),
-        AssemblyQuestionUi("fallback-assembly-sad", "Hãy ghép khuôn mặt Buồn bã.", "sad"),
-        AssemblyQuestionUi("fallback-assembly-angry", "Hãy ghép khuôn mặt Tức giận.", "angry"),
-        AssemblyQuestionUi("fallback-assembly-fear", "Hãy ghép khuôn mặt Sợ hãi.", "fear"),
-        AssemblyQuestionUi("fallback-assembly-surprise", "Hãy ghép khuôn mặt Ngạc nhiên.", "surprise")
-    )
-}
+/* ── Utilities ── */
+private fun fallbackAssemblyQuestions(): List<AssemblyQuestionUi> = listOf(
+    AssemblyQuestionUi("fallback-assembly-happy",    "Hình này thể hiện cảm xúc gì?", "happy",    explanation = "Mắt híp lại, miệng cười tươi."),
+    AssemblyQuestionUi("fallback-assembly-sad",      "Hình này thể hiện cảm xúc gì?", "sad",      explanation = "Lông mày chùng xuống, miệng mếu."),
+    AssemblyQuestionUi("fallback-assembly-angry",    "Hình này thể hiện cảm xúc gì?", "angry",    explanation = "Lông mày nhíu chặt, miệng gắt gỏng."),
+    AssemblyQuestionUi("fallback-assembly-fear",     "Hình này thể hiện cảm xúc gì?", "fear",     explanation = "Mắt mở to và miệng há hốc sợ sệt."),
+    AssemblyQuestionUi("fallback-assembly-surprise", "Hình này thể hiện cảm xúc gì?", "surprise", explanation = "Lông mày rướn cao, mắt tròn xoe.")
+)
 
 private fun targetIndex(emotionId: String): Int = faceEmotions.indexOfFirst { it.id == emotionId }
-
-private fun nextEmotionIndex(current: Int): Int = if (current < 0) 0 else (current + 1) % faceEmotions.size
-
-private fun resetSelections(
-    selectedEyebrow: MutableIntState,
-    selectedEyes: MutableIntState,
-    selectedMouth: MutableIntState
-) {
-    selectedEyebrow.intValue = -1
-    selectedEyes.intValue = -1
-    selectedMouth.intValue = -1
+private fun nextEmotionIndex(current: Int): Int  = if (current < 0) 0 else (current + 1) % faceEmotions.size
+private fun resetSelections(eb: MutableIntState, ey: MutableIntState, mo: MutableIntState) {
+    eb.intValue = -1; ey.intValue = -1; mo.intValue = -1
 }
