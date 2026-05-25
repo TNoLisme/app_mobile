@@ -15,6 +15,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
@@ -32,6 +34,7 @@ import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.DraggableAssistantBubble
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.LegalConsentDialog
 import com.example.appmobile.ui.pages.assistant.AssistantPage
 import com.example.appmobile.ui.pages.auth.LoginPage
 import com.example.appmobile.ui.pages.auth.RegisterPage
@@ -71,6 +74,12 @@ private fun AppRoot() {
         AppSettingsState.load(context)
         true
     }
+    val legalAccepted by AppSettingsState.legalPolicyAccepted
+    var showLegalNotice by remember { mutableStateOf(false) }
+
+    LaunchedEffect(legalAccepted) {
+        showLegalNotice = !legalAccepted
+    }
 
     val themeMode by AppSettingsState.themeMode
     val dynamicColorEnabled by AppSettingsState.dynamicColorEnabled
@@ -94,6 +103,17 @@ private fun AppRoot() {
 
     AppMobileTheme(darkTheme = useDarkTheme, dynamicColor = dynamicColorEnabled) {
         AppNavigation(modifier = Modifier.fillMaxSize())
+        if (showLegalNotice || !legalAccepted) {
+            LegalConsentDialog(
+                onAccept = {
+                    AppSettingsState.setLegalPolicyAccepted(context, true)
+                    showLegalNotice = false
+                },
+                onDismiss = {
+                    activity?.finish()
+                }
+            )
+        }
     }
 }
 
@@ -187,14 +207,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             HomePage(
                 onNavigateToGame = { gameType -> navController.navigate("select_game/$gameType") },
                 onNavigateToLearn = ::goLearn,
-                onNavigateToLearnEmotion = { emotionId ->
-                    navController.navigate("learn_detail/$emotionId") { launchSingleTop = true }
-                },
-                onStartEmotionChallenge = { emotionId ->
-                    navController.navigate("game/${GameUiCatalog.GAME_CV_REQUEST}/1?emotion=$emotionId") {
-                        launchSingleTop = true
-                    }
-                },
                 onNavigateToReport = { navController.navigate("report") },
                 onNavigateToProfile = ::goProfile,
                 onNavigateToSettings = ::goSettings,
@@ -238,13 +250,13 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             val emotion = backStackEntry.arguments?.getString("emotion")?.takeIf { it.isNotBlank() }
             when (id) {
                 // Các game Nhận diện
-                GameUiCatalog.GAME_RECOGNIZE_EMOTION -> EmotionsBoxPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("emotions_box", level)) })
-                GameUiCatalog.GAME_FACE_ASSEMBLY -> FaceAssemblyPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("face_assembly", level)) })
-                GameUiCatalog.GAME_EMOTION_MATCH -> EmotionMatchPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("emotion_match", level)) })
-                GameUiCatalog.GAME_DETECTIVE -> DetectiveGamePage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("detective_game", level)) })
+                "6695AFE0-6414-40A3-B688-B08A98CD2B61" -> RecognizeEmotionPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("recognize_emotion", level)) })
+                "EEA09E6C-8C2F-4DF1-A361-F5EDC89D8281" -> GameClick2Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_click_2", level)) })
+                "AFA91963-F75A-4D92-BCF4-72E4E53C84D2" -> GameClick3Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_click_3", level)) })
+                "17C0CC09-CEC9-48DC-BF06-E574CF8BF303" -> GameClick4Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_click_4", level)) })
                 // Các game Biểu cảm
-                GameUiCatalog.GAME_CV_STORY -> GameCVPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("gameCV", level)) })
-                GameUiCatalog.GAME_CV_REQUEST -> GameCV2Page(
+                "1B450620-EE43-4F60-BAD6-1E214642999E" -> GameCVPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("gameCV", level)) })
+                "3CF6130E-73F3-4146-8D73-D2709B4CF44E" -> GameCV2Page(
                     level = level,
                     selectedEmotion = emotion,
                     onBack = { navController.popBackStack() },
