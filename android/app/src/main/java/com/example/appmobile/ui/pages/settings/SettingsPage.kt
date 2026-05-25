@@ -1,6 +1,7 @@
 package com.example.appmobile.ui.pages.settings
 
 import android.content.Intent
+import android.app.TimePickerDialog
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
@@ -8,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -37,6 +37,13 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.example.appmobile.notifications.ReminderScheduler
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -68,12 +76,16 @@ import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgSoftCard
+import com.example.appmobile.ui.components.LegalDocumentDialog
+import com.example.appmobile.ui.components.LegalDocumentType
+import com.example.appmobile.ui.components.SupportContactDialog
 import com.example.appmobile.ui.state.AppSettingsState
 import com.example.appmobile.ui.state.AppThemeMode
 import com.example.appmobile.ui.state.CvEmotionScoreState
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.util.Locale
 
 @Composable
 fun SettingsPage(
@@ -108,15 +120,77 @@ fun SettingsPage(
     var showReportEmailEditor by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
     var showCameraPrivacy by remember { mutableStateOf(false) }
+    var showPrivacyPolicy by remember { mutableStateOf(false) }
+    var showTermsOfUse by remember { mutableStateOf(false) }
+    var showSupportContact by remember { mutableStateOf(false) }
     var confirmAction by remember { mutableStateOf<ConfirmAction?>(null) }
+
+    val supportEmailIntent = remember(context) {
+        Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@example.com")).apply {
+            putExtra(Intent.EXTRA_SUBJECT, "Hỗ trợ ứng dụng")
+        }
+    }
+    val supportPhoneIntent = remember(context) {
+        Intent(Intent.ACTION_DIAL, Uri.parse("tel:+84900000000"))
+    }
 
     val assistantBubbleEnabled by AppSettingsState.assistantBubbleEnabled
     val autoPlayVideo by AppSettingsState.learnVideoAutoplayEnabled
     val videoSoundEnabled by AppSettingsState.learnVideoSoundEnabled
     val soundEffectsEnabled by AppSettingsState.soundEffectsEnabled
     val learningReminderEnabled by AppSettingsState.learningReminderEnabled
+    val learningReminderHour by AppSettingsState.learningReminderHour
+    val learningReminderMinute by AppSettingsState.learningReminderMinute
     val dynamicColorEnabled by AppSettingsState.dynamicColorEnabled
     val themeMode by AppSettingsState.themeMode
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            ReminderScheduler.scheduleDailyReminder(context, learningReminderHour, learningReminderMinute)
+            Toast.makeText(context, "Đã bật nhắc nhở học tập.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Cần quyền thông báo để bật nhắc nhở.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    val onLearningReminderChanged: (Boolean) -> Unit = { enabled ->
+        AppSettingsState.setLearningReminderEnabled(context, enabled)
+        if (enabled) {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (hasPermission) {
+                ReminderScheduler.scheduleDailyReminder(context, learningReminderHour, learningReminderMinute)
+                Toast.makeText(context, "Đã bật nhắc nhở học tập.", Toast.LENGTH_SHORT).show()
+            } else {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        } else {
+            ReminderScheduler.cancelDailyReminder(context)
+            Toast.makeText(context, "Đã tắt nhắc nhở học tập.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val onOpenReminderTimePicker: () -> Unit = {
+        TimePickerDialog(
+            context,
+            { _, hourOfDay, minute ->
+                AppSettingsState.setLearningReminderTime(context, hourOfDay, minute)
+                if (learningReminderEnabled) {
+                    ReminderScheduler.scheduleDailyReminder(context, hourOfDay, minute)
+                    Toast.makeText(
+                        context,
+                        "Đã đổi giờ nhắc học sang ${formatReminderTime(hourOfDay, minute)}.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            learningReminderHour,
+            learningReminderMinute,
+            true
+        ).show()
+    }
 
     fun openSystemSettings() {
         context.startActivity(systemSettingsIntent)
@@ -171,8 +245,14 @@ fun SettingsPage(
         onAutoPlayVideoChanged = { AppSettingsState.setLearnVideoAutoplayEnabled(context, it) },
         onVideoSoundChanged = { AppSettingsState.setLearnVideoSoundEnabled(context, it) },
         onSoundEffectsChanged = { AppSettingsState.setSoundEffectsEnabled(context, it) },
+        onLearningReminderChanged = onLearningReminderChanged,
+        reminderTimeText = formatReminderTime(learningReminderHour, learningReminderMinute),
+        onOpenReminderTimePicker = onOpenReminderTimePicker,
         onOpenParentArea = { showParentGate = true },
         onLogin = onLogin,
+        onOpenPrivacyPolicy = { showPrivacyPolicy = true },
+        onOpenTerms = { showTermsOfUse = true },
+        onOpenSupportContact = { showSupportContact = true },
         onLogout = { confirmAction = ConfirmAction.Logout }
     )
 
@@ -284,6 +364,34 @@ fun SettingsPage(
         CameraPrivacyDialog(onDismiss = { showCameraPrivacy = false }, onOpenSystemSettings = ::openSystemSettings)
     }
 
+    if (showPrivacyPolicy) {
+        LegalDocumentDialog(
+            type = LegalDocumentType.PrivacyPolicy,
+            onDismiss = { showPrivacyPolicy = false }
+        )
+    }
+
+    if (showTermsOfUse) {
+        LegalDocumentDialog(
+            type = LegalDocumentType.TermsOfUse,
+            onDismiss = { showTermsOfUse = false }
+        )
+    }
+
+    if (showSupportContact) {
+        SupportContactDialog(
+            onDismiss = { showSupportContact = false },
+            onEmailSupport = {
+                runCatching { context.startActivity(supportEmailIntent) }
+                    .onFailure { statusMessage = "Không mở được ứng dụng email trên máy." }
+            },
+            onCallSupport = {
+                runCatching { context.startActivity(supportPhoneIntent) }
+                    .onFailure { statusMessage = "Không mở được trình gọi điện trên máy." }
+            }
+        )
+    }
+
     confirmAction?.let { action ->
         ConfirmActionDialog(
             action = action,
@@ -335,8 +443,14 @@ private fun SettingsScreen(
     onAutoPlayVideoChanged: (Boolean) -> Unit,
     onVideoSoundChanged: (Boolean) -> Unit,
     onSoundEffectsChanged: (Boolean) -> Unit,
+    onLearningReminderChanged: (Boolean) -> Unit,
+    reminderTimeText: String,
+    onOpenReminderTimePicker: () -> Unit,
     onOpenParentArea: () -> Unit,
     onLogin: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit,
+    onOpenTerms: () -> Unit,
+    onOpenSupportContact: () -> Unit,
     onLogout: () -> Unit
 ) {
     Column(
@@ -365,10 +479,17 @@ private fun SettingsScreen(
             onAssistantBubbleChanged = onAssistantBubbleChanged,
             onAutoPlayVideoChanged = onAutoPlayVideoChanged,
             onVideoSoundChanged = onVideoSoundChanged,
-            onSoundEffectsChanged = onSoundEffectsChanged
+            onSoundEffectsChanged = onSoundEffectsChanged,
+            onLearningReminderChanged = onLearningReminderChanged,
+            reminderTimeText = reminderTimeText,
+            onOpenReminderTimePicker = onOpenReminderTimePicker
         )
         ParentAreaEntryCard(onClick = onOpenParentArea)
-        AboutAppSection()
+        AboutAppSection(
+            onOpenPrivacyPolicy = onOpenPrivacyPolicy,
+            onOpenTerms = onOpenTerms,
+            onOpenSupportContact = onOpenSupportContact
+        )
         SessionSection(isLoggedIn = isLoggedIn, onLogin = onLogin, onLogout = onLogout)
         Spacer(modifier = Modifier.height(20.dp))
     }
@@ -422,7 +543,10 @@ private fun LearningExperienceSection(
     onAssistantBubbleChanged: (Boolean) -> Unit,
     onAutoPlayVideoChanged: (Boolean) -> Unit,
     onVideoSoundChanged: (Boolean) -> Unit,
-    onSoundEffectsChanged: (Boolean) -> Unit
+    onSoundEffectsChanged: (Boolean) -> Unit,
+    onLearningReminderChanged: (Boolean) -> Unit,
+    reminderTimeText: String,
+    onOpenReminderTimePicker: () -> Unit
 ) {
     SettingsSection(title = "Trải nghiệm học", icon = "✨") {
         SwitchSettingsRow(
@@ -462,11 +586,23 @@ private fun LearningExperienceSection(
             title = "Nhắc nhở học tập",
             description = "Nhắc bé luyện tập mỗi ngày.",
             checked = learningReminderEnabled,
-            onCheckedChange = {},
-            enabled = false,
-            badge = "Sắp ra mắt"
+            onCheckedChange = onLearningReminderChanged,
+            enabled = true,
+            badge = null
+        )
+        ThinDivider()
+        ActionSettingsRow(
+            icon = "⏰",
+            title = "Giờ nhắc học",
+            description = "Đang nhắc lúc $reminderTimeText mỗi ngày.",
+            actionText = "Đổi giờ",
+            onClick = onOpenReminderTimePicker
         )
     }
+}
+
+private fun formatReminderTime(hour: Int, minute: Int): String {
+    return String.format(Locale.getDefault(), "%02d:%02d", hour, minute)
 }
 
 @Composable
@@ -498,15 +634,37 @@ private fun ParentAreaEntryCard(onClick: () -> Unit) {
 }
 
 @Composable
-private fun AboutAppSection() {
+private fun AboutAppSection(
+    onOpenPrivacyPolicy: () -> Unit,
+    onOpenTerms: () -> Unit,
+    onOpenSupportContact: () -> Unit
+) {
     SettingsSection(title = "Về ứng dụng", icon = "ℹ") {
         CompactValueRow("ℹ", "Phiên bản ứng dụng", "1.0")
         ThinDivider()
-        CompactValueRow("🔐", "Chính sách quyền riêng tư", "Sắp cập nhật")
+        ActionSettingsRow(
+            icon = "🔐",
+            title = "Chính sách quyền riêng tư",
+            description = "Xem app dùng dữ liệu nào và bảo vệ dữ liệu ra sao.",
+            actionText = "Xem",
+            onClick = onOpenPrivacyPolicy
+        )
         ThinDivider()
-        CompactValueRow("📄", "Điều khoản sử dụng", "Sắp cập nhật")
+        ActionSettingsRow(
+            icon = "📄",
+            title = "Điều khoản sử dụng",
+            description = "Xem các điều kiện khi dùng app cho bé học và chơi.",
+            actionText = "Xem",
+            onClick = onOpenTerms
+        )
         ThinDivider()
-        CompactValueRow("☎", "Liên hệ hỗ trợ", "Sắp cập nhật")
+        ActionSettingsRow(
+            icon = "☎",
+            title = "Liên hệ hỗ trợ",
+            description = "Gửi email hoặc gọi nếu cần trợ giúp.",
+            actionText = "Liên hệ",
+            onClick = onOpenSupportContact
+        )
     }
 }
 
@@ -818,29 +976,28 @@ private fun ActionSettingsRow(
     danger: Boolean = false,
     fullWidthAction: Boolean = false
 ) {
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val narrow = maxWidth < 360.dp || fullWidthAction
-        if (narrow) {
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                CompactTextBlock(icon = icon, title = title, description = description)
-                SettingsButton(
-                    text = actionText,
-                    onClick = onClick,
-                    modifier = if (fullWidthAction) Modifier.fillMaxWidth() else Modifier.align(Alignment.End),
-                    danger = danger,
-                    tonal = danger,
-                    minWidth = 120.dp
-                )
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                CompactTextBlock(icon = icon, title = title, description = description, modifier = Modifier.weight(1f))
-                SettingsButton(text = actionText, onClick = onClick, danger = danger, tonal = danger, minWidth = 112.dp)
-            }
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val narrow = screenWidth < 360.dp || fullWidthAction
+    if (narrow) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            CompactTextBlock(icon = icon, title = title, description = description)
+            SettingsButton(
+                text = actionText,
+                onClick = onClick,
+                modifier = if (fullWidthAction) Modifier.fillMaxWidth() else Modifier.align(Alignment.End),
+                danger = danger,
+                tonal = danger,
+                minWidth = 120.dp
+            )
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            CompactTextBlock(icon = icon, title = title, description = description, modifier = Modifier.weight(1f))
+            SettingsButton(text = actionText, onClick = onClick, danger = danger, tonal = danger, minWidth = 112.dp)
         }
     }
 }
@@ -870,36 +1027,34 @@ private fun AccountInfoRow(
     onClick: () -> Unit,
     description: String? = null
 ) {
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val narrow = maxWidth < 360.dp
-        if (narrow) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                AccountInfoText(icon = icon, label = label, value = value, description = description)
-                SettingsButton(
-                    text = actionText,
-                    onClick = onClick,
-                    modifier = Modifier.align(Alignment.End),
-                    minWidth = 104.dp
-                )
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                AccountInfoText(
-                    icon = icon,
-                    label = label,
-                    value = value,
-                    description = description,
-                    modifier = Modifier.weight(1f)
-                )
-                SettingsButton(text = actionText, onClick = onClick, minWidth = 104.dp)
-            }
+    val narrow = LocalConfiguration.current.screenWidthDp.dp < 360.dp
+    if (narrow) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AccountInfoText(icon = icon, label = label, value = value, description = description)
+            SettingsButton(
+                text = actionText,
+                onClick = onClick,
+                modifier = Modifier.align(Alignment.End),
+                minWidth = 104.dp
+            )
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            AccountInfoText(
+                icon = icon,
+                label = label,
+                value = value,
+                description = description,
+                modifier = Modifier.weight(1f)
+            )
+            SettingsButton(text = actionText, onClick = onClick, minWidth = 104.dp)
         }
     }
 }
