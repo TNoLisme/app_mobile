@@ -18,6 +18,9 @@ interface UserDao {
     @Query("SELECT * FROM users WHERE user_id = :uid")
     suspend fun getUserById(uid: String): UserEntity?
 
+    @Query("SELECT * FROM children WHERE user_id = :uid")
+    suspend fun getChildById(uid: String): ChildEntity?
+
     @Insert
     suspend fun insertChatLog(log: ChatbotLogEntity)
 

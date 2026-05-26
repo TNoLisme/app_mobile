@@ -18,6 +18,7 @@ object NetworkClient {
     private val fallbackHosts = listOf(
         "10.0.2.2",
         "127.0.0.1",
+        "192.168.1.43",
         "192.168.1.51",
         "192.168.1.37",
         "localhost",

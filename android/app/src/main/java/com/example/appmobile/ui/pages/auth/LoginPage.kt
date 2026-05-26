@@ -1,27 +1,42 @@
 package com.example.appmobile.ui.pages.auth
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -30,7 +45,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.appmobile.R
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.FirebaseAuthHelper
@@ -40,179 +54,168 @@ import com.example.appmobile.ui.components.EgDesign
 import kotlinx.coroutines.launch
 
 @Composable
-fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
-    val authHelper = remember { FirebaseAuthHelper() }
+fun LoginPage(
+    onNavigateToRegister: () -> Unit,
+    onLoginSuccess: () -> Unit
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val authHelper = remember { FirebaseAuthHelper() }
     val db = remember { AppDatabase.getDatabase(context) }
     val userRepository = remember { UserRepository(NetworkClient.apiService, authHelper, db.userDao()) }
-    var email by remember { mutableStateOf("") }
+
+    var loginId by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showForgotDialog by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        // Background Image
-        Image(
-            painter = painterResource(id = R.drawable.background),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.Center
         ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 32.dp),
-                shape = RoundedCornerShape(32.dp),
-                colors = CardDefaults.cardColors(containerColor = EgDesign.card),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(26.dp),
+                color = EgDesign.card,
+                border = androidx.compose.foundation.BorderStroke(1.dp, EgDesign.cardBorder),
+                shadowElevation = 3.dp
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Logo and Brand
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.logo),
-                            contentDescription = "Logo",
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "EmoGarden",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF7CB9E8)
-                        )
-                    }
-
                     Text(
-                        "Đăng nhập",
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = EgDesign.textPrimary
+                        text = "EmoGarden",
+                        color = EgDesign.primaryDark,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 22.sp
                     )
                     Text(
-                        "Tiếp tục hành trình học cảm xúc của bé",
-                        fontSize = 14.sp,
+                        text = "Đăng nhập",
+                        color = EgDesign.textPrimary,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 30.sp,
+                        lineHeight = 34.sp
+                    )
+                    Text(
+                        text = "Tiếp tục hành trình học cảm xúc của bé.",
                         color = EgDesign.textSecondary,
-                        textAlign = TextAlign.Center
+                        fontSize = 15.sp,
+                        lineHeight = 21.sp
                     )
 
-                    // Illustration
-                    Image(
-                        painter = painterResource(id = R.drawable.duatre),
-                        contentDescription = "Illustration",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(160.dp),
-                        contentScale = ContentScale.Fit
-                    )
-
-                    // Input Fields
                     AuthTextField(
-                        value = email,
-                        onValueChange = { email = it; errorMessage = null },
-                        placeholder = "Email phụ huynh",
+                        value = loginId,
+                        onValueChange = {
+                            loginId = it
+                            errorMessage = null
+                        },
+                        label = "Tên đăng nhập hoặc email",
+                        placeholder = "Nhập tên đăng nhập hoặc email tài khoản",
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next
                     )
 
                     AuthTextField(
                         value = password,
-                        onValueChange = { password = it; errorMessage = null },
-                        placeholder = "Mật khẩu",
+                        onValueChange = {
+                            password = it
+                            errorMessage = null
+                        },
+                        label = "Mật khẩu",
+                        placeholder = "Nhập mật khẩu",
                         isPassword = true,
+                        keyboardType = KeyboardType.Password,
                         imeAction = ImeAction.Done
                     )
 
                     errorMessage?.let {
-                        Text(it, color = Color.Red, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
-                    }
-
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                         Text(
-                            "Quên mật khẩu?",
-                            color = EgDesign.blue,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.clickable { showForgotDialog = true }
+                            text = it,
+                            color = Color(0xFFFF8D8D),
+                            fontSize = 13.sp
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Quên mật khẩu?",
+                        color = EgDesign.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .clickable { showForgotDialog = true }
+                    )
 
                     if (isLoading) {
-                        CircularProgressIndicator(color = Color(0xFFFFA726))
+                        CircularProgressIndicator(color = EgDesign.primary, modifier = Modifier.align(Alignment.CenterHorizontally))
                     } else {
                         Button(
                             onClick = {
-                                val validation = validateLogin(email, password)
+                                val validation = validateLogin(loginId, password)
                                 if (validation != null) {
                                     errorMessage = validation
                                     return@Button
                                 }
+
                                 isLoading = true
-                                authHelper.login(email.trim(), password) { success, error ->
-                                    if (success) {
+                                errorMessage = null
+                                val identity = loginId.trim()
+                                val handleBackendLogin: () -> Unit = {
+                                    scope.launch {
+                                        authHelper.auth.signOut()
+                                        val backendResult = userRepository.loginWithBackend(identity, password)
                                         isLoading = false
-                                        AppSession.clear(context)
-                                        Toast.makeText(context, "Đăng nhập thành công", Toast.LENGTH_SHORT).show()
-                                        onLoginSuccess()
-                                    } else {
-                                        scope.launch {
-                                            val backendResult = userRepository.loginWithBackend(email.trim(), password)
-                                            isLoading = false
-                                            backendResult.onSuccess { profile ->
-                                                profile.userId?.let { AppSession.saveBackendUserId(context, it) }
-                                                Toast.makeText(context, "Đăng nhập thành công", Toast.LENGTH_SHORT).show()
-                                                onLoginSuccess()
-                                            }.onFailure {
-                                                errorMessage = error ?: it.message ?: "Sai tài khoản hoặc mật khẩu."
-                                            }
+                                        backendResult.onSuccess { profile ->
+                                            errorMessage = null
+                                            AppSession.clear(context)
+                                            profile.userId?.let { AppSession.saveBackendUserId(context, it) }
+                                            Toast.makeText(context, "Đăng nhập thành công", Toast.LENGTH_SHORT).show()
+                                            onLoginSuccess()
+                                        }.onFailure {
+                                            errorMessage = mapLoginError(it)
                                         }
                                     }
                                 }
+                                handleBackendLogin()
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(56.dp)
-                                .shadow(4.dp, RoundedCornerShape(28.dp)),
-                            shape = RoundedCornerShape(28.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA726))
+                                .height(52.dp),
+                            shape = RoundedCornerShape(999.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primary)
                         ) {
-                            Text("Đăng nhập", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(
+                                text = "Đăng nhập",
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 17.sp
+                            )
                         }
                     }
 
                     Row(
-                        modifier = Modifier.padding(top = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Text("Chưa có tài khoản? ", color = EgDesign.textSecondary, fontSize = 14.sp)
                         Text(
-                            "Đăng ký ngay",
-                            color = EgDesign.blue,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable { onNavigateToRegister() }
+                            text = "Chưa có tài khoản? ",
+                            color = EgDesign.textSecondary
+                        )
+                        Text(
+                            text = "Đăng ký ngay",
+                            color = EgDesign.primary,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.clickable(onClick = onNavigateToRegister)
                         )
                     }
                 }
@@ -222,7 +225,7 @@ fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
 
     if (showForgotDialog) {
         ForgotPasswordDialog(
-            initialEmail = email,
+            initialEmail = loginId.takeIf { isValidEmail(it) }.orEmpty(),
             authHelper = authHelper,
             onDismiss = { showForgotDialog = false }
         )
@@ -233,6 +236,7 @@ fun LoginPage(onNavigateToRegister: () -> Unit, onLoginSuccess: () -> Unit) {
 private fun AuthTextField(
     value: String,
     onValueChange: (String) -> Unit,
+    label: String,
     placeholder: String,
     isPassword: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
@@ -241,14 +245,16 @@ private fun AuthTextField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(label) },
         placeholder = { Text(placeholder, color = EgDesign.textSecondary) },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(16.dp),
         singleLine = true,
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            imeAction = imeAction
+        ),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = EgDesign.primary,
             unfocusedBorderColor = EgDesign.cardBorder,
@@ -256,18 +262,11 @@ private fun AuthTextField(
             unfocusedContainerColor = EgDesign.cardSoft,
             focusedTextColor = EgDesign.textPrimary,
             unfocusedTextColor = EgDesign.textPrimary,
+            focusedLabelColor = EgDesign.primary,
+            unfocusedLabelColor = EgDesign.textSecondary,
             cursorColor = EgDesign.primary
         )
     )
-}
-
-@Composable
-private fun CloudIcon(modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        color = EgDesign.card.copy(alpha = 0.65f),
-        shape = RoundedCornerShape(50)
-    ) {}
 }
 
 @Composable
@@ -283,17 +282,22 @@ private fun ForgotPasswordDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isSending) onDismiss() },
-        title = { Text("Quên mật khẩu", color = EgDesign.textPrimary) },
+        title = { Text("Quên mật khẩu", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Nhập email tài khoản, hệ thống sẽ gửi link đặt lại mật khẩu.", color = EgDesign.textSecondary)
+                Text(
+                    text = "Nhập email tài khoản để nhận liên kết đặt lại mật khẩu.",
+                    color = EgDesign.textSecondary,
+                    lineHeight = 20.sp
+                )
                 OutlinedTextField(
                     value = email,
                     onValueChange = {
                         email = it
                         message = null
                     },
-                    label = { Text("Email của bạn") },
+                    label = { Text("Email tài khoản") },
+                    placeholder = { Text("example@email.com") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     shape = RoundedCornerShape(12.dp),
@@ -304,10 +308,18 @@ private fun ForgotPasswordDialog(
                         unfocusedContainerColor = EgDesign.cardSoft,
                         focusedTextColor = EgDesign.textPrimary,
                         unfocusedTextColor = EgDesign.textPrimary,
+                        focusedLabelColor = EgDesign.primary,
+                        unfocusedLabelColor = EgDesign.textSecondary,
                         cursorColor = EgDesign.primary
                     )
                 )
-                message?.let { Text(it, color = Color.Red) }
+                message?.let {
+                    Text(
+                        text = it,
+                        color = Color(0xFFFF8D8D),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         },
         confirmButton = {
@@ -315,38 +327,61 @@ private fun ForgotPasswordDialog(
                 enabled = !isSending,
                 onClick = {
                     if (!isValidEmail(email)) {
-                        message = "Email không hợp lệ."
+                        message = "Email chưa hợp lệ."
                         return@Button
                     }
                     isSending = true
                     authHelper.resetPassword(email.trim()) { success, error ->
                         isSending = false
                         if (success) {
-                            Toast.makeText(context, "Kiểm tra email để đặt lại mật khẩu", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Đã gửi email đặt lại mật khẩu.", Toast.LENGTH_LONG).show()
                             onDismiss()
                         } else {
-                            message = error ?: "Không gửi được email đặt lại mật khẩu."
+                            message = error ?: "Chưa gửi được email đặt lại mật khẩu."
                         }
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA726))
+                colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primary)
             ) {
                 Text(if (isSending) "Đang gửi..." else "Gửi email", color = Color.White)
             }
         },
         dismissButton = {
-            TextButton(enabled = !isSending, onClick = onDismiss) { Text("Hủy") }
+            TextButton(
+                enabled = !isSending,
+                onClick = onDismiss
+            ) {
+                Text("Hủy", color = EgDesign.textPrimary)
+            }
         },
-        containerColor = EgDesign.card
+        containerColor = EgDesign.card,
+        textContentColor = EgDesign.textPrimary
     )
 }
 
-private fun validateLogin(email: String, password: String): String? {
-    if (!isValidEmail(email)) return "Vui lòng nhập email hợp lệ."
+private fun validateLogin(identity: String, password: String): String? {
+    val trimmed = identity.trim()
+    if (trimmed.isBlank()) return "Vui lòng nhập tên đăng nhập hoặc email."
+    if ("@" in trimmed && !isValidEmail(trimmed)) return "Email chưa hợp lệ."
     if (password.isBlank()) return "Vui lòng nhập mật khẩu."
     return null
 }
 
 private fun isValidEmail(value: String): Boolean {
     return value.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
+}
+
+private fun mapLoginError(error: Throwable): String {
+    val message = (error.message ?: "").lowercase()
+    return if (
+        "failed to connect" in message ||
+        "unable to resolve host" in message ||
+        "timeout" in message ||
+        "cannot connect to backend" in message ||
+        "connection refused" in message
+    ) {
+        "Không kết nối được máy chủ. Kiểm tra backend và mạng rồi thử lại."
+    } else {
+        "Tên đăng nhập/email hoặc mật khẩu chưa đúng."
+    }
 }

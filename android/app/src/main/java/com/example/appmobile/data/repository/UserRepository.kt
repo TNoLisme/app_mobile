@@ -17,7 +17,8 @@ import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateRequestDto
 import com.example.appmobile.data.remote.dto.WeakEmotionDto
-import kotlinx.coroutines.tasks.await
+import org.json.JSONObject
+import retrofit2.Response
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -27,6 +28,59 @@ class UserRepository(
     private val firebaseAuthHelper: FirebaseAuthHelper,
     private val userDao: UserDao
 ) {
+    private suspend fun saveProfileToLocal(profile: UserProfileDto) {
+        val resolvedUserId = profile.userId?.takeIf { it.isNotBlank() } ?: return
+        userDao.insertUser(
+            UserEntity(
+                userId = resolvedUserId,
+                username = profile.username,
+                email = profile.email.orEmpty(),
+                role = profile.role ?: "child",
+                name = profile.name,
+                createdAt = profile.createdAt
+            )
+        )
+        profile.child?.let { child ->
+            userDao.insertChild(
+                ChildEntity(
+                    userId = resolvedUserId,
+                    age = child.age,
+                    gender = child.gender,
+                    dateOfBirth = child.dob,
+                    phoneNumber = child.phone,
+                    reportPreferences = child.reportPref
+                )
+            )
+        }
+    }
+
+    suspend fun getCachedProfile(userId: String): UserProfileDto? {
+        return try {
+            val localUser = userDao.getUserById(userId) ?: return null
+            val localChild = userDao.getChildById(userId)
+            UserProfileDto(
+                userId = localUser.userId,
+                username = localUser.username,
+                email = localUser.email,
+                role = localUser.role,
+                name = localUser.name,
+                createdAt = localUser.createdAt,
+                child = localChild?.let { child ->
+                    com.example.appmobile.data.remote.dto.ChildDto(
+                        userId = child.userId,
+                        age = child.age,
+                        gender = child.gender,
+                        dob = child.dateOfBirth,
+                        phone = child.phoneNumber,
+                        reportPref = child.reportPreferences
+                    )
+                }
+            )
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     private fun currentAccountEmail(): String? {
         return firebaseAuthHelper.auth.currentUser?.email
             ?.trim()
@@ -43,47 +97,17 @@ class UserRepository(
         dateOfBirth: String? = null,
         phoneNumber: String? = null
     ): Result<String> {
-        return try {
-            val authResult = firebaseAuthHelper.auth.createUserWithEmailAndPassword(email, pass).await()
-            val uid = authResult.user?.uid ?: throw Exception("Không lấy được Firebase UID")
-
-            val currentTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-            val safeUsername = username?.takeIf { it.isNotBlank() } ?: email.substringBefore("@")
-
-            val syncData = mapOf(
-                "user_id" to uid,
-                "username" to safeUsername,
-                "email" to email,
-                "name" to name,
-                "role" to "child",
-                "created_at" to currentTime,
-                "age" to age.toString(),
-                "gender" to gender,
-                "date_of_birth" to dateOfBirth.orEmpty(),
-                "phone_number" to phoneNumber.orEmpty()
-            )
-
-            val response = apiService.registerUserSync(syncData)
-
-            if (response.isSuccessful) {
-                userDao.insertUser(UserEntity(uid, safeUsername, email, "child", name, currentTime))
-                userDao.insertChild(ChildEntity(uid, age, gender, dateOfBirth, phoneNumber, null))
-                Result.success(uid)
-            } else {
-                Result.failure(Exception("Lỗi đồng bộ SQL Server: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            registerWithBackend(
-                email = email,
-                pass = pass,
-                name = name,
-                age = age,
-                gender = gender,
-                username = username,
-                dateOfBirth = dateOfBirth,
-                phoneNumber = phoneNumber
-            )
-        }
+        firebaseAuthHelper.auth.signOut()
+        return registerWithBackend(
+            email = email,
+            pass = pass,
+            name = name,
+            age = age,
+            gender = gender,
+            username = username,
+            dateOfBirth = dateOfBirth,
+            phoneNumber = phoneNumber
+        )
     }
 
     private suspend fun registerWithBackend(
@@ -110,17 +134,59 @@ class UserRepository(
                     phoneNumber = phoneNumber
                 )
             )
+
             if (response.isSuccessful) {
-                val uid = response.body()?.data?.userId ?: throw Exception("Backend không trả user_id")
+                val uid = response.body()?.data?.userId ?: throw Exception("Backend không trả user_id.")
                 val currentTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                userDao.insertUser(UserEntity(uid, safeUsername, email, "child", name, currentTime))
-                userDao.insertChild(ChildEntity(uid, age, gender, dateOfBirth, phoneNumber, null))
+                runCatching {
+                    userDao.insertUser(UserEntity(uid, safeUsername, email, "child", name, currentTime))
+                    userDao.insertChild(ChildEntity(uid, age, gender, dateOfBirth, phoneNumber, null))
+                }
                 Result.success(uid)
             } else {
-                Result.failure(Exception("Đăng ký backend thất bại: ${response.code()}"))
+                Result.failure(
+                    Exception(
+                        extractBackendErrorMessage(
+                            response = response,
+                            defaultMessage = "Đăng ký thất bại. Vui lòng thử lại."
+                        )
+                    )
+                )
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            val lower = (e.message ?: "").lowercase()
+            val friendly = when {
+                "failed to connect" in lower ||
+                    "cannot connect to backend" in lower ||
+                    "unable to resolve host" in lower ||
+                    "timeout" in lower -> "Không kết nối được máy chủ. Kiểm tra mạng và thử lại."
+                else -> e.message ?: "Đăng ký thất bại. Vui lòng thử lại."
+            }
+            Result.failure(Exception(friendly))
+        }
+    }
+
+    private fun extractBackendErrorMessage(
+        response: Response<*>,
+        defaultMessage: String
+    ): String {
+        val code = response.code()
+        val raw = runCatching { response.errorBody()?.string().orEmpty() }.getOrDefault("")
+        val detail = runCatching {
+            if (raw.isBlank()) null else JSONObject(raw).optString("detail").ifBlank { null }
+        }.getOrNull()
+        val detailLower = detail?.lowercase().orEmpty()
+
+        return when {
+            code == 400 && "already exists" in detailLower ->
+                "Email hoặc tên đăng nhập đã tồn tại. Vui lòng dùng thông tin khác."
+            code == 422 ->
+                "Thông tin đăng ký chưa hợp lệ. Vui lòng kiểm tra lại các trường."
+            detail != null && detail.isNotBlank() ->
+                detail
+            code in 500..599 ->
+                "Máy chủ đang bận. Vui lòng thử lại sau."
+            else -> defaultMessage
         }
     }
 
@@ -129,23 +195,42 @@ class UserRepository(
             val response = apiService.loginUser(BackendLoginRequestDto(username = username, password = password))
             val profile = response.body()?.user
             if (response.isSuccessful && profile?.userId != null) {
-                val child = profile.child
-                userDao.insertUser(
-                    UserEntity(
-                        profile.userId,
-                        profile.username,
-                        profile.email.orEmpty(),
-                        profile.role ?: "child",
-                        profile.name,
-                        profile.createdAt
+                runCatching {
+                    val child = profile.child
+                    userDao.insertUser(
+                        UserEntity(
+                            profile.userId,
+                            profile.username,
+                            profile.email.orEmpty(),
+                            profile.role ?: "child",
+                            profile.name,
+                            profile.createdAt
+                        )
                     )
-                )
-                if (child != null) {
-                    userDao.insertChild(ChildEntity(child.userId, child.age, child.gender, child.dob, child.phone, child.reportPref))
+                    if (child != null) {
+                        userDao.insertChild(
+                            ChildEntity(
+                                child.userId,
+                                child.age,
+                                child.gender,
+                                child.dob,
+                                child.phone,
+                                child.reportPref
+                            )
+                        )
+                    }
                 }
                 Result.success(profile)
             } else {
-                Result.failure(Exception(response.body()?.message ?: "Sai tài khoản hoặc mật khẩu."))
+                val message = if (response.isSuccessful) {
+                    "Đăng nhập chưa hoàn tất vì thiếu thông tin hồ sơ. Vui lòng thử lại."
+                } else {
+                    extractBackendErrorMessage(
+                        response = response,
+                        defaultMessage = response.body()?.message ?: "Sai tài khoản hoặc mật khẩu."
+                    )
+                }
+                Result.failure(Exception(message))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -155,16 +240,30 @@ class UserRepository(
     suspend fun getProfile(userId: String): UserProfileDto? {
         return try {
             val response = apiService.getUserProfile(userId, currentAccountEmail())
-            if (response.isSuccessful) response.body() else null
+            if (response.isSuccessful) {
+                response.body()?.also { saveProfileToLocal(it) } ?: getCachedProfile(userId)
+            } else {
+                getCachedProfile(userId)
+            }
         } catch (e: Exception) {
-            null
+            getCachedProfile(userId)
         }
     }
 
     suspend fun updateProfile(userId: String, update: UserProfileUpdateDto): UserProfileDto? {
         return try {
-            val response = apiService.updateUserProfile(UserProfileUpdateRequestDto(userId, update, currentAccountEmail()))
-            if (response.isSuccessful) response.body() else null
+            val response = apiService.updateUserProfile(
+                UserProfileUpdateRequestDto(
+                    userId,
+                    update,
+                    currentAccountEmail()
+                )
+            )
+            if (response.isSuccessful) {
+                response.body()?.also { saveProfileToLocal(it) }
+            } else {
+                null
+            }
         } catch (e: Exception) {
             null
         }

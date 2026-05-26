@@ -102,14 +102,15 @@ fun AppNavigation(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val auth = FirebaseAuth.getInstance()
     val context = LocalContext.current
+    val persistedBackendUserId = remember(context) { AppSession.getBackendUserId(context) }
     val assistantBubbleEnabled by AppSettingsState.assistantBubbleEnabled
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
-    val startDestination = if (auth.currentUser != null) "home" else "login"
+    val startDestination = if (persistedBackendUserId != null) "home" else "login"
     val repository = remember(context) {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
-    val activeUserId = auth.currentUser?.uid ?: AppSession.currentBackendUserId()
+    val activeUserId = AppSession.currentBackendUserId() ?: persistedBackendUserId ?: auth.currentUser?.uid
 
     LaunchedEffect(activeUserId) {
         val userId = activeUserId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect

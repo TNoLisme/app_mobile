@@ -84,6 +84,7 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -113,9 +114,9 @@ fun ProfilePage(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val userId = remember {
-        FirebaseAuth.getInstance().currentUser?.uid
-            ?: AppSession.getBackendUserId(context)
+        AppSession.getBackendUserId(context)
             ?: AppSession.currentBackendUserId()
+            ?: FirebaseAuth.getInstance().currentUser?.uid
             ?: "local-player"
     }
     val repository = remember {
@@ -135,6 +136,7 @@ fun ProfilePage(onBack: () -> Unit) {
     var message by remember { mutableStateOf<String?>(null) }
     var showEdit by remember { mutableStateOf(false) }
     var selectedBadge by remember { mutableStateOf<ProfileBadge?>(null) }
+    val unlockedBadges = remember(sessions, cvEmotionScores) { unlockedBadgeIds(sessions, cvEmotionScores) }
     val avatarUri = UserAvatarState.avatarUri.value
     val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let { selectedUri ->
@@ -150,24 +152,61 @@ fun ProfilePage(onBack: () -> Unit) {
     }
 
     suspend fun loadProfileData() {
-        loading = profile == null
-        message = null
-        coroutineScope {
-            val profileDeferred = async { repository.getProfile(userId) }
-            val recentGamesDeferred = async { repository.getRecentGames(userId) }
-            val sessionsDeferred = async { repository.getSessionHistory(userId) }
-            val cvScoresDeferred = async { repository.getCvEmotionScores(userId)?.scores.orEmpty() }
-
-            profile = profileDeferred.await()
-            profile?.avatarUrl?.takeIf { it.isNotBlank() }?.let { backendAvatarUrl ->
-                UserAvatarState.save(context, userId, backendAvatarUrl)
-            }
-            message = if (profile == null) "Chưa tải được hồ sơ từ backend." else null
+        if (profile == null) {
+            profile = UserProfileDto(
+                userId = userId,
+                username = "Local Player",
+                email = "",
+                role = "child",
+                name = "Local Player"
+            )
             loading = false
+        }
 
-            recentGames = recentGamesDeferred.await()
-            sessions = sessionsDeferred.await()
-            cvEmotionScores = cvScoresDeferred.await()
+        runCatching { repository.getCachedProfile(userId) }
+            .onSuccess { cachedProfile ->
+                if (profile == null && cachedProfile != null) {
+                    profile = cachedProfile
+                    loading = false
+                    message = null
+                } else {
+                    loading = profile == null
+                }
+            }
+            .onFailure {
+                loading = profile == null
+            }
+
+        message = null
+
+        val loaded = runCatching {
+            withTimeoutOrNull(8000) {
+                coroutineScope {
+                val profileDeferred = async { repository.getProfile(userId) }
+                val recentGamesDeferred = async { repository.getRecentGames(userId) }
+                val sessionsDeferred = async { repository.getSessionHistory(userId) }
+                val cvScoresDeferred = async { repository.getCvEmotionScores(userId)?.scores.orEmpty() }
+
+                profileDeferred.await()?.let { profile = it }
+                profile?.avatarUrl?.takeIf { it.isNotBlank() }?.let { backendAvatarUrl ->
+                    UserAvatarState.save(context, userId, backendAvatarUrl)
+                }
+                message = if (profile == null) "Chưa tải được hồ sơ từ backend." else null
+                loading = false
+
+                recentGames = recentGamesDeferred.await()
+                sessions = sessionsDeferred.await()
+                cvEmotionScores = cvScoresDeferred.await()
+                    true
+                }
+            }
+        }.getOrNull() == true
+
+        if (!loaded) {
+            if (profile == null) {
+                message = "Chưa tải được hồ sơ từ backend."
+            }
+            loading = false
         }
         message = if (profile == null) "Chưa tải được hồ sơ từ backend." else null
         loading = false
@@ -215,7 +254,6 @@ fun ProfilePage(onBack: () -> Unit) {
                 }
             }
 
-            val unlockedBadges = unlockedBadgeIds(sessions, cvEmotionScores)
             ProfileCard(
                 profile = profile,
                 badges = profileBadges(),
@@ -262,7 +300,7 @@ fun ProfilePage(onBack: () -> Unit) {
     selectedBadge?.let { badge ->
         BadgeRequirementDialog(
             badge = badge,
-            unlocked = badge.id in unlockedBadgeIds(sessions, cvEmotionScores),
+            unlocked = badge.id in unlockedBadges,
             onDismiss = { selectedBadge = null }
         )
     }
@@ -1290,13 +1328,13 @@ private fun profileStats(
 
 private fun profileBadges(): List<ProfileBadge> {
     return listOf(
-        ProfileBadge(GameUiCatalog.GAME_RECOGNIZE_EMOTION, "Chiếc hộp cảm xúc", "📦"),
-        ProfileBadge(GameUiCatalog.GAME_DETECTIVE, "Thám tử cảm xúc", "🕵️"),
-        ProfileBadge(GameUiCatalog.GAME_EMOTION_MATCH, "Cảm xúc đúng chỗ", "🎯"),
-        ProfileBadge(GameUiCatalog.GAME_FACE_ASSEMBLY, "Xưởng lắp ghép cảm xúc", "🧩"),
-        ProfileBadge(GameUiCatalog.GAME_CV_STORY, "Câu chuyện khuôn mặt", "🎭"),
-        ProfileBadge(GameUiCatalog.GAME_CV_REQUEST, "Thử thách cảm xúc", "📷"),
-        ProfileBadge("all", "Siêu sao", "🌟")
+        ProfileBadge(GameUiCatalog.GAME_RECOGNIZE_EMOTION, "Kho Báu Cảm Xúc", "📦"),
+        ProfileBadge(GameUiCatalog.GAME_DETECTIVE, "Mắt Thần Cảm Xúc", "🕵️"),
+        ProfileBadge(GameUiCatalog.GAME_EMOTION_MATCH, "Xạ Thủ Cảm Xúc", "🎯"),
+        ProfileBadge(GameUiCatalog.GAME_FACE_ASSEMBLY, "Bậc Thầy Lắp Ghép", "🧩"),
+        ProfileBadge(GameUiCatalog.GAME_CV_STORY, "Nghệ Sĩ Khuôn Mặt", "🎭"),
+        ProfileBadge(GameUiCatalog.GAME_CV_REQUEST, "Ngôi Sao Biểu Cảm", "📷"),
+        ProfileBadge("all", "Vương Miện Cảm Xúc", "🌟")
     )
 }
 
