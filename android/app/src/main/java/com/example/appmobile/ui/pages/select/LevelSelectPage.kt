@@ -202,13 +202,7 @@ fun LevelSelectPage(
             .ifEmpty { GameUiCatalog.levelsForGame(gameId) }
 
         val isClickGame = GameUiCatalog.isClickGame(gameId)
-        val availabilityByLevel = if (isClickGame) {
-            levels.associate { level ->
-                level.id to (repository.getContentForLevel(gameId, level.id).size >= 5)
-            }
-        } else {
-            levels.associate { it.id to true }
-        }
+        val availabilityByLevel = levels.associate { it.id to true }
 
         val progress = repository.getGameProgress(gameId, userId, forceRefresh = forceRefresh)
         val progressLevel = progress?.level ?: 0
@@ -940,16 +934,23 @@ private fun loadCvStoryResumePreview(
 }
 
 private fun passThreshold(gameId: String, level: Int): Int {
-    val gameType = GameUiCatalog.gameById(gameId)?.type
-    if (gameType != "camera_game") return 30
-
-    return when (level) {
-        1 -> 40
-        2 -> 50
-        3 -> 60
-        4 -> 70
-        5 -> 80
-        else -> 90
+    return when (gameId.lowercase()) {
+        GameUiCatalog.GAME_RECOGNIZE_EMOTION.lowercase() -> 70
+        GameUiCatalog.GAME_FACE_ASSEMBLY.lowercase() -> 70
+        GameUiCatalog.GAME_EMOTION_MATCH.lowercase() -> 75
+        GameUiCatalog.GAME_DETECTIVE.lowercase() -> 75
+        else -> {
+            val gameType = GameUiCatalog.gameById(gameId)?.type
+            if (gameType != "camera_game") return 30
+            when (level) {
+                1 -> 40
+                2 -> 50
+                3 -> 60
+                4 -> 70
+                5 -> 80
+                else -> 90
+            }
+        }
     }
 }
 
