@@ -1,7 +1,6 @@
 package com.example.appmobile.ui.pages.game
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,12 +29,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -123,16 +124,31 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
 
-    var summaryData = remember(level) { mutableStateOf<LevelSummaryData?>(null) }
+    var summaryData by remember(level) { mutableStateOf<LevelSummaryData?>(null) }
 
     val rounds = remember(questions.value) { questions.value.chunked(2) }
     val currentRoundIndex = remember(level, replayCount.intValue) { mutableIntStateOf(0) }
     val currentRound = rounds.getOrNull(currentRoundIndex.intValue) ?: emptyList()
 
-    val answers = remember(currentRoundIndex.intValue) { mutableStateMapOf<String, String>() }
-    val feedback = remember(currentRoundIndex.intValue) { mutableStateOf<String?>(null) }
-    val roundResults = remember(currentRoundIndex.intValue) { mutableStateMapOf<String, Boolean>() }
-    val dragDropState = remember(currentRoundIndex.intValue) { DragDropState() }
+    // State cho round hiện tại
+    // Key trên cả questions.value để khi backend questions đến (thay thế fallback),
+    // toàn bộ state được tạo lại sạch, tránh lẫn ID cũ/mới
+    var answers by remember(currentRoundIndex.intValue, questions.value) { mutableStateOf(mapOf<String, String>()) }
+    val feedback = remember(currentRoundIndex.intValue, questions.value) { mutableStateOf<String?>(null) }
+    val roundResults = remember(currentRoundIndex.intValue, questions.value) { mutableStateMapOf<String, Boolean>() }
+    val dragDropState = remember(currentRoundIndex.intValue, questions.value) { DragDropState() }
+
+    // Không dùng remember cho callbacks — tránh stale closure
+    fun addAnswer(zoneId: String, name: String) {
+        val cur = answers
+        if (name !in cur.values && cur[zoneId] == null) {
+            answers = cur + (zoneId to name)
+        }
+    }
+
+    fun removeAnswer(zoneId: String) {
+        answers = answers - zoneId
+    }
 
     fun finishLevel(finalResults: List<AnswerResultDto>) {
         if (isSubmitting.value || summary.value != null) return
@@ -143,17 +159,20 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                     repository.endLevel(it, finalResults, learnedEmotions.distinct())
                 }
                 if (response != null) {
-                    summaryData.value = LevelSummaryData(
+                    val correctRounds = rounds.count { round ->
+                        round.all { q -> finalResults.find { it.questionId == q.questionId }?.isCorrect == true }
+                    }
+                    summaryData = LevelSummaryData(
                         passed = response.passed,
-                        score = response.score,
+                        score = response.score / 2,
                         totalScore = 50,
-                        accuracy = response.accuracy,
-                        correctCount = finalResults.count { it.isCorrect },
-                        totalQuestions = finalResults.size
+                        accuracy = if (rounds.isNotEmpty()) (correctRounds.toFloat() / rounds.size * 100) else 0f,
+                        correctCount = correctRounds,
+                        totalQuestions = rounds.size
                     )
                     repository.invalidateProgressCache(GameUiCatalog.GAME_EMOTION_MATCH, userId)
                     val status = if (response.passed) "Đã qua level" else "Chưa qua level"
-                    summary.value = "$status. Điểm: ${response.score}/50."
+                    summary.value = "$status. Điểm: ${response.score / 2}/50."
                 } else {
                     summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
                 }
@@ -189,7 +208,7 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
         score.intValue = 0
         results.value = emptyList()
         summary.value = null
-        summaryData.value = null
+        summaryData = null
         emotionErrors.clear()
         learnedEmotions.clear()
         learningEmotionId.value = null
@@ -201,7 +220,7 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
         scrollEnabled = false, bottomSpacerHeight = 0.dp
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-            // TOP BAR (Row 1: Back + Stats, Row 2: Title)
+            // TOP BAR
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 TextButton(onClick = onBack) { Text("← Quay lại") }
                 Spacer(modifier = Modifier.weight(1f))
@@ -209,6 +228,7 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                 Spacer(modifier = Modifier.width(8.dp))
                 GameStatChip("Điểm ${score.intValue}")
             }
+
             Spacer(modifier = Modifier.height(4.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Text("Cảm xúc đúng chỗ 🎭", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
@@ -218,7 +238,7 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
 
             if (summary.value != null) {
                 GameLevelSummaryCard(
-                    summaryData = summaryData.value,
+                    summaryData = summaryData,
                     summary = summary.value.orEmpty(),
                     onBack = onBack,
                     onReplay = { replayCount.intValue++ }
@@ -255,11 +275,11 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                             withStyle(SpanStyle(color = EgDesign.primary, fontWeight = FontWeight.Bold)) {
                                 append(question.emotionName.lowercase())
                             }
-                            append("\", hãy kéo thẻ tên để biết đâu là ")
+                            append("\". Kéo tên ")
                             withStyle(SpanStyle(color = EgDesign.primary, fontWeight = FontWeight.Bold)) {
                                 append(question.correctName)
                             }
-                            append(".")
+                            append(" vào đúng ảnh.")
                         }
                         Text(annotatedText, fontSize = 14.sp, modifier = Modifier.padding(bottom = 4.dp))
                     }
@@ -268,77 +288,103 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // FACES GRID
+            // FACES GRID (Drop Zones)
+            // Đọc snapshot answers 1 lần cho toàn bộ grid
+            val currentAnswers = answers
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 currentRound.forEach { question ->
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Card(
-                            shape = MaterialTheme.shapes.medium,
-                            elevation = CardDefaults.cardElevation(2.dp),
-                            modifier = Modifier.fillMaxWidth().height(120.dp) // Fixed height to prevent shifting
+                    key(question.questionId) {
+                        val droppedName = currentAnswers[question.questionId]
+                        val isCorrect = roundResults[question.questionId]
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            val cleanPath = question.imagePath.replace(Regex("^/fe/"), "/")
-                            val imgUrl = "http://10.0.2.2:8000$cleanPath"
-                            AsyncImage(
-                                model = imgUrl,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                                error = painterResource(id = R.drawable.game_click_3),
-                                fallback = painterResource(id = R.drawable.game_click_3)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        val droppedName = answers[question.questionId]
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                                .onGloballyPositioned { coordinates ->
-                                    dragDropState.registerDropZone(question.questionId, coordinates.boundsInRoot())
-                                }
-                                .background(
-                                    color = if (droppedName != null) EgDesign.primary.copy(alpha = 0.1f) else Color.Transparent,
-                                    shape = MaterialTheme.shapes.medium
+                            Card(
+                                shape = MaterialTheme.shapes.medium,
+                                elevation = CardDefaults.cardElevation(2.dp),
+                                modifier = Modifier.fillMaxWidth().height(140.dp)
+                            ) {
+                                val cleanPath = question.imagePath.replace(Regex("^/fe/"), "/")
+                                val imgUrl = "http://10.0.2.2:8000$cleanPath"
+                                AsyncImage(
+                                    model = imgUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                    error = painterResource(id = R.drawable.game_click_3),
+                                    fallback = painterResource(id = R.drawable.game_click_3)
                                 )
-                                .border(
-                                    width = 2.dp,
-                                    color = if (droppedName != null) EgDesign.primary else Color.Gray.copy(alpha = 0.5f),
-                                    shape = MaterialTheme.shapes.medium
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (droppedName != null) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(droppedName, fontWeight = FontWeight.Bold, color = EgDesign.primary)
-                                    // Removed the correctness check from here so it doesn't shift layout
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Xóa",
-                                        modifier = Modifier.size(20.dp).clickable { answers.remove(question.questionId) },
-                                        tint = EgDesign.textSecondary
-                                    )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Màu sắc dựa trên trạng thái
+                            val borderColor = when {
+                                feedback.value == null -> if (droppedName != null) EgDesign.primary else Color.Gray.copy(alpha = 0.3f)
+                                isCorrect == true -> Color(0xFF4CAF50)
+                                else -> Color(0xFFF44336)
+                            }
+                            val bgColor = when {
+                                feedback.value == null -> if (droppedName != null) Color.White else Color.Gray.copy(alpha = 0.05f)
+                                isCorrect == true -> Color(0xFFE8F5E9)
+                                else -> Color(0xFFFFEBEE)
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .onGloballyPositioned { coordinates ->
+                                        dragDropState.registerDropZone(question.questionId, coordinates.boundsInRoot())
+                                    }
+                                    .background(color = bgColor, shape = RoundedCornerShape(28.dp))
+                                    .border(
+                                        width = if (droppedName != null) 2.dp else 1.dp,
+                                        color = borderColor,
+                                        shape = RoundedCornerShape(28.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (droppedName != null) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 12.dp)
+                                    ) {
+                                        Text(
+                                            droppedName,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (feedback.value == null) EgDesign.textPrimary else borderColor,
+                                            fontSize = 16.sp
+                                        )
+                                        if (feedback.value == null) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Xóa",
+                                                modifier = Modifier
+                                                    .size(18.dp)
+                                                    .background(Color.Gray.copy(alpha = 0.2f), RoundedCornerShape(9.dp))
+                                                    .clickable { removeAnswer(question.questionId) },
+                                                tint = EgDesign.textSecondary
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Text("Thả tên vào đây", color = Color.Gray.copy(alpha = 0.6f), fontSize = 13.sp)
                                 }
-                            } else {
-                                Text("Thả tên vào đây", color = Color.Gray, fontSize = 14.sp)
                             }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // CHIPS ROW OR FEEDBACK ROW
+            // CHIPS ROW HOẶC FEEDBACK
             Box(
                 modifier = Modifier.fillMaxWidth().height(80.dp),
                 contentAlignment = Alignment.Center
@@ -346,50 +392,38 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                 if (feedback.value != null) {
                     GameFeedbackCard(feedback.value.orEmpty())
                 } else {
-                    val answersMap = answers.toMap()
                     val allNamesInRound = remember(currentRound) { currentRound.map { it.correctName }.shuffled() }
-                    val availableNames = allNamesInRound.filter { it !in answersMap.values }
+                    // Lọc ra các tên chưa được đặt vào ô nào
+                    val availableNames = allNamesInRound.filter { it !in currentAnswers.values }
+
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         availableNames.forEach { name ->
-                            DraggableNameChip(
-                                name = name,
-                                dragDropState = dragDropState,
-                                enabled = true,
-                                onDropped = { zoneId ->
-                                    if (answers[zoneId] == null) {
-                                        answers[zoneId] = name
-                                    }
-                                }
-                            )
+                            key(name) {
+                                DraggableNameChip(
+                                    name = name,
+                                    dragDropState = dragDropState,
+                                    onDropped = { zoneId -> addAnswer(zoneId, name) }
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f)) // Push everything below to bottom
-
-            // INSTRUCTION
-            Text(
-                "🎴 Kéo thẻ cảm xúc vào ô phía dưới mỗi khuôn mặt",
-                color = EgDesign.primary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
             // ACTION BUTTON
+            val allFilled = currentAnswers.size >= currentRound.size && currentRound.isNotEmpty()
             Button(
                 onClick = {
                     if (feedback.value == null) {
                         var correctCount = 0
                         currentRound.forEach { q ->
-                            val isCorrect = answers[q.questionId] == q.correctName
-                            roundResults[q.questionId] = isCorrect
-                            if (isCorrect) correctCount++
+                            val correct = answers[q.questionId] == q.correctName
+                            roundResults[q.questionId] = correct
+                            if (correct) correctCount++
 
-                            if (!isCorrect) {
+                            if (!correct) {
                                 val emotionKey = q.emotionKey
                                 emotionErrors[emotionKey] = (emotionErrors[emotionKey] ?: 0) + 1
                                 if ((emotionErrors[emotionKey] ?: 0) >= maxErrors.intValue && emotionKey !in learnedEmotions) {
@@ -401,11 +435,11 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                             results.value = results.value + AnswerResultDto(
                                 questionId = q.questionId,
                                 answer = answers[q.questionId] ?: "",
-                                isCorrect = isCorrect,
+                                isCorrect = correct,
                                 responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
                             )
                         }
-                        if (correctCount == currentRound.size) score.intValue += 10
+                        score.intValue += correctCount * 5
                         feedback.value = if (correctCount == currentRound.size) "Chính xác tuyệt đối!" else "Chưa đúng hoàn toàn. Hãy xem lại đáp án."
                         return@Button
                     }
@@ -414,19 +448,19 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                         finishLevel(results.value)
                     } else {
                         currentRoundIndex.intValue++
-                        answers.clear()
+                        answers = emptyMap()
                         roundResults.clear()
                         feedback.value = null
                         questionStartMs.value = System.currentTimeMillis()
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = answers.size == currentRound.size && !isSubmitting.value && learningEmotionId.value == null
+                enabled = (allFilled || feedback.value != null) && !isSubmitting.value && learningEmotionId.value == null
             ) {
                 Text(
                     when {
                         isSubmitting.value -> "Đang lưu..."
-                        feedback.value == null -> "Trả lời"
+                        feedback.value == null -> "Kiểm tra kết quả"
                         currentRoundIndex.intValue >= rounds.lastIndex -> "Hoàn thành"
                         else -> "Câu tiếp theo"
                     },
@@ -459,7 +493,6 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
 fun DraggableNameChip(
     name: String,
     dragDropState: DragDropState,
-    enabled: Boolean,
     onDropped: (String) -> Unit
 ) {
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
@@ -467,49 +500,58 @@ fun DraggableNameChip(
     var globalPosition by remember { mutableStateOf(Offset.Zero) }
     var chipSize by remember { mutableStateOf(IntSize.Zero) }
 
+    // rememberUpdatedState giữ reference luôn mới nhất
+    // ngay cả khi pointerInput không re-execute
+    val currentOnDropped by rememberUpdatedState(onDropped)
+    val currentDragDropState by rememberUpdatedState(dragDropState)
+
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(28.dp),
         elevation = CardDefaults.cardElevation(if (isDragging) 8.dp else 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, EgDesign.primary.copy(alpha = 0.5f)),
         modifier = Modifier
             .onGloballyPositioned {
                 globalPosition = it.positionInRoot()
                 chipSize = it.size
             }
-            .zIndex(if (isDragging) 1f else 0f)
+            .zIndex(if (isDragging) 10f else 1f)
             .graphicsLayer {
                 translationX = dragOffset.x
                 translationY = dragOffset.y
+                scaleX = if (isDragging) 1.1f else 1.0f
+                scaleY = if (isDragging) 1.1f else 1.0f
             }
-            .then(
-                if (enabled) {
-                    Modifier.pointerInput(Unit) {
-                        detectDragGestures(
-                            onDragStart = { isDragging = true },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                dragOffset += dragAmount
-                            },
-                            onDragEnd = {
-                                isDragging = false
-                                val chipRect = Rect(
-                                    offset = globalPosition + dragOffset,
-                                    size = androidx.compose.ui.geometry.Size(chipSize.width.toFloat(), chipSize.height.toFloat())
-                                )
-                                val dropZoneId = dragDropState.findDropZone(chipRect)
-                                if (dropZoneId != null) {
-                                    onDropped(dropZoneId)
-                                }
-                                dragOffset = Offset.Zero
-                            },
-                            onDragCancel = {
-                                isDragging = false
-                                dragOffset = Offset.Zero
-                            }
+            // Key trên name: khi Compose tái sử dụng node cho tên khác,
+            // pointerInput sẽ được tạo lại với closure mới
+            .pointerInput(name) {
+                detectDragGestures(
+                    onDragStart = { isDragging = true },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        dragOffset += dragAmount
+                    },
+                    onDragEnd = {
+                        isDragging = false
+                        val chipRect = Rect(
+                            offset = globalPosition + dragOffset,
+                            size = androidx.compose.ui.geometry.Size(
+                                chipSize.width.toFloat(),
+                                chipSize.height.toFloat()
+                            )
                         )
+                        val dropZoneId = currentDragDropState.findDropZone(chipRect)
+                        if (dropZoneId != null) {
+                            currentOnDropped(dropZoneId)
+                        }
+                        dragOffset = Offset.Zero
+                    },
+                    onDragCancel = {
+                        isDragging = false
+                        dragOffset = Offset.Zero
                     }
-                } else Modifier
-            )
+                )
+            }
     ) {
         Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
             Text(name, fontWeight = FontWeight.Bold, color = EgDesign.textPrimary, fontSize = 16.sp)

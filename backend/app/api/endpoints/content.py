@@ -362,7 +362,7 @@ def _generate_click_questions(db: Session, game_id: str, user_id: str, level: in
 def _select_click_questions(db: Session, game_id: str, user_id: str, level: int, ratio: list[float], target_count: int) -> list[Question]:
     cached = _cached_click_questions(db, game_id, user_id, level)
     if len(cached) >= target_count:
-        return random.sample(cached, target_count)
+        return cached[:target_count]
     return _generate_click_questions(db, game_id, user_id, level, ratio, target_count)
 
 
@@ -411,8 +411,7 @@ def _threshold_for_level(game: Game, level: int) -> float:
 
 
 def _click_pass_threshold(game: Game) -> float:
-    return float(CLICK_PASS_SCORE)
-    # return float(game.level_threshold or CLICK_PASS_SCORE)
+    return float(game.level_threshold or CLICK_PASS_SCORE)
 
 
 def _question_option(content: GameContent) -> dict:
@@ -860,7 +859,7 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
     ]
 
     if session.game_id in CLICK_GAME_IDS:
-        passed = score >= CLICK_PASS_SCORE
+        passed = score >= float(session.level_threshold or CLICK_PASS_SCORE)
     elif session.game_id == CV_REQUEST_GAME_ID:
         passed = score >= float(session.level_threshold or 40)
     else:
