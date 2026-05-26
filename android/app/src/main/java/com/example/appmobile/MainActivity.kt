@@ -249,15 +249,21 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             val id = backStackEntry.arguments?.getString("gameId") ?: ""
             val level = backStackEntry.arguments?.getString("level")?.toIntOrNull() ?: 1
             val emotion = backStackEntry.arguments?.getString("emotion")?.takeIf { it.isNotBlank() }
-            when (id) {
+            when (id.lowercase()) {
                 // Các game Nhận diện
-                "6695AFE0-6414-40A3-B688-B08A98CD2B61" -> RecognizeEmotionPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("recognize_emotion", level)) })
-                "EEA09E6C-8C2F-4DF1-A361-F5EDC89D8281" -> GameClick2Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_click_2", level)) })
-                "AFA91963-F75A-4D92-BCF4-72E4E53C84D2" -> GameClick3Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_click_3", level)) })
-                "17C0CC09-CEC9-48DC-BF06-E574CF8BF303" -> GameClick4Page(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("game_click_4", level)) })
+                GameUiCatalog.GAME_RECOGNIZE_EMOTION,
+                "6695afe0-6414-40a3-b688-b08a98cd2b61" -> EmotionsBoxPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("emotions_box", level)) })
+                GameUiCatalog.GAME_FACE_ASSEMBLY,
+                "eea09e6c-8c2f-4df1-a361-f5edc89d8281" -> FaceAssemblyPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("face_assembly", level)) })
+                GameUiCatalog.GAME_EMOTION_MATCH,
+                "afa91963-f75a-4d92-bcf4-72e4e53c84d2" -> EmotionMatchPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("emotion_match", level)) })
+                GameUiCatalog.GAME_DETECTIVE,
+                "17c0cc09-cec9-48dc-bf06-e574cf8bf303" -> DetectiveGamePage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("detective_game", level)) })
                 // Các game Biểu cảm
-                "1B450620-EE43-4F60-BAD6-1E214642999E" -> GameCVPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("gameCV", level)) })
-                "3CF6130E-73F3-4146-8D73-D2709B4CF44E" -> GameCV2Page(
+                GameUiCatalog.GAME_CV_STORY,
+                "1b450620-ee43-4f60-bad6-1e214642999e" -> GameCVPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("gameCV", level)) })
+                GameUiCatalog.GAME_CV_REQUEST,
+                "3cf6130e-73f3-4146-8d73-d2709b4cf44e" -> GameCV2Page(
                     level = level,
                     selectedEmotion = emotion,
                     onBack = { navController.popBackStack() },
