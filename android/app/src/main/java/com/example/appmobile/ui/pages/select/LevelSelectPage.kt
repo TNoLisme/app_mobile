@@ -191,12 +191,12 @@ fun LevelSelectPage(
 
         val catalogMaxLevel = GameUiCatalog.gameById(gameId)?.maxLevel ?: 0
         val backendMaxLevel = runCatching {
-            repository.getGames()
+            repository.getGames(forceRefresh = true)
                 .firstOrNull { it.id.equals(gameId, ignoreCase = true) }
                 ?.level
                 ?: 0
         }.getOrDefault(0)
-        val maxLevel = maxOf(backendMaxLevel, catalogMaxLevel)
+        val maxLevel = if (backendMaxLevel > 0) backendMaxLevel else catalogMaxLevel
 
         val levels = GameUiCatalog.levelsForMaxLevel(maxLevel)
             .ifEmpty { GameUiCatalog.levelsForGame(gameId) }

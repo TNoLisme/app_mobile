@@ -77,7 +77,7 @@ fun SelectGamePage(
     LaunchedEffect(type) {
         isLoading = true
         val backendGames = runCatching {
-            repository.getGames(if (showAll) null else type).map { game ->
+            repository.getGames(if (showAll) null else type, forceRefresh = true).map { game ->
                 GameUiCatalog.gameFromBackend(
                     id = game.id,
                     title = game.name,

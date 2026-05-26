@@ -22,6 +22,9 @@ object AppSettingsState {
     private const val KEY_LEARN_VIDEO_SOUND = "learn_video_sound_enabled"
     private const val KEY_SOUND_EFFECTS = "sound_effects_enabled"
     private const val KEY_LEARNING_REMINDER = "learning_reminder_enabled"
+    private const val KEY_LEARNING_REMINDER_HOUR = "learning_reminder_hour"
+    private const val KEY_LEARNING_REMINDER_MINUTE = "learning_reminder_minute"
+    private const val KEY_LEGAL_ACCEPTED = "legal_policy_accepted"
     private const val KEY_DYNAMIC_COLOR = "dynamic_color_enabled"
     private const val KEY_THEME_MODE = "theme_mode"
 
@@ -30,6 +33,9 @@ object AppSettingsState {
     val learnVideoSoundEnabled = mutableStateOf(true)
     val soundEffectsEnabled = mutableStateOf(true)
     val learningReminderEnabled = mutableStateOf(false)
+    val learningReminderHour = mutableStateOf(19)
+    val learningReminderMinute = mutableStateOf(0)
+    val legalPolicyAccepted = mutableStateOf(false)
     val dynamicColorEnabled = mutableStateOf(true)
     val themeMode = mutableStateOf(AppThemeMode.System)
     val activeDarkTheme = mutableStateOf(false)
@@ -41,6 +47,9 @@ object AppSettingsState {
         learnVideoSoundEnabled.value = preferences.getBoolean(KEY_LEARN_VIDEO_SOUND, true)
         soundEffectsEnabled.value = preferences.getBoolean(KEY_SOUND_EFFECTS, true)
         learningReminderEnabled.value = preferences.getBoolean(KEY_LEARNING_REMINDER, false)
+        learningReminderHour.value = preferences.getInt(KEY_LEARNING_REMINDER_HOUR, 19)
+        learningReminderMinute.value = preferences.getInt(KEY_LEARNING_REMINDER_MINUTE, 0)
+        legalPolicyAccepted.value = preferences.getBoolean(KEY_LEGAL_ACCEPTED, false)
         dynamicColorEnabled.value = preferences.getBoolean(KEY_DYNAMIC_COLOR, true)
         themeMode.value = AppThemeMode.fromKey(preferences.getString(KEY_THEME_MODE, AppThemeMode.System.key))
     }
@@ -68,6 +77,20 @@ object AppSettingsState {
     fun setLearningReminderEnabled(context: Context, enabled: Boolean) {
         learningReminderEnabled.value = enabled
         context.settingsEditor().putBoolean(KEY_LEARNING_REMINDER, enabled).apply()
+    }
+
+    fun setLearningReminderTime(context: Context, hour: Int, minute: Int) {
+        learningReminderHour.value = hour
+        learningReminderMinute.value = minute
+        context.settingsEditor()
+            .putInt(KEY_LEARNING_REMINDER_HOUR, hour)
+            .putInt(KEY_LEARNING_REMINDER_MINUTE, minute)
+            .apply()
+    }
+
+    fun setLegalPolicyAccepted(context: Context, accepted: Boolean) {
+        legalPolicyAccepted.value = accepted
+        context.settingsEditor().putBoolean(KEY_LEGAL_ACCEPTED, accepted).apply()
     }
 
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) {
