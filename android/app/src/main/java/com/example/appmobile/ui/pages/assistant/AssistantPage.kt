@@ -73,6 +73,7 @@ import com.example.appmobile.data.remote.dto.AssistantChatHistoryDto
 import com.example.appmobile.data.repository.AssistantRepository
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -419,7 +420,7 @@ private fun AssistantHeader(onBack: () -> Unit, onClear: () -> Unit) {
 private fun ClearChatConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Text("🧹", fontSize = 26.sp) },
+        icon = { EgVectorEmojiIcon("trash", size = 26.dp, tint = EgDesign.primary) },
         title = {
             Text("Xóa cuộc trò chuyện?", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold)
         },
@@ -468,7 +469,7 @@ private fun AssistantIntroCard(gameId: String, level: Int?) {
                     .background(EgDesign.cardSoft),
                 contentAlignment = Alignment.Center
             ) {
-                Text("💬", fontSize = 24.sp)
+                EgVectorEmojiIcon("chat", size = 24.dp, tint = EgDesign.primary)
             }
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
@@ -629,7 +630,16 @@ private fun AssistantInputRow(
             shadowElevation = 1.dp
         ) {
             Box(modifier = Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-                Text(if (listening) "●" else "🎙️", color = if (listening) Color.White else EgDesign.blue, fontSize = 20.sp)
+                if (listening) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                    )
+                } else {
+                    EgVectorEmojiIcon("microphone", size = 20.dp, tint = EgDesign.blue)
+                }
             }
         }
         Surface(

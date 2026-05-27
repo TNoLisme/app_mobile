@@ -68,6 +68,7 @@ import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -231,7 +232,7 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
 
             Spacer(modifier = Modifier.height(4.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Text("Cảm xúc đúng chỗ 🎭", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
+                Text("Cảm xúc đúng chỗ", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -259,10 +260,12 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                             modifier = Modifier.size(28.dp).background(EgDesign.primary, shape = RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("🔊", fontSize = 14.sp, color = Color.White)
+                            EgVectorEmojiIcon("speaker", size = 14.dp, tint = Color.White)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("💡 Tình huống:", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary, fontSize = 16.sp)
+                        EgVectorEmojiIcon("bulb", size = 18.dp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Tình huống:", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary, fontSize = 16.sp)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     currentRound.forEachIndexed { index, question ->

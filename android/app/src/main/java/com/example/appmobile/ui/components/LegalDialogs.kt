@@ -45,7 +45,7 @@ fun LegalConsentDialog(
 ) {
     LegalDialogShell(onDismiss = onDismiss) {
         LegalDialogHeader(
-            icon = "🔐",
+            icon = "lock",
             title = "Chính sách & điều khoản",
             subtitle = "Trước khi vào app, bạn cần đồng ý với cách ứng dụng thu thập và sử dụng dữ liệu."
         )
@@ -90,7 +90,7 @@ fun SupportContactDialog(
 ) {
     LegalDialogShell(onDismiss = onDismiss) {
         LegalDialogHeader(
-            icon = "☎",
+            icon = "phone",
             title = "Liên hệ hỗ trợ",
             subtitle = "Chọn cách liên hệ nếu cần trợ giúp hoặc góp ý về ứng dụng."
         )
@@ -125,7 +125,7 @@ private data class LegalDocumentContent(
 private fun legalDocumentContent(type: LegalDocumentType): LegalDocumentContent {
     return when (type) {
         LegalDocumentType.PrivacyPolicy -> LegalDocumentContent(
-            icon = "🔒",
+            icon = "lock",
             title = "Chính sách quyền riêng tư",
             subtitle = "Tóm tắt cách app thu thập, dùng và bảo vệ dữ liệu.",
             sections = listOf(
@@ -157,7 +157,7 @@ private fun legalDocumentContent(type: LegalDocumentType): LegalDocumentContent 
         )
 
         LegalDocumentType.TermsOfUse -> LegalDocumentContent(
-            icon = "📄",
+            icon = "document",
             title = "Điều khoản sử dụng",
             subtitle = "Các điều cần lưu ý khi dùng ứng dụng cho bé học và chơi.",
             sections = listOf(
@@ -236,7 +236,7 @@ private fun LegalDialogHeader(
             border = BorderStroke(1.dp, EgDesign.cardBorder)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(icon, fontSize = 20.sp)
+                EgVectorEmojiIcon(icon, size = 22.dp, tint = EgDesign.primary)
             }
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {

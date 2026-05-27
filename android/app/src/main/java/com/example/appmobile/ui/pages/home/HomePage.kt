@@ -42,8 +42,9 @@ import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgTab
+import com.example.appmobile.ui.components.EgEmotionVectorIcon
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.egEmotionDisplayName
-import com.example.appmobile.ui.components.egEmotionIcon
 import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
 import com.example.appmobile.ui.viewmodel.ReportSummary
 import com.example.appmobile.ui.viewmodel.HomeUiState
@@ -151,7 +152,7 @@ private fun GreetingSection(childName: String?) {
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
-            text = childName?.takeIf { it.isNotBlank() }?.let { "Chào bé $it 👋" } ?: "Chào bé yêu 👋",
+            text = childName?.takeIf { it.isNotBlank() }?.let { "Chào bé $it" } ?: "Chào bé yêu",
             color = HomeTextPrimary,
             fontSize = 24.sp,
             fontWeight = FontWeight.ExtraBold
@@ -192,10 +193,10 @@ private fun TodayLearningCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(egEmotionIcon(emotionId), fontSize = 38.sp)
+                EgEmotionVectorIcon(emotionId, size = 42.dp)
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        text = "Cùng luyện cảm xúc ${egEmotionDisplayName(emotionId)} ${egEmotionIcon(emotionId)}",
+                        text = "Cùng luyện cảm xúc ${egEmotionDisplayName(emotionId)}",
                         color = HomeTextPrimary,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold
@@ -234,7 +235,7 @@ private fun ReportCtaCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("📋", fontSize = 28.sp)
+            EgVectorEmojiIcon("report", size = 30.dp)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -271,10 +272,10 @@ private fun ReportCtaCard(
 private fun TodaySuggestionCard(state: HomeUiState, onOpenSuggestion: () -> Unit) {
     val message = when {
         state.weakEmotionId != null -> {
-            "Bé có thể luyện thêm cảm xúc ${egEmotionDisplayName(state.weakEmotionId)} ${egEmotionIcon(state.weakEmotionId)}"
+            "Bé có thể luyện thêm cảm xúc ${egEmotionDisplayName(state.weakEmotionId)}"
         }
         state.learnedEmotionCount == 0 -> {
-            "Bắt đầu với cảm xúc Vui vẻ 😊"
+            "Bắt đầu với cảm xúc Vui vẻ"
         }
         else -> {
             "Bé đang làm tốt, hãy thử một thử thách mới nhé!"
@@ -293,7 +294,7 @@ private fun TodaySuggestionCard(state: HomeUiState, onOpenSuggestion: () -> Unit
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("✨", fontSize = 28.sp)
+            EgVectorEmojiIcon("sparkle", size = 30.dp)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "Gợi ý hôm nay",
@@ -484,7 +485,7 @@ private fun ErrorBanner(message: String, onRetry: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("⚠️", fontSize = 15.sp)
+            EgVectorEmojiIcon("warning", size = 16.dp)
             Text(
                 text = message,
                 color = HomeTextPrimary,

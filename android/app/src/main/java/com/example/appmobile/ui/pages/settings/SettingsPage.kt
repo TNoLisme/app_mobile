@@ -76,6 +76,7 @@ import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgSoftCard
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.LegalDocumentDialog
 import com.example.appmobile.ui.components.LegalDocumentType
 import com.example.appmobile.ui.components.SupportContactDialog
@@ -521,10 +522,10 @@ private fun AppearanceSection(
     onThemeModeChanged: (AppThemeMode) -> Unit,
     onDynamicColorChanged: (Boolean) -> Unit
 ) {
-    SettingsSection(title = "Giao diện", icon = "🎨") {
+    SettingsSection(title = "Giao diện", icon = "palette") {
         SegmentedThemeSelector(themeMode = themeMode, onThemeModeChanged = onThemeModeChanged)
         SwitchSettingsRow(
-            icon = "🎨",
+            icon = "palette",
             title = "Màu theo thiết bị",
             description = "Giao diện tự đồng bộ màu theo cài đặt của điện thoại nếu được hỗ trợ.",
             checked = dynamicColorEnabled,
@@ -548,9 +549,9 @@ private fun LearningExperienceSection(
     reminderTimeText: String,
     onOpenReminderTimePicker: () -> Unit
 ) {
-    SettingsSection(title = "Trải nghiệm học", icon = "✨") {
+    SettingsSection(title = "Trải nghiệm học", icon = "sparkle") {
         SwitchSettingsRow(
-            icon = "💬",
+            icon = "chat",
             title = "Bong bóng trợ lý",
             description = "Hiện nút trợ lý nhỏ ở góc màn hình.",
             checked = assistantBubbleEnabled,
@@ -558,7 +559,7 @@ private fun LearningExperienceSection(
         )
         ThinDivider()
         SwitchSettingsRow(
-            icon = "▶",
+            icon = "play",
             title = "Tự phát video mẫu",
             description = "Video ở trang Học sẽ tự chạy khi mở cảm xúc.",
             checked = autoPlayVideo,
@@ -566,7 +567,7 @@ private fun LearningExperienceSection(
         )
         ThinDivider()
         SwitchSettingsRow(
-            icon = "🔊",
+            icon = "speaker",
             title = "Âm thanh video",
             description = "Bật hoặc tắt tiếng cho video mẫu.",
             checked = videoSoundEnabled,
@@ -574,7 +575,7 @@ private fun LearningExperienceSection(
         )
         ThinDivider()
         SwitchSettingsRow(
-            icon = "♪",
+            icon = "speaker",
             title = "Âm thanh hiệu ứng",
             description = "Bật âm thanh khi bấm nút, trả lời đúng hoặc nhận phần thưởng.",
             checked = soundEffectsEnabled,
@@ -582,7 +583,7 @@ private fun LearningExperienceSection(
         )
         ThinDivider()
         SwitchSettingsRow(
-            icon = "🔔",
+            icon = "bell",
             title = "Nhắc nhở học tập",
             description = "Nhắc bé luyện tập mỗi ngày.",
             checked = learningReminderEnabled,
@@ -592,7 +593,7 @@ private fun LearningExperienceSection(
         )
         ThinDivider()
         ActionSettingsRow(
-            icon = "⏰",
+            icon = "clock",
             title = "Giờ nhắc học",
             description = "Đang nhắc lúc $reminderTimeText mỗi ngày.",
             actionText = "Đổi giờ",
@@ -616,7 +617,7 @@ private fun ParentAreaEntryCard(onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SettingsIcon("👤")
+            SettingsIcon("user")
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Khu vực phụ huynh", color = EgDesign.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                 Text(
@@ -639,11 +640,11 @@ private fun AboutAppSection(
     onOpenTerms: () -> Unit,
     onOpenSupportContact: () -> Unit
 ) {
-    SettingsSection(title = "Về ứng dụng", icon = "ℹ") {
-        CompactValueRow("ℹ", "Phiên bản ứng dụng", "1.0")
+    SettingsSection(title = "Về ứng dụng", icon = "info") {
+        CompactValueRow("info", "Phiên bản ứng dụng", "1.0")
         ThinDivider()
         ActionSettingsRow(
-            icon = "🔐",
+            icon = "lock",
             title = "Chính sách quyền riêng tư",
             description = "Xem app dùng dữ liệu nào và bảo vệ dữ liệu ra sao.",
             actionText = "Xem",
@@ -651,7 +652,7 @@ private fun AboutAppSection(
         )
         ThinDivider()
         ActionSettingsRow(
-            icon = "📄",
+            icon = "document",
             title = "Điều khoản sử dụng",
             description = "Xem các điều kiện khi dùng app cho bé học và chơi.",
             actionText = "Xem",
@@ -659,7 +660,7 @@ private fun AboutAppSection(
         )
         ThinDivider()
         ActionSettingsRow(
-            icon = "☎",
+            icon = "phone",
             title = "Liên hệ hỗ trợ",
             description = "Gửi email hoặc gọi nếu cần trợ giúp.",
             actionText = "Liên hệ",
@@ -747,27 +748,27 @@ private fun ParentAreaBottomSheet(
                         onEdit = onEditAccount,
                         onEditReportEmail = onEditReportEmail
                     )
-                    ParentCompactSection(title = "Bảo mật", icon = "🔒") {
+                    ParentCompactSection(title = "Bảo mật", icon = "lock") {
                         ActionSettingsRow(
-                            icon = "🔒",
+                            icon = "lock",
                             title = "Đổi mật khẩu",
                             description = "Bạn có thể đổi mật khẩu đăng nhập tại đây.",
                             actionText = "Đổi",
                             onClick = onChangePassword
                         )
                     }
-                    ParentCompactSection(title = "Quyền riêng tư", icon = "📷") {
+                    ParentCompactSection(title = "Quyền riêng tư", icon = "camera") {
                         ActionSettingsRow(
-                            icon = "📷",
+                            icon = "camera",
                             title = "Quyền riêng tư camera",
                             description = "Xem cách app dùng camera và mở cài đặt quyền khi cần.",
                             actionText = "Xem",
                             onClick = onCameraPrivacy
                         )
                     }
-                    ParentCompactSection(title = "Dữ liệu học tập", icon = "💾") {
+                    ParentCompactSection(title = "Dữ liệu học tập", icon = "save") {
                         ActionSettingsRow(
-                            icon = "↺",
+                            icon = "refresh",
                             title = "Đặt lại tùy chọn",
                             description = "Khôi phục giao diện, trợ lý, video và âm thanh về mặc định.",
                             actionText = "Đặt lại",
@@ -775,7 +776,7 @@ private fun ParentAreaBottomSheet(
                         )
                         ThinDivider()
                         ActionSettingsRow(
-                            icon = "💾",
+                            icon = "save",
                             title = "Xóa tiến độ học",
                             description = "Xóa điểm, lịch sử chơi và tiến độ học của bé.",
                             actionText = "Xóa tiến độ",
@@ -805,11 +806,11 @@ private fun ParentAccountSection(
     val accountEmail = profile.accountEmail()
     val username = profile?.username?.trim()?.takeIf { it.isNotBlank() }
     val parentPhone = profile?.child?.phone?.trim()?.takeIf { it.isNotBlank() }
-    ParentCompactSection(title = "Tài Khoản", icon = "👤") {
+    ParentCompactSection(title = "Tài Khoản", icon = "user") {
         when {
             !isLoggedIn -> {
                 ActionSettingsRow(
-                    icon = "👤",
+                    icon = "user",
                     title = "Bạn chưa đăng nhập",
                     description = "Đăng nhập để đồng bộ tiến độ học của bé.",
                     actionText = "Đăng nhập",
@@ -828,7 +829,7 @@ private fun ParentAccountSection(
             }
             else -> {
                 AccountInfoRow(
-                    icon = "👤",
+                    icon = "user",
                     label = "Tên đăng nhập",
                     value = username ?: "Chưa có",
                     actionText = if (username == null) "Thêm tên" else "Sửa",
@@ -836,7 +837,7 @@ private fun ParentAccountSection(
                 )
                 ThinDivider()
                 AccountInfoRow(
-                    icon = "✉",
+                    icon = "mail",
                     label = "Email",
                     value = accountEmail ?: "Chưa có",
                     description = "Email tài khoản để nhận mã và thông báo.",
@@ -845,7 +846,7 @@ private fun ParentAccountSection(
                 )
                 ThinDivider()
                 AccountInfoRow(
-                    icon = "☎",
+                    icon = "phone",
                     label = "Số điện thoại phụ huynh",
                     value = parentPhone ?: "Chưa có",
                     actionText = if (parentPhone == null) "Thêm SĐT" else "Sửa",
@@ -853,7 +854,7 @@ private fun ParentAccountSection(
                 )
                 ThinDivider()
                 AccountInfoRow(
-                    icon = "✉",
+                    icon = "mail",
                     label = "Email phụ huynh",
                     value = reportEmail ?: "Chưa có",
                     description = "Email này sẽ nhận báo cáo tiến bộ của bé.",
@@ -1110,7 +1111,7 @@ private fun AccountLoadingRow() {
 @Composable
 private fun BottomSheetHeader(title: String, subtitle: String, onDismiss: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        SettingsIcon("👤")
+        SettingsIcon("user")
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, color = EgDesign.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             Text(subtitle, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
@@ -1208,7 +1209,7 @@ private fun SettingsIcon(icon: String, size: Dp = 40.dp) {
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(icon, fontSize = if (size < 36.dp) 15.sp else 19.sp, textAlign = TextAlign.Center)
+            EgVectorEmojiIcon(icon, size = if (size < 36.dp) 16.dp else 20.dp, tint = EgDesign.primary)
         }
     }
 }
@@ -1274,7 +1275,7 @@ private fun ReportEmailDialog(
     }
 
     SettingsDialog(onDismiss = onDismiss) {
-        DialogHeader("✉", "Email phụ huynh", "Bố mẹ sẽ nhận báo cáo tiến bộ hằng tuần qua email này.")
+        DialogHeader("mail", "Email phụ huynh", "Bố mẹ sẽ nhận báo cáo tiến bộ hằng tuần qua email này.")
         error?.let { ErrorBanner(it) }
         SettingsTextField(
             value = email,
@@ -1384,7 +1385,7 @@ private fun ChangePasswordDialog(
     }
 
     SettingsDialog(onDismiss = onDismiss) {
-        DialogHeader("🔒", "Đổi mật khẩu", "Để bảo mật, app sẽ không hiển thị mật khẩu hiện tại.")
+        DialogHeader("lock", "Đổi mật khẩu", "Để bảo mật, app sẽ không hiển thị mật khẩu hiện tại.")
         error?.let { ErrorBanner(it) }
         SettingsTextField(currentPassword, { currentPassword = it }, "Mật khẩu hiện tại", "Nhập mật khẩu hiện tại", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
         SettingsTextField(newPassword, { newPassword = it }, "Mật khẩu mới", "Nhập mật khẩu mới", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
@@ -1404,7 +1405,7 @@ private fun ChangePasswordDialog(
 @Composable
 private fun CameraPrivacyDialog(onDismiss: () -> Unit, onOpenSystemSettings: () -> Unit) {
     SettingsDialog(onDismiss = onDismiss) {
-        DialogHeader("📷", "Quyền riêng tư camera", "Camera chỉ dùng trong các trò chơi biểu cảm.")
+        DialogHeader("camera", "Quyền riêng tư camera", "Camera chỉ dùng trong các trò chơi biểu cảm.")
         CameraPrivacyItem("Khi nào camera được bật?", "Camera chỉ bật khi bé bắt đầu trò chơi cần nhận diện khuôn mặt.")
         CameraPrivacyItem("Camera dùng để làm gì?", "Camera giúp app nhận diện biểu cảm trong lúc bé chơi.")
         CameraPrivacyItem("Dữ liệu có được lưu không?", "App không lưu ảnh hoặc video của bé.")
@@ -1434,7 +1435,7 @@ private fun CameraPrivacyItem(title: String, description: String) {
 @Composable
 private fun ParentGateDialog(onDismiss: () -> Unit, onContinue: () -> Unit) {
     SettingsDialog(onDismiss = onDismiss) {
-        DialogHeader("👤", "Khu vực phụ huynh", "Phần này dành cho phụ huynh để quản lý tài khoản và dữ liệu của bé.")
+        DialogHeader("user", "Khu vực phụ huynh", "Phần này dành cho phụ huynh để quản lý tài khoản và dữ liệu của bé.")
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SettingsButton("Hủy", onClick = onDismiss, modifier = Modifier.weight(1f), tonal = true)
             SettingsButton("Tiếp tục", onClick = onContinue, modifier = Modifier.weight(1f))
@@ -1563,7 +1564,7 @@ private data class AccountEditContent(
 private fun accountEditContent(target: AccountEditTarget): AccountEditContent {
     return when (target) {
         AccountEditTarget.Username -> AccountEditContent(
-            icon = "👤",
+            icon = "user",
             title = "Tên đăng nhập",
             subtitle = "Tên dùng để đăng nhập vào tài khoản cùng mật khẩu.",
             fieldLabel = "Tên đăng nhập",
@@ -1571,7 +1572,7 @@ private fun accountEditContent(target: AccountEditTarget): AccountEditContent {
             keyboardType = KeyboardType.Text
         )
         AccountEditTarget.Email -> AccountEditContent(
-            icon = "✉",
+            icon = "mail",
             title = "Email",
             subtitle = "Email tài khoản để nhận mã và thông báo.",
             fieldLabel = "Email",
@@ -1579,7 +1580,7 @@ private fun accountEditContent(target: AccountEditTarget): AccountEditContent {
             keyboardType = KeyboardType.Email
         )
         AccountEditTarget.Phone -> AccountEditContent(
-            icon = "☎",
+            icon = "phone",
             title = "Số điện thoại phụ huynh",
             subtitle = "Số điện thoại phụ huynh dùng khi cần liên hệ.",
             fieldLabel = "Số điện thoại phụ huynh",
@@ -1606,21 +1607,21 @@ private data class ConfirmContent(
 private fun confirmContent(action: ConfirmAction): ConfirmContent {
     return when (action) {
         ConfirmAction.ResetPreferences -> ConfirmContent(
-            icon = "↺",
+            icon = "refresh",
             title = "Đặt lại tùy chọn?",
             message = "Các cài đặt giao diện, trợ lý, video và âm thanh sẽ được đưa về mặc định.",
             confirmText = "Đặt lại",
             danger = false
         )
         ConfirmAction.ClearProgress -> ConfirmContent(
-            icon = "💾",
+            icon = "save",
             title = "Xóa tiến độ học?",
             message = "Điểm số, lịch sử chơi và tiến độ học của bé sẽ bị xóa. Hành động này không thể hoàn tác.",
             confirmText = "Xóa",
             danger = true
         )
         ConfirmAction.Logout -> ConfirmContent(
-            icon = "🚪",
+            icon = "exit",
             title = "Đăng xuất?",
             message = "Bạn sẽ cần đăng nhập lại để đồng bộ dữ liệu học tập.",
             confirmText = "Đăng xuất",

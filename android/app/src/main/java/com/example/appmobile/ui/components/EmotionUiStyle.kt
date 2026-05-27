@@ -58,13 +58,13 @@ fun egEmotionRouteValue(value: String): String {
 
 fun egEmotionIcon(value: String): String {
     return when (egEmotionKey(value)) {
-        "happy" -> "😊"
-        "sad" -> "😢"
-        "angry" -> "😡"
-        "fear" -> "😨"
-        "surprise" -> "😮"
-        "disgust" -> "🤢"
-        else -> "🙂"
+        "happy" -> "happy"
+        "sad" -> "sad"
+        "angry" -> "angry"
+        "fear" -> "fear"
+        "surprise" -> "surprise"
+        "disgust" -> "disgust"
+        else -> "neutral"
     }
 }
 

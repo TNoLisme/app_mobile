@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +38,7 @@ import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.pages.game.emotionLearningInfo
 
 @Composable
@@ -84,11 +86,17 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
         Row(modifier = Modifier.fillMaxWidth()) {
             AppBackButton(onClick = onBack)
             Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = emotion?.let { "${it.name} ${it.emoji}" } ?: "Cảm xúc",
-                fontWeight = FontWeight.Bold,
-                color = EgDesign.textPrimary
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = emotion?.name ?: "Cảm xúc",
+                    fontWeight = FontWeight.Bold,
+                    color = EgDesign.textPrimary
+                )
+                emotion?.let { EgEmotionVectorIcon(it.id, size = 24.dp) }
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))

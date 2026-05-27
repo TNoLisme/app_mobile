@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,6 +59,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.viewmodel.PdfState
 import com.example.appmobile.ui.viewmodel.ReportOneTimeEvent
 import com.example.appmobile.ui.viewmodel.ReportViewModel
@@ -298,7 +300,7 @@ private fun ChildWeeklySummaryCard(
             )
             if (sessions > 0) {
                 Text(
-                    text = "Con đã luyện $sessions lượt 🎉",
+                    text = "Con đã luyện $sessions lượt",
                     color = ReportInk,
                     fontSize = 16.sp,
                     lineHeight = 22.sp
@@ -324,19 +326,19 @@ private fun ChildWeeklySummaryCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 ChildMetricBox(
-                    icon = "🎮",
+                    icon = "gamepad",
                     value = sessions.toString(),
                     label = "Lượt luyện",
                     modifier = Modifier.weight(1f)
                 )
                 ChildMetricBox(
-                    icon = "⭐",
+                    icon = "star",
                     value = averageScoreText(summary?.averageScore),
                     label = "Điểm trung bình",
                     modifier = Modifier.weight(1f)
                 )
                 ChildMetricBox(
-                    icon = "🌈",
+                    icon = "sparkle",
                     value = "$learnedEmotionCount/$totalEmotionCount",
                     label = "Đã học cảm xúc",
                     modifier = Modifier.weight(1f)
@@ -372,7 +374,7 @@ private fun ChildMetricBox(icon: String, value: String, label: String, modifier:
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(icon, fontSize = 25.sp)
+            EgVectorEmojiIcon(icon, size = 25.dp, tint = ReportBlue)
             Text(
                 text = value,
                 fontWeight = FontWeight.ExtraBold,
@@ -549,7 +551,7 @@ private fun SentReportHistoryCard(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Text("📨", fontSize = 24.sp)
+                                EgVectorEmojiIcon("mail", size = 24.dp, tint = ReportBlue)
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text(
                                         text = report.title,
@@ -783,13 +785,16 @@ private fun SendReportResultDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text(
-                    text = if (result.isSuccess) "🎉" else "!",
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = if (result.isSuccess) Color(0xFF3BC274) else Color(0xFFFF8D8D),
-                    textAlign = TextAlign.Center
-                )
+                Box(
+                    modifier = Modifier.size(34.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EgVectorEmojiIcon(
+                        if (result.isSuccess) "sparkle" else "warning",
+                        size = 30.dp,
+                        tint = if (result.isSuccess) Color(0xFF3BC274) else Color(0xFFFF8D8D)
+                    )
+                }
                 Text(
                     text = result.title,
                     color = ReportNavy,

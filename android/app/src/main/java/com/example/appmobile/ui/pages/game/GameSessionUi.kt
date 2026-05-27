@@ -46,6 +46,8 @@ import com.example.appmobile.R
 import com.example.appmobile.data.remote.dto.GameContentOptionDto
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgEmotionVectorIcon
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.state.AppSettingsState
 
 data class EmotionLearningInfo(
@@ -192,7 +194,7 @@ fun EmotionLearningDialog(emotionId: String?, onDismiss: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(info.emoji, fontSize = 28.sp)
+                        EgEmotionVectorIcon(info.id, size = 30.dp)
                         Spacer(Modifier.width(8.dp))
                         Text("Ôn lại ${info.title}", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = EgDesign.textPrimary)
                         Spacer(Modifier.weight(1f))
@@ -202,7 +204,7 @@ fun EmotionLearningDialog(emotionId: String?, onDismiss: () -> Unit) {
                             color = EgDesign.cardSoft
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("✕", color = EgDesign.textSecondary, fontSize = 14.sp)
+                                EgVectorEmojiIcon("close", size = 15.dp, tint = EgDesign.textSecondary)
                             }
                         }
                     }
@@ -283,7 +285,10 @@ fun EmotionLearningDialog(emotionId: String?, onDismiss: () -> Unit) {
                         border = BorderStroke(1.dp, EgDesign.cardBorder)
                     ) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("🧩 Ví dụ tình huống", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary, fontSize = 14.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                EgVectorEmojiIcon("puzzle", size = 18.dp)
+                                Text("Ví dụ tình huống", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary, fontSize = 14.sp)
+                            }
                             Text(info.situation, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
                         }
                     }
@@ -295,7 +300,10 @@ fun EmotionLearningDialog(emotionId: String?, onDismiss: () -> Unit) {
                         border = BorderStroke(1.dp, EgDesign.cardBorder)
                     ) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("👀 Dấu hiệu nhận biết", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary, fontSize = 14.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                EgVectorEmojiIcon("eye", size = 18.dp)
+                                Text("Dấu hiệu nhận biết", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary, fontSize = 14.sp)
+                            }
                             info.cues.forEach { cue ->
                                 Text("• $cue", color = EgDesign.textSecondary, fontSize = 13.sp)
                             }
@@ -339,7 +347,7 @@ fun emotionLearningInfo(rawEmotionId: String): EmotionLearningInfo {
     val normalized = normalizeEmotionForLearning(rawEmotionId)
     val catalog = GameUiCatalog.emotionById(normalized)
     val fallbackTitle = catalog?.name ?: rawEmotionId
-    val fallbackEmoji = catalog?.emoji ?: "🙂"
+    val fallbackEmoji = normalized
     val fallbackDescription = catalog?.description ?: "Hãy quan sát khuôn mặt, giọng nói và tình huống để đoán cảm xúc."
 
     return when (normalized) {

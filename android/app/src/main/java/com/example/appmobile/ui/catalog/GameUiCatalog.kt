@@ -90,12 +90,12 @@ object GameUiCatalog {
     )
 
     val emotions = listOf(
-        EmotionUiItem("happy", "Vui", "😊", "Miệng cười, mắt sáng và có thể cười thành tiếng."),
-        EmotionUiItem("sad", "Buồn", "😢", "Mắt nhìn xuống, miệng trầm và giọng nói nhỏ hơn."),
-        EmotionUiItem("angry", "Tức giận", "😡", "Lông mày chau lại, mặt nghiêm và có thể nói to hơn."),
-        EmotionUiItem("fear", "Sợ hãi", "😨", "Mắt mở to, có thể lùi lại vì cần cảm thấy an toàn."),
-        EmotionUiItem("surprise", "Ngạc nhiên", "😲", "Mắt mở to, miệng chữ O khi thấy điều bất ngờ."),
-        EmotionUiItem("disgust", "Ghê tởm", "🤢", "Mũi nhăn lại, đầu quay đi khi gặp mùi vị khó chịu.")
+        EmotionUiItem("happy", "Vui", "happy", "Miệng cười, mắt sáng và có thể cười thành tiếng."),
+        EmotionUiItem("sad", "Buồn", "sad", "Mắt nhìn xuống, miệng trầm và giọng nói nhỏ hơn."),
+        EmotionUiItem("angry", "Tức giận", "angry", "Lông mày chau lại, mặt nghiêm và có thể nói to hơn."),
+        EmotionUiItem("fear", "Sợ hãi", "fear", "Mắt mở to, có thể lùi lại vì cần cảm thấy an toàn."),
+        EmotionUiItem("surprise", "Ngạc nhiên", "surprise", "Mắt mở to, miệng chữ O khi thấy điều bất ngờ."),
+        EmotionUiItem("disgust", "Ghê tởm", "disgust", "Mũi nhăn lại, đầu quay đi khi gặp mùi vị khó chịu.")
     )
 
     val cvStoryPrompt = CvPromptUiItem(

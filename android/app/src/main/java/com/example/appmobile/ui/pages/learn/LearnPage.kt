@@ -59,10 +59,11 @@ import com.example.appmobile.ui.catalog.EmotionUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgTab
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.egEmotionDisplayName
-import com.example.appmobile.ui.components.egEmotionIcon
 import com.example.appmobile.ui.components.egEmotionKey
 import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.example.appmobile.ui.components.egLearningEmotionGridItems
@@ -83,8 +84,8 @@ private data class EmotionDetailContent(
 
 private data class SituationVisualContent(
     val sceneTitle: String,
-    val mainEmoji: String,
-    val objectEmoji: String,
+    val mainIcon: String,
+    val objectIcon: String,
     val caption: String,
     val startColor: Color,
     val endColor: Color
@@ -252,7 +253,7 @@ private fun EmotionRememberCard(emotion: EmotionUiItem) {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("💡", fontSize = 19.sp)
+                EgVectorEmojiIcon("bulb", size = 20.dp)
                 Text(
                     "Bé cần nhớ",
                     color = EgDesign.blue,
@@ -305,7 +306,7 @@ private fun EmotionGridItem(
                     color = EgDesign.primary
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("✓", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        EgVectorEmojiIcon("check", size = 12.dp)
                     }
                 }
             }
@@ -314,7 +315,7 @@ private fun EmotionGridItem(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(egEmotionIcon(key), fontSize = 20.sp, lineHeight = 22.sp)
+                EgEmotionVectorIcon(key, size = 24.dp)
                 Text(
                     text = egEmotionDisplayName(emotion),
                     color = EgDesign.textPrimary,
@@ -349,7 +350,7 @@ private fun LearnMediaCarousel(
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        "${egEmotionIcon(egEmotionKey(emotion))} ${egEmotionDisplayName(emotion)}",
+                        egEmotionDisplayName(emotion),
                         color = EgDesign.blue,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -441,10 +442,10 @@ private fun SituationIllustration(emotion: EmotionUiItem) {
                 border = BorderStroke(2.dp, EgDesign.cardBorder)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(visual.mainEmoji, fontSize = 48.sp)
+                    EgVectorEmojiIcon(visual.mainIcon, size = 58.dp)
                 }
             }
-            Text(visual.objectEmoji, fontSize = 54.sp)
+            EgVectorEmojiIcon(visual.objectIcon, size = 58.dp)
         }
 
         Surface(
@@ -523,7 +524,7 @@ private fun EmotionDetailBottomSheet(
                     border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(content.emoji, fontSize = 31.sp)
+                        EgVectorEmojiIcon(content.emoji, size = 34.dp)
                     }
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -554,11 +555,11 @@ private fun EmotionDetailBottomSheet(
                 }
             }
 
-            EmotionDetailSection("💡", "Cảm xúc này là gì?", content.whatIsIt)
-            EmotionDetailSection("👀", "Dấu hiệu dễ nhận biết", content.signs)
-            EmotionDetailSection("🧩", "Khi nào bé thường có cảm xúc này?", content.situations)
-            EmotionDetailSection("🌬", "Bé nên làm gì?", content.whatToDo)
-            EmotionDetailSection("💬", "Nói thế nào cho đúng?", content.sayItLikeThis)
+            EmotionDetailSection("bulb", "Cảm xúc này là gì?", content.whatIsIt)
+            EmotionDetailSection("eye", "Dấu hiệu dễ nhận biết", content.signs)
+            EmotionDetailSection("puzzle", "Khi nào bé thường có cảm xúc này?", content.situations)
+            EmotionDetailSection("sparkle", "Bé nên làm gì?", content.whatToDo)
+            EmotionDetailSection("chat", "Nói thế nào cho đúng?", content.sayItLikeThis)
         }
     }
 }
@@ -576,7 +577,7 @@ private fun EmotionDetailSection(icon: String, title: String, items: List<String
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(icon, fontSize = 18.sp)
+                EgVectorEmojiIcon(icon, size = 20.dp)
                 Text(title, color = EgDesign.blue, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
             }
             items.forEach { item ->
@@ -823,7 +824,7 @@ private fun AssetVideoPlayer(
                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("⛶", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        EgVectorEmojiIcon("fullscreen", size = 20.dp, tint = Color.White)
                     }
                 }
             }
@@ -949,56 +950,56 @@ private fun situationVisualForEmotion(emotionId: String): SituationVisualContent
     return when (egEmotionKey(emotionId)) {
         "happy" -> SituationVisualContent(
             sceneTitle = "Được tặng quà",
-            mainEmoji = "😊",
-            objectEmoji = "🎁",
+            mainIcon = "happy",
+            objectIcon = "gift",
             caption = "Lan vui vì nhận được món quà bất ngờ.",
             startColor = Color(0xFFFFF6C7),
             endColor = Color(0xFFFFE6A3)
         )
         "sad" -> SituationVisualContent(
             sceneTitle = "Rơi cây kem",
-            mainEmoji = "😢",
-            objectEmoji = "🍦",
+            mainIcon = "sad",
+            objectIcon = "sparkle",
             caption = "An buồn vì cây kem yêu thích bị rơi.",
             startColor = Color(0xFFE8F5FF),
             endColor = Color(0xFFCFE9FF)
         )
         "angry" -> SituationVisualContent(
             sceneTitle = "Bị giành đồ chơi",
-            mainEmoji = "😡",
-            objectEmoji = "🧸",
+            mainIcon = "angry",
+            objectIcon = "puzzle",
             caption = "Nam tức giận khi bạn lấy đồ chơi.",
             startColor = Color(0xFFFFE0D8),
             endColor = Color(0xFFFFC5B8)
         )
         "fear" -> SituationVisualContent(
             sceneTitle = "Lạc trong siêu thị",
-            mainEmoji = "😨",
-            objectEmoji = "🛒",
+            mainIcon = "fear",
+            objectIcon = "warning",
             caption = "Mai sợ hãi khi chưa nhìn thấy mẹ.",
             startColor = Color(0xFFEAF0FF),
             endColor = Color(0xFFD9E0FF)
         )
         "surprise" -> SituationVisualContent(
             sceneTitle = "Mở hộp quà",
-            mainEmoji = "😮",
-            objectEmoji = "🎁",
+            mainIcon = "surprise",
+            objectIcon = "gift",
             caption = "Huy ngạc nhiên khi thấy món đồ chơi.",
             startColor = Color(0xFFFFEED8),
             endColor = Color(0xFFFFD7A8)
         )
         "disgust" -> SituationVisualContent(
             sceneTitle = "Mùi khó chịu",
-            mainEmoji = "🤢",
-            objectEmoji = "🗑️",
+            mainIcon = "disgust",
+            objectIcon = "trash",
             caption = "Minh thấy ghê tởm khi ngửi mùi rác.",
             startColor = Color(0xFFE5F9E9),
             endColor = Color(0xFFCFF1D8)
         )
         else -> SituationVisualContent(
             sceneTitle = "Quan sát cảm xúc",
-            mainEmoji = egEmotionIcon(emotionId),
-            objectEmoji = "💬",
+            mainIcon = egEmotionKey(emotionId),
+            objectIcon = "chat",
             caption = "Bé quan sát tình huống và gọi tên cảm xúc.",
             startColor = Color(0xFFEAF7FF),
             endColor = Color(0xFFD9F0FF)
@@ -1042,11 +1043,11 @@ private fun rememberTextsForEmotion(emotionId: String): List<String> {
 private fun emotionDetailContent(emotion: EmotionUiItem): EmotionDetailContent {
     val key = egEmotionKey(emotion)
     val name = egEmotionDisplayName(emotion)
-    val emoji = egEmotionIcon(key)
+    val emoji = key
     return when (key) {
         "happy" -> EmotionDetailContent(
             id = key,
-            name = "$emoji $name",
+            name = name,
             emoji = emoji,
             shortDescription = "Vui vẻ là cảm xúc khi bé cảm thấy hạnh phúc, thích thú hoặc được yêu thương.",
             whatIsIt = listOf(
@@ -1073,7 +1074,7 @@ private fun emotionDetailContent(emotion: EmotionUiItem): EmotionDetailContent {
         )
         "sad" -> EmotionDetailContent(
             id = key,
-            name = "$emoji $name",
+            name = name,
             emoji = emoji,
             shortDescription = "Buồn bã là cảm xúc khi bé cảm thấy mất mát, thất vọng hoặc cô đơn.",
             whatIsIt = listOf(
@@ -1101,7 +1102,7 @@ private fun emotionDetailContent(emotion: EmotionUiItem): EmotionDetailContent {
         )
         "angry" -> EmotionDetailContent(
             id = key,
-            name = "$emoji $name",
+            name = name,
             emoji = emoji,
             shortDescription = "Tức giận là cảm xúc khi bé cảm thấy không hài lòng, bị làm phiền hoặc bị đối xử không công bằng.",
             whatIsIt = listOf(
@@ -1129,7 +1130,7 @@ private fun emotionDetailContent(emotion: EmotionUiItem): EmotionDetailContent {
         )
         "fear" -> EmotionDetailContent(
             id = key,
-            name = "$emoji $name",
+            name = name,
             emoji = emoji,
             shortDescription = "Sợ hãi là cảm xúc khi bé cảm thấy lo lắng hoặc thấy điều gì đó nguy hiểm.",
             whatIsIt = listOf(
@@ -1152,7 +1153,7 @@ private fun emotionDetailContent(emotion: EmotionUiItem): EmotionDetailContent {
         )
         "surprise" -> EmotionDetailContent(
             id = key,
-            name = "$emoji $name",
+            name = name,
             emoji = emoji,
             shortDescription = "Ngạc nhiên là cảm xúc khi bé gặp một điều bất ngờ hoặc mới lạ.",
             whatIsIt = listOf(
@@ -1175,7 +1176,7 @@ private fun emotionDetailContent(emotion: EmotionUiItem): EmotionDetailContent {
         )
         "disgust" -> EmotionDetailContent(
             id = key,
-            name = "$emoji $name",
+            name = name,
             emoji = emoji,
             shortDescription = "Ghê tởm là cảm xúc khi bé thấy hoặc ngửi điều gì đó khó chịu.",
             whatIsIt = listOf(
@@ -1203,7 +1204,7 @@ private fun emotionDetailContent(emotion: EmotionUiItem): EmotionDetailContent {
         )
         else -> EmotionDetailContent(
             id = key,
-            name = "$emoji $name",
+            name = name,
             emoji = emoji,
             shortDescription = "Cảm xúc giúp bé hiểu điều đang diễn ra trong lòng mình.",
             whatIsIt = listOf("Bé có thể quan sát cơ thể và khuôn mặt để nhận ra cảm xúc."),

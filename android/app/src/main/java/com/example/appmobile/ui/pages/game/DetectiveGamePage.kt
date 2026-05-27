@@ -49,6 +49,8 @@ import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgEmotionVectorIcon
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -268,7 +270,7 @@ fun DetectiveGamePage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () ->
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.Center
                                         ) {
-                                            Text(item.emoji, fontSize = 24.sp)
+                                            EgEmotionVectorIcon(item.id, size = 26.dp)
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text(item.name, color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                                         }
@@ -308,7 +310,7 @@ fun DetectiveGamePage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () ->
                                 border = BorderStroke(1.dp, EgDesign.cardBorder)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text("💡", fontSize = 20.sp)
+                                    EgVectorEmojiIcon("bulb", size = 22.dp)
                                 }
                             }
                         } else {

@@ -48,6 +48,7 @@ import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgGradientPill
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgTab
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 
 private data class GameCategoryUi(
     val title: String,
@@ -138,7 +139,7 @@ private fun GameCategorySection(category: GameCategoryUi, onOpenLevel: (String) 
     EgSoftCard {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Text(category.icon, fontSize = 23.sp)
+                EgVectorEmojiIcon(category.icon, size = 24.dp)
                 Text(
                     category.title,
                     color = EgDesign.blue,
@@ -246,9 +247,9 @@ private fun buildCategories(games: List<GameUiItem>, showAll: Boolean, type: Str
         .ifEmpty { if (showAll || type == "camera_game") GameUiCatalog.gamesByType("camera_game") else emptyList() }
 
     return listOfNotNull(
-        GameCategoryUi("Trò chơi luyện cảm xúc", "🎮", "click_game", clickGames)
+        GameCategoryUi("Trò chơi luyện cảm xúc", "gamepad", "click_game", clickGames)
             .takeIf { showAll || type == it.type },
-        GameCategoryUi("Trò chơi biểu cảm", "💻", "camera_game", cameraGames)
+        GameCategoryUi("Trò chơi biểu cảm", "camera", "camera_game", cameraGames)
             .takeIf { showAll || type == it.type }
     )
 }

@@ -72,7 +72,7 @@ class AssistantRepository(private val apiService: ApiService) {
             return "Nếu mic chưa nghe được, con hãy cấp quyền micro và nói chậm hơn. Nếu máy không hỗ trợ nhận diện giọng nói, con có thể gõ câu hỏi nhé."
         }
         if (listOf("gợi ý cảm xúc", "hôm nay", "học gì", "nên học").any { it in text }) {
-            return "Bé có thể bắt đầu với cảm xúc Vui vẻ 😊. Đây là cảm xúc dễ nhận biết và rất phù hợp để luyện đầu tiên."
+            return "Bé có thể bắt đầu với cảm xúc Vui vẻ. Đây là cảm xúc dễ nhận biết và rất phù hợp để luyện đầu tiên."
         }
         if (listOf("cách dùng", "dùng app").any { it in text }) {
             return "Bé có thể vào tab Học để xem mẫu cảm xúc, sau đó vào Chơi game để luyện tập. Phụ huynh có thể xem Báo cáo tiến bộ ở Trang chủ."
@@ -81,7 +81,7 @@ class AssistantRepository(private val apiService: ApiService) {
             return "Bé chọn một trò chơi, làm theo hướng dẫn trên màn hình rồi nhận điểm khi hoàn thành. Với thử thách biểu cảm, bé nhìn vào camera và làm khuôn mặt giống cảm xúc được yêu cầu nhé."
         }
         if (listOf("con đang buồn", "buồn quá").any { it in text }) {
-            return "Mình nghe bé đang buồn. Bé có thể nói với bố mẹ hoặc cô giáo điều làm bé buồn nhé. Mình cũng có thể giúp bé học cảm xúc Buồn bã 😢."
+            return "Mình nghe bé đang buồn. Bé có thể nói với bố mẹ hoặc cô giáo điều làm bé buồn nhé. Mình cũng có thể giúp bé học cảm xúc Buồn bã."
         }
         if (listOf("phụ huynh", "bố mẹ", "ba mẹ").any { it in text }) {
             return "Phụ huynh có thể xem Báo cáo tiến bộ ở Trang chủ và vào Cài đặt để chỉnh âm thanh, giao diện, quyền riêng tư camera và dữ liệu học tập của bé."

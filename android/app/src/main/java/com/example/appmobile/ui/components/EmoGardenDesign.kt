@@ -359,7 +359,7 @@ fun EgTopActions(
         }
         Spacer(modifier = Modifier.weight(1f))
         onSettings?.let {
-            EgIconButton(icon = "⚙️", onClick = it)
+            EgIconButton(icon = "settings", onClick = it)
         }
     }
 }
@@ -551,7 +551,7 @@ private fun EgProfileAvatarButton(avatarUri: String?, onClick: () -> Unit) {
             )
         } else {
             Box(contentAlignment = Alignment.Center) {
-                Text("👤", fontSize = 19.sp)
+                EgVectorEmojiIcon("user", size = 22.dp)
             }
         }
     }
@@ -569,7 +569,7 @@ private fun EgIconButton(icon: String, onClick: () -> Unit) {
         shadowElevation = 1.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(icon, fontSize = 19.sp)
+            EgVectorEmojiIcon(icon, size = 22.dp)
         }
     }
 }

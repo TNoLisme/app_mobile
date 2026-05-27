@@ -77,6 +77,7 @@ import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.state.UserAvatarState
 import com.google.firebase.auth.FirebaseAuth
 import coil.compose.AsyncImage
@@ -330,7 +331,7 @@ private fun ErrorAlert(message: String, onRetry: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("⚠️", fontSize = 15.sp)
+            EgVectorEmojiIcon("warning", size = 16.dp, tint = Color(0xFFF59E0B))
             Text(
                 text = message,
                 modifier = Modifier.weight(1f),
@@ -393,12 +394,15 @@ private fun ProfileCard(
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "🏆 Huy hiệu",
-                    color = ProfileTextPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    EgVectorEmojiIcon("trophy", size = 18.dp, tint = Color(0xFFEAB308))
+                    Text(
+                        text = "Huy hiệu",
+                        color = ProfileTextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 BadgeGrid(badges = badges, unlocked = unlocked, onBadgeClick = onBadgeClick)
             }
         }
@@ -439,7 +443,7 @@ private fun Avatar(avatarUri: String?, onClick: () -> Unit) {
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("👶", fontSize = 28.sp)
+                    EgVectorEmojiIcon("child", size = 30.dp)
                 }
             }
         }
@@ -451,7 +455,7 @@ private fun Avatar(avatarUri: String?, onClick: () -> Unit) {
             shadowElevation = 1.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text("📷", fontSize = 12.sp)
+                EgVectorEmojiIcon("camera", size = 13.dp, tint = ProfileBlue)
             }
         }
     }
@@ -475,7 +479,7 @@ private fun Avatar() {
             color = Color(0xFFFFE082)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text("👶", fontSize = 27.sp)
+                EgVectorEmojiIcon("child", size = 28.dp)
             }
         }
     }
@@ -522,15 +526,16 @@ private fun BadgeCircle(
             shadowElevation = if (unlocked) 2.dp else 0.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = badge.icon,
+                EgVectorEmojiIcon(
+                    badge.icon,
                     modifier = Modifier.alpha(if (unlocked) 1f else 0.38f),
-                    fontSize = 15.sp
+                    size = 18.dp,
+                    tint = if (unlocked) ProfileBlue else ProfileTextSecondary
                 )
             }
         }
         if (!unlocked) {
-            Text("🔒", fontSize = 7.sp)
+            EgVectorEmojiIcon("lock", size = 8.dp, tint = ProfileTextSecondary)
         }
     }
 }
@@ -543,7 +548,7 @@ private fun BadgeRequirementDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Text(badge.icon, fontSize = 28.sp) },
+        icon = { EgVectorEmojiIcon(badge.icon, size = 30.dp, tint = ProfileBlue) },
         title = {
             Text(
                 badge.title,
@@ -582,20 +587,20 @@ private fun ProfilePersonalInfoGrid(profile: UserProfileDto?) {
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("👤", "Tên đăng nhập", fallback(profile?.username), Modifier.weight(1f))
-            InfoTile("✉️", "Email", fallback(profile?.email), Modifier.weight(1f))
+            InfoTile("user", "Tên đăng nhập", fallback(profile?.username), Modifier.weight(1f))
+            InfoTile("mail", "Email", fallback(profile?.email), Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("👶", "Tên hiển thị", personalFallback(profile?.name), Modifier.weight(1f))
-            InfoTile("🎂", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
+            InfoTile("child", "Tên hiển thị", personalFallback(profile?.name), Modifier.weight(1f))
+            InfoTile("cake", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("📅", "Ngày sinh", formatPersonalDate(profile?.child?.dob), Modifier.weight(1f))
-            InfoTile("⚧", "Giới tính", formatGender(profile?.child?.gender), Modifier.weight(1f))
+            InfoTile("calendar", "Ngày sinh", formatPersonalDate(profile?.child?.dob), Modifier.weight(1f))
+            InfoTile("user", "Giới tính", formatGender(profile?.child?.gender), Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("☎️", "Số điện thoại", fallback(profile?.child?.phone), Modifier.weight(1f))
-            InfoTile("🗓️", "Ngày tham gia", formatPersonalDate(profile?.createdAt), Modifier.weight(1f))
+            InfoTile("phone", "Số điện thoại", fallback(profile?.child?.phone), Modifier.weight(1f))
+            InfoTile("calendar", "Ngày tham gia", formatPersonalDate(profile?.createdAt), Modifier.weight(1f))
         }
     }
 }
@@ -607,12 +612,12 @@ private fun ProfileInfoGrid(profile: UserProfileDto?) {
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("👤", "Tên đăng nhập", fallback(profile?.username), Modifier.weight(1f))
-            InfoTile("✉️", "Email", fallback(profile?.email), Modifier.weight(1f))
+            InfoTile("user", "Tên đăng nhập", fallback(profile?.username), Modifier.weight(1f))
+            InfoTile("mail", "Email", fallback(profile?.email), Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("🗓️", "Ngày tham gia", formatDate(profile?.createdAt), Modifier.weight(1f))
-            InfoTile("🎂", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
+            InfoTile("calendar", "Ngày tham gia", formatDate(profile?.createdAt), Modifier.weight(1f))
+            InfoTile("cake", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
         }
     }
 }
@@ -630,14 +635,17 @@ private fun InfoTile(icon: String, label: String, value: String, modifier: Modif
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(
-                text = "$icon $label",
-                color = ProfileBlue,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                EgVectorEmojiIcon(icon, size = 13.dp, tint = ProfileBlue)
+                Text(
+                    text = label,
+                    color = ProfileBlue,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Text(
                 text = value,
                 color = ProfileTextPrimary,
@@ -657,12 +665,15 @@ private fun ProfileStatsSection(stats: List<ProfileStat>) {
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = "📊 Thống kê chơi game",
-                color = ProfileTextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                EgVectorEmojiIcon("report", size = 18.dp, tint = ProfileBlue)
+                Text(
+                    text = "Thống kê chơi game",
+                    color = ProfileTextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 stats.chunked(2).forEach { rowStats ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -692,13 +703,16 @@ private fun StatTile(stat: ProfileStat, modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = "${stat.icon} ${stat.value}",
-                color = Color(0xFF0B66C3),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = 1
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                EgVectorEmojiIcon(stat.icon, size = 18.dp, tint = ProfileBlue)
+                Text(
+                    text = stat.value,
+                    color = Color(0xFF0B66C3),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1
+                )
+            }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = stat.label,
@@ -716,7 +730,7 @@ private fun StatTile(stat: ProfileStat, modifier: Modifier = Modifier) {
 @Composable
 private fun ProfileActions(onEdit: () -> Unit) {
     GradientPill(
-        text = "✏️ Chỉnh sửa hồ sơ",
+        text = "Chỉnh sửa hồ sơ",
         onClick = onEdit,
         modifier = Modifier.fillMaxWidth(),
         heightDp = 48,
@@ -928,14 +942,14 @@ private fun EditPersonalProfileDialog(
                             onValueChange = { dateOfBirth = it.take(10) },
                             label = "Ngày sinh",
                             placeholder = "yyyy-MM-dd",
-                            trailing = "📅"
+                            trailing = "calendar"
                         )
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SecondaryPillButton("❌ Hủy", enabled = !saving, onClick = onDismiss, modifier = Modifier.weight(1f))
+                        SecondaryPillButton("Hủy", enabled = !saving, onClick = onDismiss, modifier = Modifier.weight(1f))
                         GradientPill(
-                            text = if (saving) "Đang lưu..." else "💾 Lưu thay đổi",
+                            text = if (saving) "Đang lưu..." else "Lưu thay đổi",
                             onClick = {
                                 if (!saving && validate()) {
                                     onSave(
@@ -1049,22 +1063,22 @@ private fun EditProfileDialogV2(
                             )
                             TwoColumnFields(
                                 first = { GenderDropdown(gender, onValueChange = { gender = it }) },
-                                second = { ProfileTextField(dateOfBirth, { dateOfBirth = it.take(10) }, "Ngày sinh", "YYYY-MM-DD", trailing = "📅") }
+                                second = { ProfileTextField(dateOfBirth, { dateOfBirth = it.take(10) }, "Ngày sinh", "YYYY-MM-DD", trailing = "calendar") }
                             )
                             ProfileTextField(phone, { input -> if (input.all(Char::isDigit) && input.length <= 15) phone = input }, "Số điện thoại", "Nhập số điện thoại", keyboardType = KeyboardType.Phone)
                         } else {
                             ProfileTextField(name, { name = it }, "Tên hiển thị", "Tên của bé")
                             ProfileTextField(age, { input -> if (input.all(Char::isDigit) && input.length <= 3) age = input }, "Tuổi", "Ví dụ: 6", keyboardType = KeyboardType.Number)
                             GenderDropdown(gender, onValueChange = { gender = it })
-                            ProfileTextField(dateOfBirth, { dateOfBirth = it.take(10) }, "Ngày sinh", "YYYY-MM-DD", trailing = "📅")
+                            ProfileTextField(dateOfBirth, { dateOfBirth = it.take(10) }, "Ngày sinh", "YYYY-MM-DD", trailing = "calendar")
                             ProfileTextField(phone, { input -> if (input.all(Char::isDigit) && input.length <= 15) phone = input }, "Số điện thoại", "Nhập số điện thoại", keyboardType = KeyboardType.Phone)
                         }
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SecondaryPillButton("❌ Hủy", enabled = !saving, onClick = onDismiss, modifier = Modifier.weight(1f))
+                        SecondaryPillButton("Hủy", enabled = !saving, onClick = onDismiss, modifier = Modifier.weight(1f))
                         GradientPill(
-                            text = if (saving) "Đang lưu..." else "💾 Lưu thay đổi",
+                            text = if (saving) "Đang lưu..." else "Lưu thay đổi",
                             onClick = {
                                 if (!saving && validate()) {
                                     onSave(
@@ -1106,7 +1120,7 @@ private fun EditProfileHeader(saving: Boolean, onDismiss: () -> Unit) {
             color = EgDesign.cardSoft,
             border = BorderStroke(1.dp, ProfileCardBorder)
         ) {
-            Box(contentAlignment = Alignment.Center) { Text("✏️", fontSize = 22.sp) }
+            Box(contentAlignment = Alignment.Center) { EgVectorEmojiIcon("edit", size = 23.dp, tint = ProfileBlue) }
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("Chỉnh sửa hồ sơ", color = ProfileTextPrimary, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
@@ -1146,7 +1160,7 @@ private fun FormErrorBanner(message: String) {
         border = BorderStroke(1.dp, ProfileCardBorder)
     ) {
         Text(
-            text = "⚠️ $message",
+            text = message,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
             color = Color(0xFFF43F5E),
             fontSize = 13.sp,
@@ -1204,7 +1218,7 @@ private fun ProfileTextField(
         shape = RoundedCornerShape(14.dp),
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         visualTransformation = visualTransformation,
-        trailingIcon = trailing?.let { icon -> { Text(icon, fontSize = 16.sp) } },
+        trailingIcon = trailing?.let { icon -> { EgVectorEmojiIcon(icon, size = 17.dp, tint = ProfileBlue) } },
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = ProfileBlue,
             unfocusedBorderColor = ProfileCardBorder,
@@ -1247,7 +1261,7 @@ private fun GenderDropdown(value: String, onValueChange: (String) -> Unit) {
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Text("⌄", color = ProfileTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("v", color = ProfileTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -1299,22 +1313,22 @@ private fun profileStats(
     }
     val playTimeHours = sessions.sumOf { sessionDurationMillis(it) }.toDouble() / (1000 * 60 * 60)
     return listOf(
-        ProfileStat(playedGames.toString(), "Trò đã chơi", "🎮"),
-        ProfileStat("$avgScore/100", "Điểm TB", "⭐"),
-        ProfileStat("$unlockedBadges/${profileBadges().size}", "Huy hiệu mở", "🏆"),
-        ProfileStat(String.format(Locale.US, "%.1fh", playTimeHours), "Thời gian luyện", "⏱️")
+        ProfileStat(playedGames.toString(), "Trò đã chơi", "gamepad"),
+        ProfileStat("$avgScore/100", "Điểm TB", "star"),
+        ProfileStat("$unlockedBadges/${profileBadges().size}", "Huy hiệu mở", "trophy"),
+        ProfileStat(String.format(Locale.US, "%.1fh", playTimeHours), "Thời gian luyện", "clock")
     )
 }
 
 private fun profileBadges(): List<ProfileBadge> {
     return listOf(
-        ProfileBadge(GameUiCatalog.GAME_RECOGNIZE_EMOTION, "Kho Báu Cảm Xúc", "📦"),
-        ProfileBadge(GameUiCatalog.GAME_DETECTIVE, "Mắt Thần Cảm Xúc", "🕵️"),
-        ProfileBadge(GameUiCatalog.GAME_EMOTION_MATCH, "Xạ Thủ Cảm Xúc", "🎯"),
-        ProfileBadge(GameUiCatalog.GAME_FACE_ASSEMBLY, "Bậc Thầy Lắp Ghép", "🧩"),
-        ProfileBadge(GameUiCatalog.GAME_CV_STORY, "Nghệ Sĩ Khuôn Mặt", "🎭"),
-        ProfileBadge(GameUiCatalog.GAME_CV_REQUEST, "Ngôi Sao Biểu Cảm", "📷"),
-        ProfileBadge("all", "Vương Miện Cảm Xúc", "🌟")
+        ProfileBadge(GameUiCatalog.GAME_RECOGNIZE_EMOTION, "Kho Báu Cảm Xúc", "gift"),
+        ProfileBadge(GameUiCatalog.GAME_DETECTIVE, "Mắt Thần Cảm Xúc", "eye"),
+        ProfileBadge(GameUiCatalog.GAME_EMOTION_MATCH, "Xạ Thủ Cảm Xúc", "target"),
+        ProfileBadge(GameUiCatalog.GAME_FACE_ASSEMBLY, "Bậc Thầy Lắp Ghép", "puzzle"),
+        ProfileBadge(GameUiCatalog.GAME_CV_STORY, "Nghệ Sĩ Khuôn Mặt", "palette"),
+        ProfileBadge(GameUiCatalog.GAME_CV_REQUEST, "Ngôi Sao Biểu Cảm", "camera"),
+        ProfileBadge("all", "Vương Miện Cảm Xúc", "star")
     )
 }
 

@@ -53,9 +53,10 @@ import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.catalog.LevelUiItem
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgEmotionVectorIcon
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.GameScreenShell
 import com.example.appmobile.ui.components.egEmotionDisplayName
-import com.example.appmobile.ui.components.egEmotionIcon
 import com.example.appmobile.ui.components.egEmotionKey
 import com.example.appmobile.ui.components.egEmotionRouteValue
 import com.google.firebase.auth.FirebaseAuth
@@ -84,7 +85,6 @@ private data class CvEmotionChoiceUi(
     val id: String,
     val displayName: String,
     val routeValue: String,
-    val emoji: String,
     val progress: Float
 )
 
@@ -389,7 +389,6 @@ private fun CvEmotionSelectPage(
                 id = id,
                 displayName = cvChallengeEmotionLabel(id),
                 routeValue = egEmotionRouteValue(id),
-                emoji = egEmotionIcon(id),
                 progress = cvEmotionProgress(scores, id)
             )
         }
@@ -549,7 +548,7 @@ private fun CvEmotionSelectTopBar(onBack: () -> Unit) {
             }
         }
         Text(
-            text = "🎮 Thử thách cảm xúc 🎮",
+            text = "Thử thách cảm xúc",
             modifier = Modifier.fillMaxWidth(),
             color = EgDesign.textPrimary,
             fontSize = 23.sp,
@@ -586,7 +585,7 @@ private fun SelectedEmotionMissionCard(choice: CvEmotionChoiceUi?) {
                 fontWeight = FontWeight.ExtraBold
             )
             Text(
-                text = choice?.let { cvChallengeEmotionMissionCompact(it.id, it.emoji) }
+                text = choice?.let { cvChallengeEmotionMissionCompact(it.id) }
                     ?: "Chọn một cảm xúc để xem nhiệm vụ của bé.",
                 color = EgDesign.textSecondary,
                 fontSize = 13.sp,
@@ -631,7 +630,7 @@ private fun CvEmotionChoiceCard(
                     color = EgDesign.primary
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("✓", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                        EgVectorEmojiIcon("check", size = 13.dp)
                     }
                 }
             }
@@ -640,7 +639,7 @@ private fun CvEmotionChoiceCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Text(choice.emoji, fontSize = 32.sp)
+                EgEmotionVectorIcon(choice.id, size = 34.dp)
                 Box(
                     modifier = Modifier.height(32.dp),
                     contentAlignment = Alignment.Center
@@ -692,15 +691,15 @@ private fun cvChallengeEmotionMission(id: String): String {
     }
 }
 
-private fun cvChallengeEmotionMissionCompact(id: String, emoji: String): String {
+private fun cvChallengeEmotionMissionCompact(id: String): String {
     return when (egEmotionKey(id)) {
-        "happy" -> "Hãy làm khuôn mặt vui vẻ trong ${CvRequestHoldSeconds} giây $emoji"
-        "sad" -> "Hãy làm khuôn mặt buồn trong ${CvRequestHoldSeconds} giây $emoji"
-        "surprise" -> "Hãy làm khuôn mặt ngạc nhiên trong ${CvRequestHoldSeconds} giây $emoji"
-        "angry" -> "Hãy làm khuôn mặt tức giận trong ${CvRequestHoldSeconds} giây $emoji"
-        "fear" -> "Hãy làm khuôn mặt sợ hãi trong ${CvRequestHoldSeconds} giây $emoji"
-        "disgust" -> "Hãy làm khuôn mặt ghê tởm trong ${CvRequestHoldSeconds} giây $emoji"
-        else -> "Hãy làm khuôn mặt giống cảm xúc đã chọn trong ${CvRequestHoldSeconds} giây $emoji"
+        "happy" -> "Hãy làm khuôn mặt vui vẻ trong ${CvRequestHoldSeconds} giây"
+        "sad" -> "Hãy làm khuôn mặt buồn trong ${CvRequestHoldSeconds} giây"
+        "surprise" -> "Hãy làm khuôn mặt ngạc nhiên trong ${CvRequestHoldSeconds} giây"
+        "angry" -> "Hãy làm khuôn mặt tức giận trong ${CvRequestHoldSeconds} giây"
+        "fear" -> "Hãy làm khuôn mặt sợ hãi trong ${CvRequestHoldSeconds} giây"
+        "disgust" -> "Hãy làm khuôn mặt ghê tởm trong ${CvRequestHoldSeconds} giây"
+        else -> "Hãy làm khuôn mặt giống cảm xúc đã chọn trong ${CvRequestHoldSeconds} giây"
     }
 }
 
@@ -894,7 +893,7 @@ private fun LevelCard(
                     )
                 }
             } else {
-                Text("🔒", color = EgDesign.textSecondary)
+                EgVectorEmojiIcon("lock", size = 18.dp, tint = EgDesign.textSecondary)
             }
         }
     }

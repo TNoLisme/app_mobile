@@ -96,6 +96,8 @@ import com.example.appmobile.ui.catalog.CvPromptUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgEmotionVectorIcon
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
@@ -1873,12 +1875,12 @@ private fun CvRequestMissionCard(targetEmotion: CvEmotionMeta) {
                 border = BorderStroke(1.dp, EgDesign.cardBorder)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(targetEmotion.emoji, fontSize = 26.sp)
+                    EgEmotionVectorIcon(targetEmotion.id, size = 30.dp)
                 }
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
-                    text = "Mục tiêu: ${targetEmotion.label} ${targetEmotion.emoji}",
+                    text = "Mục tiêu: ${targetEmotion.label}",
                     color = EgDesign.textPrimary,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.ExtraBold
@@ -1890,7 +1892,7 @@ private fun CvRequestMissionCard(targetEmotion: CvEmotionMeta) {
                     lineHeight = 18.sp
                 )
                 Text(
-                    text = "🔒 Không lưu ảnh/video.",
+                    text = "Không lưu ảnh/video.",
                     color = EgDesign.blue,
                     fontSize = 10.sp,
                     lineHeight = 15.sp,
@@ -2018,7 +2020,7 @@ private fun CameraPlaceholderContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("📷", fontSize = 42.sp)
+        EgVectorEmojiIcon("camera", size = 42.dp, tint = Color.White)
         Text(
             text = when {
                 roundLoading -> "Đang mở camera..."
@@ -2164,7 +2166,7 @@ private fun DetectionFeedbackCard(
                     border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(detectedMeta?.emoji ?: targetEmotion.emoji, fontSize = 24.sp)
+                        EgEmotionVectorIcon(detectedMeta?.id ?: targetEmotion.id, size = 27.dp)
                     }
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -2259,7 +2261,7 @@ private fun ChallengeResultCard(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(if (success) "🎉" else "🌟", fontSize = 34.sp)
+            EgVectorEmojiIcon(if (success) "sparkle" else "star", size = 34.dp)
             Text(
                 text = if (success) "Tuyệt vời!" else "Gần được rồi!",
                 color = EgDesign.textPrimary,
@@ -2350,7 +2352,7 @@ private fun CameraPermissionContent(onOpenSettings: () -> Unit, onBack: () -> Un
             verticalArrangement = Arrangement.spacedBy(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("📷", fontSize = 38.sp)
+            EgVectorEmojiIcon("camera", size = 38.dp, tint = EgDesign.primary)
             Text(
                 text = "Cần quyền camera",
                 color = EgDesign.textPrimary,
@@ -2431,7 +2433,7 @@ private fun ChallengeErrorCard(message: String, onRetry: () -> Unit, onBack: () 
 @Composable
 private fun ConfirmExitDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     GameConfirmDialog(
-        icon = "⏸",
+        icon = "pause",
         title = "Dừng thử thách?",
         message = "Tiến độ hiện tại sẽ không được lưu.",
         confirmText = "Dừng",
@@ -2444,7 +2446,7 @@ private fun ConfirmExitDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
 @Composable
 private fun ConfirmSkipDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     GameConfirmDialog(
-        icon = "⏭",
+        icon = "next",
         title = "Bỏ qua màn này?",
         message = "Màn này sẽ được tính là chưa hoàn thành.",
         confirmText = "Bỏ qua",
@@ -2486,7 +2488,7 @@ private fun GameConfirmDialog(
                     border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(icon, fontSize = 24.sp)
+                        EgVectorEmojiIcon(icon, size = 26.dp, tint = EgDesign.primary)
                     }
                 }
                 Text(
@@ -2553,7 +2555,7 @@ private fun CvStoryResumeDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text("📚", fontSize = 28.sp)
+                EgVectorEmojiIcon("book", size = 28.dp, tint = EgDesign.primary)
                 Text(
                     "Bé đang chơi dở",
                     color = EgDesign.textPrimary,
@@ -2631,7 +2633,7 @@ private fun CvStoryStageIntroCard(
                         border = BorderStroke(1.dp, EgDesign.cardBorder)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text("📖", fontSize = 22.sp)
+                            EgVectorEmojiIcon("book", size = 22.dp, tint = EgDesign.primary)
                         }
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -2692,7 +2694,7 @@ private fun CvStoryLevelSummaryCard(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("🎉", fontSize = 42.sp)
+            EgVectorEmojiIcon("sparkle", size = 42.dp)
             Text(
                 text = title,
                 color = EgDesign.textPrimary,
@@ -2758,7 +2760,7 @@ private fun CvStoryScenarioCard(
                     border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("📖", fontSize = 28.sp)
+                        EgVectorEmojiIcon("book", size = 28.dp, tint = EgDesign.primary)
                     }
                 }
                 Column(
@@ -2844,8 +2846,8 @@ private fun buildCvStoryLevelSummary(
         ?.key
         ?.let(::cvEmotionMeta)
     val unlockLine = if (nextLevelUnlocked) "\nCấp độ ${level + 1} đã được mở khóa!" else ""
-    val bestLine = bestEmotion?.let { "\nCảm xúc làm tốt nhất: ${it.label} ${it.emoji}." }.orEmpty()
-    val weakLine = weakEmotion?.let { "\nCảm xúc cần luyện thêm: ${it.label} ${it.emoji}." }.orEmpty()
+    val bestLine = bestEmotion?.let { "\nCảm xúc làm tốt nhất: ${it.label}." }.orEmpty()
+    val weakLine = weakEmotion?.let { "\nCảm xúc cần luyện thêm: ${it.label}." }.orEmpty()
     return "Hoàn thành cấp độ $level!\nSố màn đúng: $correctCount/$totalStages.\nĐiểm: $score.$bestLine$weakLine$unlockLine"
 }
 
@@ -2977,7 +2979,7 @@ private fun StoryScenarioInsideChallenge(title: String, text: String) {
                 border = BorderStroke(1.dp, EgDesign.cardBorder)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text("📖", fontSize = 24.sp)
+                    EgVectorEmojiIcon("book", size = 24.dp, tint = EgDesign.primary)
                 }
             }
             Column(
@@ -3056,7 +3058,7 @@ private fun CvCameraFeedbackCard(
         cameraOpening -> "Đang mở camera..."
         detectorPreparing -> "Đang chuẩn bị nhận diện..."
         !cameraReady -> "Chưa bật camera"
-        attemptSuccess == true -> "🎉 Đúng rồi!"
+        attemptSuccess == true -> "Đúng rồi!"
         attemptSuccess == false -> "Thử lại nhé"
         !challengeStarted -> "Sẵn sàng thử thách"
         confidence >= CvRequiredConfidence -> "Sắp đúng rồi!"
@@ -3085,7 +3087,7 @@ private fun CvCameraFeedbackCard(
             cameraOpening -> "Đang mở camera..."
             detectorPreparing -> "Đang chuẩn bị nhận diện..."
             !cameraReady -> "Chưa bật camera"
-            attemptSuccess == true -> "🎉 Đúng rồi!"
+            attemptSuccess == true -> "Đúng rồi!"
             attemptSuccess == false -> "Thử lại nhé"
             !challengeStarted -> "Đọc tình huống"
             confidence >= CvRequiredConfidence -> "Sắp đúng rồi!"
@@ -3113,12 +3115,6 @@ private fun CvCameraFeedbackCard(
         subtitle
     }
     val cameraHeight = if (isStoryMode) 334.dp else 280.dp
-    val feedbackIcon = when {
-        detectedMeta != null -> detectedMeta.emoji
-        isStoryMode -> "📖"
-        else -> targetEmotion.emoji
-    }
-
     val activeLamp = cvConfidenceLamp(confidence = confidence, attemptSuccess = attemptSuccess)
     val childFeedbackLevel = when {
         isStoryMode && (attemptSuccess == true || challengeState == CvChallengeState.Success) -> "Tốt lắm!"
@@ -3177,11 +3173,11 @@ private fun CvCameraFeedbackCard(
         (challengeState == CvChallengeState.Playing || challengeState == CvChallengeState.Detecting) && isStoryMode -> "Con thử thể hiện rõ cảm xúc trong tình huống nhé."
         challengeState == CvChallengeState.Playing -> cvEmotionGuidance(targetEmotion.id)
         isStoryMode -> "Bé hãy đọc tình huống rồi làm khuôn mặt phù hợp nhé."
-        else -> "Con hãy làm mặt ${targetEmotion.shortLabel} nhé ${targetEmotion.emoji}"
+        else -> "Con hãy làm mặt ${targetEmotion.shortLabel} nhé"
     }
     val childFeedbackIcon = when {
         isStoryMode && detectedMeta != null -> detectedMeta.emoji
-        isStoryMode -> "🎭"
+        isStoryMode -> "palette"
         else -> targetEmotion.emoji
     }
     val childActiveLamp = when {
@@ -3251,7 +3247,7 @@ private fun CvCameraFeedbackCard(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("📷", fontSize = 42.sp)
+                        EgVectorEmojiIcon("camera", size = 42.dp, tint = Color.White)
                         Text(
                             text = when {
                                 hasCameraError -> "Không mở được camera"
@@ -3382,7 +3378,7 @@ private fun CvCameraFeedbackCard(
                     border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(childFeedbackIcon, fontSize = 30.sp)
+                        EgVectorEmojiIcon(childFeedbackIcon, size = 30.dp, tint = EgDesign.primary)
                     }
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -3503,7 +3499,7 @@ private fun StoryStageResultPanel(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(if (success) "🎉" else "🌟", fontSize = 34.sp)
+            EgVectorEmojiIcon(if (success) "sparkle" else "star", size = 34.dp)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = when {
@@ -3525,7 +3521,7 @@ private fun StoryStageResultPanel(
                 modifier = Modifier.padding(top = 6.dp)
             )
             Text(
-                text = "Cảm xúc phù hợp: ${targetEmotion.label} ${targetEmotion.emoji}",
+                text = "Cảm xúc phù hợp: ${targetEmotion.label}",
                 color = EgDesign.blue,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
@@ -4088,7 +4084,7 @@ private fun UnusedCvDetectionCard(
     val detectedMeta = detectedEmotionId?.let(::cvEmotionMeta)
     val title = when {
         !cameraReady -> "Chưa bật camera"
-        attemptSuccess == true -> "🎉 Đúng rồi!"
+        attemptSuccess == true -> "Đúng rồi!"
         attemptSuccess == false -> "Thử lại nhé"
         !challengeStarted -> "Sẵn sàng thử thách"
         confidence >= CvRequiredConfidence -> "Sắp đúng rồi!"
@@ -4128,7 +4124,7 @@ private fun UnusedCvDetectionCard(
                     border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(detectedMeta?.emoji ?: targetEmotion.emoji, fontSize = 32.sp)
+                        EgEmotionVectorIcon(detectedMeta?.id ?: targetEmotion.id, size = 34.dp)
                     }
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -4840,7 +4836,7 @@ private fun cvEmotionMeta(rawEmotion: String): CvEmotionMeta {
             id = "happy",
             label = "Vui vẻ",
             shortLabel = "vui vẻ",
-            emoji = "😊",
+            emoji = "happy",
             scenarioTitle = "Nụ cười thật tươi",
             hint = "Hãy mỉm cười, mắt hơi híp lại và giữ khuôn mặt trong vài giây."
         )
@@ -4848,7 +4844,7 @@ private fun cvEmotionMeta(rawEmotion: String): CvEmotionMeta {
             id = "sad",
             label = "Buồn bã",
             shortLabel = "buồn bã",
-            emoji = "😢",
+            emoji = "sad",
             scenarioTitle = "Mình hơi buồn",
             hint = "Hạ khóe miệng, ánh mắt buồn và giữ biểu cảm."
         )
@@ -4856,7 +4852,7 @@ private fun cvEmotionMeta(rawEmotion: String): CvEmotionMeta {
             id = "angry",
             label = "Tức giận",
             shortLabel = "tức giận",
-            emoji = "😡",
+            emoji = "angry",
             scenarioTitle = "Không vui chút nào",
             hint = "Nhíu mày, mím môi và nhìn nghiêm."
         )
@@ -4864,7 +4860,7 @@ private fun cvEmotionMeta(rawEmotion: String): CvEmotionMeta {
             id = "fear",
             label = "Sợ hãi",
             shortLabel = "sợ hãi",
-            emoji = "😨",
+            emoji = "fear",
             scenarioTitle = "Ôi, mình hơi sợ",
             hint = "Mở to mắt, hơi lùi mặt lại và giữ biểu cảm."
         )
@@ -4872,7 +4868,7 @@ private fun cvEmotionMeta(rawEmotion: String): CvEmotionMeta {
             id = "surprise",
             label = "Ngạc nhiên",
             shortLabel = "ngạc nhiên",
-            emoji = "😮",
+            emoji = "surprise",
             scenarioTitle = "Ôi! Bất ngờ quá",
             hint = "Mở to mắt, há miệng nhẹ và nâng lông mày."
         )
@@ -4880,7 +4876,7 @@ private fun cvEmotionMeta(rawEmotion: String): CvEmotionMeta {
             id = "disgust",
             label = "Ghê tởm",
             shortLabel = "ghê tởm",
-            emoji = "🤢",
+            emoji = "disgust",
             scenarioTitle = "Mùi này khó chịu quá",
             hint = "Nhăn mũi, hơi cau mày và giữ biểu cảm."
         )

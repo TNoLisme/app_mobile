@@ -85,11 +85,11 @@ fun EmoGardenTopNav(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 onProfile?.let {
-                    RoundNavAction(text = "👤", onClick = it)
+                    RoundNavAction(icon = "user", onClick = it)
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 onSettings?.let {
-                    RoundNavAction(text = "⚙", onClick = it)
+                    RoundNavAction(icon = "settings", onClick = it)
                 }
             }
 
@@ -121,7 +121,7 @@ fun EmoGardenTopNav(
 }
 
 @Composable
-private fun RoundNavAction(text: String, onClick: () -> Unit) {
+private fun RoundNavAction(icon: String, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .size(40.dp)
@@ -131,7 +131,7 @@ private fun RoundNavAction(text: String, onClick: () -> Unit) {
         shadowElevation = 1.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(text = text, fontSize = 19.sp)
+            EgVectorEmojiIcon(icon, size = 21.dp, tint = EgDesign.primary)
         }
     }
 }
@@ -209,7 +209,7 @@ fun AssistantChatBubble(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 .background(EmoGardenButtonGradient, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text("💬", fontSize = 28.sp)
+            EgVectorEmojiIcon("chat", size = 28.dp, tint = Color.White)
         }
     }
 }
@@ -302,7 +302,7 @@ fun DraggableAssistantBubble(onClick: () -> Unit, modifier: Modifier = Modifier)
                     .background(EmoGardenButtonGradient, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("💬", fontSize = 28.sp)
+                EgVectorEmojiIcon("chat", size = 28.dp, tint = Color.White)
             }
         }
     }

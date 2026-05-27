@@ -65,6 +65,8 @@ import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgEmotionVectorIcon
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -73,7 +75,6 @@ import kotlin.math.roundToInt
 private data class FaceEmotionUi(
     val id: String,
     val label: String,
-    val emoji: String,
     val spriteRes: Int
 )
 
@@ -86,12 +87,12 @@ private data class AssemblyQuestionUi(
 )
 
 private val faceEmotions = listOf(
-    FaceEmotionUi("happy",    "Vui vẻ",    "😊", R.drawable.face_ensemble_happy),
-    FaceEmotionUi("sad",      "Buồn bã",   "😢", R.drawable.face_ensemble_sad),
-    FaceEmotionUi("angry",    "Tức giận",  "😠", R.drawable.face_ensemble_angry),
-    FaceEmotionUi("fear",     "Sợ hãi",    "😨", R.drawable.face_ensemble_fear),
-    FaceEmotionUi("surprise", "Ngạc nhiên","😲", R.drawable.face_ensemble_surprise),
-    FaceEmotionUi("disgust",  "Ghê tởm",   "🤢", R.drawable.face_ensemble_disgust)
+    FaceEmotionUi("happy", "Vui vẻ", R.drawable.face_ensemble_happy),
+    FaceEmotionUi("sad", "Buồn bã", R.drawable.face_ensemble_sad),
+    FaceEmotionUi("angry", "Tức giận", R.drawable.face_ensemble_angry),
+    FaceEmotionUi("fear", "Sợ hãi", R.drawable.face_ensemble_fear),
+    FaceEmotionUi("surprise", "Ngạc nhiên", R.drawable.face_ensemble_surprise),
+    FaceEmotionUi("disgust", "Ghê tởm", R.drawable.face_ensemble_disgust)
 )
 
 @Composable
@@ -184,9 +185,9 @@ fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
             responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
         )
         feedback.value = if (isCorrect)
-            "✅ Đúng rồi! Con đã ghép khuôn mặt ${target.label}."
+            "Đúng rồi! Con đã ghép khuôn mặt ${target.label}."
         else
-            "❌ Chưa đúng. Đáp án là khuôn mặt ${target.label}."
+            "Chưa đúng. Đáp án là khuôn mặt ${target.label}."
     }
 
     fun goNextOrFinish() {
@@ -312,7 +313,7 @@ fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                                 contentScale = ContentScale.Crop
                             )
                         } else {
-                            Text(target.emoji, fontSize = 64.sp, textAlign = TextAlign.Center)
+                            EgEmotionVectorIcon(target.id, size = 68.dp)
                         }
                     }
                 }
@@ -332,7 +333,7 @@ fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                         FaceAssemblyRow(
                             emotionIndex = selectedEyebrow.intValue,
                             partIndex = 0,
-                            icon = "👁",
+                            icon = "eye",
                             label = "Lông mày",
                             enabled = !hasFeedback && !isSubmitting.value,
                             onClick = { selectedEyebrow.intValue = nextEmotionIndex(selectedEyebrow.intValue) },
@@ -343,7 +344,7 @@ fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                         FaceAssemblyRow(
                             emotionIndex = selectedEyes.intValue,
                             partIndex = 1,
-                            icon = "👀",
+                            icon = "eye",
                             label = "Mắt",
                             enabled = !hasFeedback && !isSubmitting.value,
                             onClick = { selectedEyes.intValue = nextEmotionIndex(selectedEyes.intValue) },
@@ -354,7 +355,7 @@ fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                         FaceAssemblyRow(
                             emotionIndex = selectedMouth.intValue,
                             partIndex = 2,
-                            icon = "👄",
+                            icon = "mouth",
                             label = "Miệng",
                             enabled = !hasFeedback && !isSubmitting.value,
                             onClick = { selectedMouth.intValue = nextEmotionIndex(selectedMouth.intValue) },
@@ -381,7 +382,7 @@ fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Text("💡", fontSize = 18.sp)
+                        EgVectorEmojiIcon("bulb", size = 18.dp)
                         if (showHint.value) {
                             Spacer(Modifier.width(6.dp))
                             Text(
@@ -423,7 +424,7 @@ fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                             shape = RoundedCornerShape(99.dp),
                             border = BorderStroke(1.5.dp, EgDesign.cardBorder)
                         ) {
-                            Text("↺ Thử lại", fontSize = 13.sp,
+                            Text("Thử lại", fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold, color = EgDesign.textPrimary,
                                 maxLines = 1)
                         }
@@ -449,7 +450,7 @@ fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                             Text(
                                 when {
                                     isSubmitting.value -> "Đang lưu..."
-                                    !hasFeedback -> "Kiểm tra ✓"
+                                    !hasFeedback -> "Kiểm tra"
                                     pendingLearnEmotion.value != null -> "Học $learnTarget"
                                     currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
                                     else -> "Câu tiếp →"
@@ -536,17 +537,14 @@ private fun FaceAssemblyRow(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(icon, fontSize = 22.sp)
+            EgVectorEmojiIcon(icon, size = 22.dp, tint = EgDesign.primary)
             Spacer(Modifier.height(3.dp))
             Text(
                 label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                 color = EgDesign.textPrimary, textAlign = TextAlign.Center
             )
             if (emotionIndex >= 0 && emotionIndex < faceEmotions.size) {
-                Text(
-                    faceEmotions[emotionIndex].emoji,
-                    fontSize = 14.sp, textAlign = TextAlign.Center
-                )
+                EgEmotionVectorIcon(faceEmotions[emotionIndex].id, size = 18.dp)
             }
         }
     }

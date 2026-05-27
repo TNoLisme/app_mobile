@@ -51,6 +51,8 @@ import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgEmotionVectorIcon
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -290,7 +292,7 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                                             modifier = Modifier.padding(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(item.emoji, fontSize = 20.sp)
+                                            EgEmotionVectorIcon(item.id, size = 22.dp)
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(item.name, color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                                         }
@@ -329,7 +331,7 @@ fun EmotionsBoxPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> U
                                 border = BorderStroke(1.dp, EgDesign.cardBorder)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text("💡", fontSize = 20.sp)
+                                    EgVectorEmojiIcon("bulb", size = 22.dp)
                                 }
                             }
                         } else {

@@ -1042,13 +1042,13 @@ private fun reportTitle(type: String?): String {
 private fun emotionEmoji(name: String): String {
     val normalized = normalizeText(name)
     return when {
-        "vui" in normalized || "happy" in normalized -> "😊"
-        "buon" in normalized || "sad" in normalized -> "😢"
-        "ngac" in normalized || "surprise" in normalized -> "😮"
-        "tuc" in normalized || "gian" in normalized || "angry" in normalized -> "😡"
-        "so" in normalized || "fear" in normalized -> "😨"
-        "ghe" in normalized || "disgust" in normalized -> "🤢"
-        else -> "🙂"
+        "vui" in normalized || "happy" in normalized -> "happy"
+        "buon" in normalized || "sad" in normalized -> "sad"
+        "ngac" in normalized || "surprise" in normalized -> "surprise"
+        "tuc" in normalized || "gian" in normalized || "angry" in normalized -> "angry"
+        "so" in normalized || "fear" in normalized -> "fear"
+        "ghe" in normalized || "disgust" in normalized -> "disgust"
+        else -> "neutral"
     }
 }
 
