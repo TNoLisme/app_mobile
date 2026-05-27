@@ -552,8 +552,8 @@ private fun LearningExperienceSection(
     SettingsSection(title = "Trải nghiệm học", icon = "sparkle") {
         SwitchSettingsRow(
             icon = "chat",
-            title = "Bong bóng trợ lý",
-            description = "Hiện nút trợ lý nhỏ ở góc màn hình.",
+            title = "Bong bóng Mầm Mầm",
+            description = "Hiện bạn trợ lý nhỏ ở góc màn hình.",
             checked = assistantBubbleEnabled,
             onCheckedChange = onAssistantBubbleChanged
         )

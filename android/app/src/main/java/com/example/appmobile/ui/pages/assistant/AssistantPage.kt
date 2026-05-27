@@ -60,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -73,6 +74,7 @@ import com.example.appmobile.data.remote.dto.AssistantChatHistoryDto
 import com.example.appmobile.data.repository.AssistantRepository
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgAssistantMascot
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
@@ -192,7 +194,7 @@ fun AssistantPage(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "vi-VN")
             putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, "vi-VN")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Nói câu hỏi cho trợ lý EmoGarden")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Nói câu hỏi cho Mầm Mầm")
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
     }
@@ -394,7 +396,7 @@ private fun AssistantHeader(onBack: () -> Unit, onClear: () -> Unit) {
         AppBackButton(onClick = onBack, text = "← Quay lại")
         Spacer(modifier = Modifier.weight(1f))
         Text(
-            "Trợ lý",
+            "Mầm Mầm",
             color = EgDesign.textPrimary,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 22.sp
@@ -451,32 +453,48 @@ private fun ClearChatConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit)
 private fun AssistantIntroCard(gameId: String, level: Int?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         border = BorderStroke(1.dp, EgDesign.cardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(EgDesign.cardSoft, EgDesign.card)
+                    )
+                )
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .height(46.dp)
-                    .widthIn(min = 46.dp)
+                    .height(64.dp)
+                    .widthIn(min = 64.dp)
                     .clip(CircleShape)
-                    .background(EgDesign.cardSoft),
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(Color.White, Color(0xFFFFF0B8), EgDesign.accentSoft)
+                        )
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                EgVectorEmojiIcon("chat", size = 24.dp, tint = EgDesign.primary)
+                EgAssistantMascot(size = 58.dp)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    "Trợ lý EmoGarden",
+                    "Mầm Mầm - bạn nhỏ trong vườn cảm xúc",
                     color = EgDesign.textPrimary,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 17.sp
+                )
+                Text(
+                    "Mình sẽ cùng bé luyện cảm xúc từng bước.",
+                    color = EgDesign.blue,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
                     assistantContextText(gameId, level),
@@ -530,10 +548,15 @@ private fun AssistantBubble(message: AssistantMessage) {
     val isUser = message.role == MessageRole.User
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
     ) {
+        if (!isUser) {
+            AssistantMascotAvatar()
+            Spacer(modifier = Modifier.size(8.dp))
+        }
         Surface(
-            modifier = Modifier.widthIn(max = 300.dp),
+            modifier = Modifier.widthIn(max = if (isUser) 300.dp else 270.dp),
             shape = RoundedCornerShape(
                 topStart = 18.dp,
                 topEnd = 18.dp,
@@ -557,7 +580,13 @@ private fun AssistantBubble(message: AssistantMessage) {
 
 @Composable
 private fun AssistantTypingBubble() {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        AssistantMascotAvatar(speaking = true)
+        Spacer(modifier = Modifier.size(8.dp))
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = EgDesign.card,
@@ -581,6 +610,23 @@ private fun AssistantTypingBubble() {
 }
 
 @Composable
+private fun AssistantMascotAvatar(speaking: Boolean = false) {
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clip(CircleShape)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(Color.White, Color(0xFFFFF0B8), EgDesign.accentSoft)
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        EgAssistantMascot(size = 38.dp, speaking = speaking)
+    }
+}
+
+@Composable
 private fun AssistantInputRow(
     input: String,
     sending: Boolean,
@@ -600,7 +646,7 @@ private fun AssistantInputRow(
             modifier = Modifier.weight(1f),
             placeholder = {
                 Text(
-                    "Hỏi mình về cảm xúc hoặc cách chơi...",
+                    "Hỏi Mầm Mầm về cảm xúc hoặc cách chơi...",
                     color = EgDesign.textSecondary
                 )
             },
@@ -704,13 +750,13 @@ private fun welcomeMessage(gameId: String, level: Int?): String {
         else -> "màn hiện tại"
     }
     val suffix = if (level != null) " ở cấp độ $level" else ""
-    return "Chào bé! Mình là trợ lý EmoGarden. Con có thể hỏi cách chơi, gợi ý biểu cảm hoặc nhờ mình giải thích $context$suffix."
+    return "Chào bé! Mình là Mầm Mầm, bạn nhỏ trong vườn cảm xúc. Con có thể hỏi mình cách chơi, nhờ gợi ý biểu cảm hoặc cùng mình tìm hiểu $context$suffix."
 }
 
 private fun assistantContextText(gameId: String, level: Int?): String {
     val levelText = if (level != null) " Cấp độ $level." else ""
     return when (gameId) {
-        "home" -> "Hỏi mình nên học cảm xúc nào hoặc nên chơi game gì hôm nay."
+        "home" -> "Hỏi Mầm Mầm nên học cảm xúc nào hoặc nên chơi game gì hôm nay."
         "learn" -> "Mình có thể giải thích dấu hiệu nhận biết từng cảm xúc."
         "select_game" -> "Mình có thể gợi ý game phù hợp với bé."
         "level_select" -> "Mình có thể giải thích cách chọn cấp độ.$levelText"

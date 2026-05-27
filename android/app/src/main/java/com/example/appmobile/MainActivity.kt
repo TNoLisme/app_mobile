@@ -42,6 +42,7 @@ import com.example.appmobile.ui.pages.game.*
 import com.example.appmobile.ui.pages.home.HomePage
 import com.example.appmobile.ui.pages.learn.EmotionDetailPage
 import com.example.appmobile.ui.pages.learn.LearnPage
+import com.example.appmobile.ui.pages.photobooth.PhotoBoothPage
 import com.example.appmobile.ui.pages.profile.ProfilePage
 import com.example.appmobile.ui.pages.report.ReportPage
 import com.example.appmobile.ui.pages.select.LevelSelectPage
@@ -211,7 +212,8 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 onNavigateToReport = { navController.navigate("report") },
                 onNavigateToProfile = ::goProfile,
                 onNavigateToSettings = ::goSettings,
-                onNavigateToLevel = { gameId -> navController.navigate("level_select/$gameId") }
+                onNavigateToLevel = { gameId -> navController.navigate("level_select/$gameId") },
+                onNavigateToPhotoBooth = { navController.navigate("photobooth") }
             )
         }
         composable("select_game/{type}") { backStackEntry ->
@@ -304,6 +306,12 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 onUpdateEmail = ::goParentEmailSettings
             )
         }
+        composable("photobooth") {
+            PhotoBoothPage(
+                onBack = { navController.popBackStack() },
+                onGoHome = ::goHome
+            )
+        }
         composable("assistant") { AssistantPage(onBack = { navController.popBackStack() }) }
         composable(
             route = "assistant/{gameId}?level={level}",
@@ -346,7 +354,8 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         }
     }
 
-        if (assistantBubbleEnabled && shouldShowAssistantBubble(currentRoute, auth.currentUser != null)) {
+        val loggedInForAssistant = !activeUserId.isNullOrBlank()
+        if (assistantBubbleEnabled && shouldShowAssistantBubble(currentRoute, loggedInForAssistant)) {
             DraggableAssistantBubble(
                 onClick = { navController.navigate(assistantRoute(assistantContext(currentRoute))) },
                 modifier = Modifier.fillMaxSize()
@@ -361,6 +370,7 @@ private fun shouldShowAssistantBubble(route: String?, loggedIn: Boolean): Boolea
     return route != "login" &&
         route != "register" &&
         route != "report" &&
+        route != "photobooth" &&
         route != "settings_parent_email" &&
         !route.startsWith("assistant") &&
         !route.startsWith("game/") &&

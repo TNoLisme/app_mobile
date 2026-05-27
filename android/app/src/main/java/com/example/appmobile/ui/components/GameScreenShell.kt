@@ -72,7 +72,7 @@ fun GameScreenShell(
         }
         onOpenAssistant?.let { openAssistant ->
             EgGradientPill(
-                text = "Trợ lý",
+                text = "Mầm Mầm",
                 onClick = openAssistant,
                 modifier = Modifier
                     .align(Alignment.TopEnd)

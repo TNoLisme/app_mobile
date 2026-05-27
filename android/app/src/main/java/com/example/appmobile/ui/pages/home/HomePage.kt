@@ -2,6 +2,7 @@ package com.example.appmobile.ui.pages.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -65,6 +67,7 @@ fun HomePage(
     onNavigateToProfile: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToLevel: (String) -> Unit = {},
+    onNavigateToPhotoBooth: () -> Unit = {},
     onNavigateToLearnEmotion: ((String) -> Unit)? = null,
     onStartEmotionChallenge: ((String) -> Unit)? = null,
     vm: HomeViewModel = viewModel()
@@ -125,6 +128,8 @@ fun HomePage(
             onOpenReport = onNavigateToReport
         )
 
+        PhotoBoothCtaCard(onStart = onNavigateToPhotoBooth)
+
         TodaySuggestionCard(
             state = state,
             onOpenSuggestion = suggestionAction
@@ -142,6 +147,75 @@ fun HomePage(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun PhotoBoothCtaCard(onStart: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = HomeCard),
+        border = BorderStroke(1.dp, HomeCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            MiniPhotoBoothStrip()
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Photobooth cảm xúc",
+                    color = HomeTextPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 17.sp
+                )
+                Text(
+                    text = "Chọn nhiều cảm xúc rồi chụp thành một dải ảnh thật dễ thương.",
+                    color = HomeTextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+            }
+            HomeActionPill("Bắt đầu chụp", onStart, primary = true)
+        }
+    }
+}
+
+@Composable
+private fun MiniPhotoBoothStrip() {
+    Column(
+        modifier = Modifier
+            .width(38.dp)
+            .height(58.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.White)
+            .padding(4.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        listOf(
+            Color(0xFFE7F7FF),
+            Color(0xFFFFF1C7),
+            Color(0xFFE8F8EE)
+        ).forEach { color ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(color),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(HomeBlue)
+                )
+            }
+        }
     }
 }
 

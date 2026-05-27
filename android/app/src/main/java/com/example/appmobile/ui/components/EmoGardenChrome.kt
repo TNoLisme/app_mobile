@@ -206,10 +206,16 @@ fun AssistantChatBubble(onClick: () -> Unit, modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(EmoGardenButtonGradient, CircleShape),
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(Color.White.copy(alpha = 0.96f), Color(0xFFFFE38E), EgDesign.primary),
+                    ),
+                    CircleShape
+                )
+                .padding(5.dp),
             contentAlignment = Alignment.Center
         ) {
-            EgVectorEmojiIcon("chat", size = 28.dp, tint = Color.White)
+            EgAssistantMascot(size = 46.dp)
         }
     }
 }
@@ -299,10 +305,16 @@ fun DraggableAssistantBubble(onClick: () -> Unit, modifier: Modifier = Modifier)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(EmoGardenButtonGradient, CircleShape),
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(Color.White.copy(alpha = 0.96f), Color(0xFFFFE38E), EgDesign.primary),
+                        ),
+                        CircleShape
+                    )
+                    .padding(5.dp),
                 contentAlignment = Alignment.Center
             ) {
-                EgVectorEmojiIcon("chat", size = 28.dp, tint = Color.White)
+                EgAssistantMascot(size = 46.dp, speaking = isDragging)
             }
         }
     }
