@@ -131,7 +131,7 @@ private fun RoundNavAction(icon: String, onClick: () -> Unit) {
         shadowElevation = 1.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
-            EgVectorEmojiIcon(icon, size = 21.dp, tint = EgDesign.primary)
+            EgVectorEmojiIcon(icon, size = 29.dp)
         }
     }
 }

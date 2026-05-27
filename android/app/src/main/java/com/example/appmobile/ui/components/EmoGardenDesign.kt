@@ -551,7 +551,7 @@ private fun EgProfileAvatarButton(avatarUri: String?, onClick: () -> Unit) {
             )
         } else {
             Box(contentAlignment = Alignment.Center) {
-                EgVectorEmojiIcon("user", size = 22.dp)
+                EgVectorEmojiIcon("user", size = 31.dp)
             }
         }
     }
@@ -569,7 +569,7 @@ private fun EgIconButton(icon: String, onClick: () -> Unit) {
         shadowElevation = 1.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
-            EgVectorEmojiIcon(icon, size = 22.dp)
+            EgVectorEmojiIcon(icon, size = 31.dp)
         }
     }
 }

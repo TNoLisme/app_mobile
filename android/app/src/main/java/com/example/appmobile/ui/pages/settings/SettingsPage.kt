@@ -776,7 +776,7 @@ private fun ParentAreaBottomSheet(
                         )
                         ThinDivider()
                         ActionSettingsRow(
-                            icon = "save",
+                            icon = "trash",
                             title = "Xóa tiến độ học",
                             description = "Xóa điểm, lịch sử chơi và tiến độ học của bé.",
                             actionText = "Xóa tiến độ",
@@ -1202,15 +1202,12 @@ private fun SettingsButton(
 
 @Composable
 private fun SettingsIcon(icon: String, size: Dp = 40.dp) {
-    Surface(
+    val iconSize = (size.value - if (size < 36.dp) 3f else 4f).dp
+    Box(
         modifier = Modifier.size(size),
-        shape = CircleShape,
-        color = EgDesign.accentSoft,
-        border = BorderStroke(1.dp, EgDesign.cardBorder)
+        contentAlignment = Alignment.Center
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            EgVectorEmojiIcon(icon, size = if (size < 36.dp) 16.dp else 20.dp, tint = EgDesign.primary)
-        }
+        EgVectorEmojiIcon(icon, size = iconSize)
     }
 }
 

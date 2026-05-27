@@ -395,7 +395,7 @@ private fun ProfileCard(
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    EgVectorEmojiIcon("trophy", size = 18.dp, tint = Color(0xFFEAB308))
+                    EgVectorEmojiIcon("trophy", size = 24.dp)
                     Text(
                         text = "Huy hiệu",
                         color = ProfileTextPrimary,
@@ -443,7 +443,7 @@ private fun Avatar(avatarUri: String?, onClick: () -> Unit) {
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    EgVectorEmojiIcon("child", size = 30.dp)
+                    EgVectorEmojiIcon("child", size = 42.dp)
                 }
             }
         }
@@ -455,7 +455,7 @@ private fun Avatar(avatarUri: String?, onClick: () -> Unit) {
             shadowElevation = 1.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
-                EgVectorEmojiIcon("camera", size = 13.dp, tint = ProfileBlue)
+                EgVectorEmojiIcon("camera", size = 16.dp)
             }
         }
     }
@@ -479,7 +479,7 @@ private fun Avatar() {
             color = Color(0xFFFFE082)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                EgVectorEmojiIcon("child", size = 28.dp)
+                EgVectorEmojiIcon("child", size = 36.dp)
             }
         }
     }
@@ -514,7 +514,7 @@ private fun BadgeCircle(
 ) {
     Box(
         modifier = Modifier
-            .size(34.dp)
+            .size(40.dp)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.TopEnd
     ) {
@@ -529,13 +529,12 @@ private fun BadgeCircle(
                 EgVectorEmojiIcon(
                     badge.icon,
                     modifier = Modifier.alpha(if (unlocked) 1f else 0.38f),
-                    size = 18.dp,
-                    tint = if (unlocked) ProfileBlue else ProfileTextSecondary
+                    size = 31.dp
                 )
             }
         }
         if (!unlocked) {
-            EgVectorEmojiIcon("lock", size = 8.dp, tint = ProfileTextSecondary)
+            EgVectorEmojiIcon("lock", size = 11.dp, tint = ProfileTextSecondary)
         }
     }
 }
@@ -548,7 +547,7 @@ private fun BadgeRequirementDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { EgVectorEmojiIcon(badge.icon, size = 30.dp, tint = ProfileBlue) },
+        icon = { EgVectorEmojiIcon(badge.icon, size = 38.dp) },
         title = {
             Text(
                 badge.title,
@@ -636,7 +635,7 @@ private fun InfoTile(icon: String, label: String, value: String, modifier: Modif
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                EgVectorEmojiIcon(icon, size = 13.dp, tint = ProfileBlue)
+                EgVectorEmojiIcon(icon, size = 17.dp)
                 Text(
                     text = label,
                     color = ProfileBlue,
@@ -666,7 +665,7 @@ private fun ProfileStatsSection(stats: List<ProfileStat>) {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                EgVectorEmojiIcon("report", size = 18.dp, tint = ProfileBlue)
+                EgVectorEmojiIcon("report", size = 24.dp)
                 Text(
                     text = "Thống kê chơi game",
                     color = ProfileTextPrimary,
@@ -704,7 +703,7 @@ private fun StatTile(stat: ProfileStat, modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.Center
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                EgVectorEmojiIcon(stat.icon, size = 18.dp, tint = ProfileBlue)
+                EgVectorEmojiIcon(stat.icon, size = 24.dp)
                 Text(
                     text = stat.value,
                     color = Color(0xFF0B66C3),
