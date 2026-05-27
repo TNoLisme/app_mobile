@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -38,7 +40,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,9 +53,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.ContentScale
@@ -64,7 +62,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -72,7 +69,6 @@ import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.ui.state.AppSettingsState
 import com.example.appmobile.ui.state.UserAvatarState
 import com.google.firebase.auth.FirebaseAuth
-import kotlin.math.roundToInt
 
 enum class EgTab(val title: String) {
     Home("Trang chủ"),
@@ -134,10 +130,10 @@ fun EgCollapsibleMainScaffold(
     val scrollState = rememberScrollState()
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    var navHeightPx by remember(density) { mutableIntStateOf(with(density) { 128.dp.roundToPx() }) }
-    var navOffsetPx by remember { mutableFloatStateOf(0f) }
+    var navHeightPx by remember(density) { mutableIntStateOf(with(density) { 78.dp.roundToPx() }) }
     var horizontalDragPx by remember { mutableFloatStateOf(0f) }
     val navHeightDp = with(density) { navHeightPx.toDp() }
+    val topActionReserveDp = with(density) { WindowInsets.statusBars.getTop(this).toDp() } + 76.dp
     val horizontalPaddingPx = with(density) { (EgDesign.screenPadding * 2).toPx() }
     val tabsTrackWidthPx = with(density) {
         (configuration.screenWidthDp.dp.toPx() - horizontalPaddingPx)
@@ -150,39 +146,6 @@ fun EgCollapsibleMainScaffold(
         horizontalDragPx = horizontalDragPx,
         tabSlotWidthPx = tabSlotWidthPx
     )
-    val navProgress = if (navHeightPx == 0) {
-        1f
-    } else {
-        (1f + navOffsetPx / navHeightPx.toFloat()).coerceIn(0f, 1f)
-    }
-
-    val nestedScrollConnection = remember(navHeightPx) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (scrollState.maxValue <= 0) {
-                    navOffsetPx = 0f
-                    return Offset.Zero
-                }
-                if (navHeightPx <= 0) return Offset.Zero
-                val nextOffset = (navOffsetPx + available.y)
-                    .coerceIn(-navHeightPx.toFloat(), 0f)
-                navOffsetPx = nextOffset
-                return Offset.Zero
-            }
-        }
-    }
-
-    LaunchedEffect(activeTab) {
-        navOffsetPx = 0f
-    }
-
-    LaunchedEffect(scrollState) {
-        snapshotFlow { scrollState.value to scrollState.maxValue }.collect { (currentScroll, maxScroll) ->
-            if (maxScroll <= 0 || currentScroll <= 0) {
-                navOffsetPx = 0f
-            }
-        }
-    }
 
     Box(
         modifier = modifier
@@ -202,11 +165,9 @@ fun EgCollapsibleMainScaffold(
                         val dragRatio = horizontalDragPx / tabSlotWidthPx
                         when {
                             dragRatio >= swipeCommitRatio -> {
-                                navOffsetPx = 0f
                                 handleMainSwipe(activeTab, fingerMovesRight = true, onHome, onLearn, onGames)
                             }
                             dragRatio <= -swipeCommitRatio -> {
-                                navOffsetPx = 0f
                                 handleMainSwipe(activeTab, fingerMovesRight = false, onHome, onLearn, onGames)
                             }
                         }
@@ -219,38 +180,46 @@ fun EgCollapsibleMainScaffold(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(nestedScrollConnection)
                 .verticalScroll(scrollState)
                 .padding(horizontal = EgDesign.screenPadding)
-                .padding(top = navHeightDp + 10.dp),
+                .padding(top = topActionReserveDp),
             verticalArrangement = Arrangement.spacedBy(verticalSpacing),
             horizontalAlignment = horizontalAlignment
         ) {
             content()
             Spacer(
                 modifier = Modifier
-                    .height(96.dp)
+                    .height(navHeightDp + 18.dp)
                     .navigationBarsPadding()
             )
         }
 
-        EgMainTopNavSurface(
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = EgDesign.screenPadding, vertical = 8.dp)
+        ) {
+            EgTopActions(
+                onProfile = onProfile,
+                onSettings = onSettings,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        EgMainBottomNavSurface(
             activeTab = activeTab,
             onHome = onHome,
             onLearn = onLearn,
             onGames = onGames,
-            onProfile = onProfile,
-            onSettings = onSettings,
-            progress = navProgress,
             indicatorPosition = tabIndicatorPosition,
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset { IntOffset(0, navOffsetPx.roundToInt()) }
+                .align(Alignment.BottomCenter)
                 .onGloballyPositioned { coordinates ->
                     val measuredHeight = coordinates.size.height
                     if (measuredHeight > 0 && measuredHeight != navHeightPx) {
                         navHeightPx = measuredHeight
-                        navOffsetPx = navOffsetPx.coerceIn(-measuredHeight.toFloat(), 0f)
                     }
                 }
         )
@@ -321,6 +290,39 @@ private fun EgMainTopNavSurface(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             EgTopActions(onProfile = onProfile, onSettings = onSettings)
+            EgSegmentedTabs(
+                activeTab = activeTab,
+                onHome = onHome,
+                onLearn = onLearn,
+                onGames = onGames,
+                indicatorPosition = indicatorPosition
+            )
+        }
+    }
+}
+
+@Composable
+private fun EgMainBottomNavSurface(
+    activeTab: EgTab,
+    onHome: () -> Unit,
+    onLearn: () -> Unit,
+    onGames: () -> Unit,
+    indicatorPosition: Float,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        color = EgDesign.card,
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
+        shadowElevation = 5.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .navigationBarsPadding()
+                .padding(horizontal = EgDesign.screenPadding, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             EgSegmentedTabs(
                 activeTab = activeTab,
                 onHome = onHome,

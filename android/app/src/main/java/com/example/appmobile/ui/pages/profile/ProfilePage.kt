@@ -57,7 +57,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -276,7 +275,7 @@ fun ProfilePage(onBack: () -> Unit) {
     }
 
     if (showEdit) {
-        EditPersonalProfileDialog(
+        EditProfileDialogV2(
             profile = profile,
             saving = saving,
             onDismiss = { if (!saving) showEdit = false },
@@ -583,11 +582,19 @@ private fun ProfilePersonalInfoGrid(profile: UserProfileDto?) {
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoTile("👤", "Tên đăng nhập", fallback(profile?.username), Modifier.weight(1f))
+            InfoTile("✉️", "Email", fallback(profile?.email), Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             InfoTile("👶", "Tên hiển thị", personalFallback(profile?.name), Modifier.weight(1f))
             InfoTile("🎂", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             InfoTile("📅", "Ngày sinh", formatPersonalDate(profile?.child?.dob), Modifier.weight(1f))
+            InfoTile("⚧", "Giới tính", formatGender(profile?.child?.gender), Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoTile("☎️", "Số điện thoại", fallback(profile?.child?.phone), Modifier.weight(1f))
             InfoTile("🗓️", "Ngày tham gia", formatPersonalDate(profile?.createdAt), Modifier.weight(1f))
         }
     }
@@ -963,8 +970,6 @@ private fun EditProfileDialogV2(
     var name by rememberSaveable(profile?.userId) { mutableStateOf(profile?.name.orEmpty()) }
     var username by rememberSaveable(profile?.userId) { mutableStateOf(profile?.username.orEmpty()) }
     var email by rememberSaveable(profile?.userId) { mutableStateOf(profile?.email.orEmpty()) }
-    var newPassword by rememberSaveable(profile?.userId) { mutableStateOf("") }
-    var confirmPassword by rememberSaveable(profile?.userId) { mutableStateOf("") }
     var age by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.age?.toString().orEmpty()) }
     var gender by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.gender.orEmpty()) }
     var dateOfBirth by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.dob.orEmpty()) }
@@ -982,8 +987,8 @@ private fun EditProfileDialogV2(
                 "Tuổi phải là số hợp lệ từ 1 đến 120."
             trimmedPhone.isNotEmpty() && !trimmedPhone.matches(Regex("^\\d{8,15}$")) ->
                 "Số điện thoại chỉ gồm số và dài 8-15 ký tự."
-            newPassword.isNotBlank() && newPassword != confirmPassword ->
-                "Mật khẩu mới và nhập lại mật khẩu mới không trùng nhau."
+            dateOfBirth.trim().isNotEmpty() && !isValidBackendDate(dateOfBirth.trim()) ->
+                "Ngày sinh phải đúng định dạng yyyy-MM-dd và là ngày hợp lệ."
             else -> null
         }
         return formError == null
@@ -996,20 +1001,21 @@ private fun EditProfileDialogV2(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .padding(horizontal = 14.dp, vertical = 18.dp)
                 .imePadding()
                 .navigationBarsPadding(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.TopCenter
         ) {
             val twoColumns = maxWidth >= 620.dp
 
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.94f)
+                    .fillMaxHeight(0.88f)
                     .widthIn(max = 720.dp),
                 shape = RoundedCornerShape(24.dp),
-                color = Color.White,
+                color = EgDesign.card,
                 border = BorderStroke(1.dp, ProfileCardBorder),
                 shadowElevation = 8.dp
             ) {
@@ -1029,33 +1035,9 @@ private fun EditProfileDialogV2(
                                 first = { ProfileTextField(username, { username = it }, "Tên đăng nhập", "Nhập tên đăng nhập") },
                                 second = { ProfileTextField(email, { email = it }, "Email", "email@example.com", keyboardType = KeyboardType.Email) }
                             )
-                            TwoColumnFields(
-                                first = {
-                                    ProfileTextField(
-                                        newPassword,
-                                        { newPassword = it },
-                                        "Mật khẩu mới",
-                                        "Để trống nếu không đổi",
-                                        keyboardType = KeyboardType.Password,
-                                        visualTransformation = PasswordVisualTransformation()
-                                    )
-                                },
-                                second = {
-                                    ProfileTextField(
-                                        confirmPassword,
-                                        { confirmPassword = it },
-                                        "Nhập lại mật khẩu mới",
-                                        "Để trống nếu không đổi",
-                                        keyboardType = KeyboardType.Password,
-                                        visualTransformation = PasswordVisualTransformation()
-                                    )
-                                }
-                            )
                         } else {
                             ProfileTextField(username, { username = it }, "Tên đăng nhập", "Nhập tên đăng nhập")
                             ProfileTextField(email, { email = it }, "Email", "email@example.com", keyboardType = KeyboardType.Email)
-                            ProfileTextField(newPassword, { newPassword = it }, "Mật khẩu mới", "Để trống nếu không đổi", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
-                            ProfileTextField(confirmPassword, { confirmPassword = it }, "Nhập lại mật khẩu mới", "Để trống nếu không đổi", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
                         }
                     }
 
@@ -1085,8 +1067,6 @@ private fun EditProfileDialogV2(
                             text = if (saving) "Đang lưu..." else "💾 Lưu thay đổi",
                             onClick = {
                                 if (!saving && validate()) {
-                                    // TODO: Backend DTO hiện chưa có field password. Khi có API/Firebase update password,
-                                    // chỉ gửi newPassword nếu người dùng nhập mật khẩu mới.
                                     onSave(
                                         UserProfileUpdateDto(
                                             name = name.trim().ifBlank { null },
@@ -1411,6 +1391,16 @@ private fun badgeUnlockCondition(badge: ProfileBadge): String {
 
 private fun fallback(value: String?): String {
     return value?.takeIf { it.isNotBlank() } ?: "Chưa có"
+}
+
+private fun formatGender(value: String?): String {
+    return when (value?.trim()?.lowercase(Locale.US)) {
+        "male", "nam" -> "Nam"
+        "female", "nữ", "nu" -> "Nữ"
+        "other", "khác", "khac" -> "Khác"
+        null, "" -> "Chưa có"
+        else -> value.trim()
+    }
 }
 
 private fun formatDate(value: String?): String {
