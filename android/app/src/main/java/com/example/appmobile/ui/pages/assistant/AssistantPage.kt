@@ -70,7 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
-import com.example.appmobile.data.remote.dto.AssistantChatHistoryDto
+import com.example.appmobile.data.garden.GardenRepository
 import com.example.appmobile.data.repository.AssistantRepository
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
@@ -83,7 +83,8 @@ import kotlinx.coroutines.launch
 
 private data class AssistantMessage(
     val role: MessageRole,
-    val text: String
+    val text: String,
+    val actions: List<ChatAction> = emptyList()
 )
 
 private enum class MessageRole {
@@ -101,20 +102,33 @@ fun AssistantPage(
     onBack: () -> Unit,
     gameId: String = "home",
     level: Int? = null,
-    screenContext: String? = null
+    screenContext: String? = null,
+    onChatAction: (ChatAction) -> Unit = {}
 ) {
     val context = LocalContext.current
     val repository = remember { AssistantRepository(NetworkClient.apiService) }
+    val gardenRepository = remember(context) { GardenRepository(context) }
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val gson = remember { Gson() }
+    val contextId = remember(gameId, screenContext) {
+        screenContext?.takeIf { it.isNotBlank() } ?: gameId
+    }
+    val gardenSummary = remember(contextId) { gardenRepository.getHomeSummary() }
+    val chatContext = remember(contextId, level, gardenSummary) {
+        AssistantKnowledge.contextFor(
+            contextId = contextId,
+            level = level,
+            gardenSummary = gardenSummary
+        )
+    }
     val childId = remember(context) {
         AppSession.getBackendUserId(context)
             ?: FirebaseAuth.getInstance().currentUser?.uid
             ?: "local-player"
     }
-    val historyKey = remember(childId, gameId, level) {
-        "assistant_history_${childId}_${gameId}_${level ?: 0}"
+    val historyKey = remember(childId, contextId, level) {
+        "assistant_history_${childId}_${contextId}_${level ?: 0}"
     }
     val preferences = remember(context) {
         context.getSharedPreferences("assistant_chat", Context.MODE_PRIVATE)
@@ -126,7 +140,7 @@ fun AssistantPage(
                 add(
                     AssistantMessage(
                         role = MessageRole.Assistant,
-                        text = welcomeMessage(gameId, level)
+                        text = AssistantKnowledge.welcome(chatContext)
                     )
                 )
             }
@@ -155,29 +169,33 @@ fun AssistantPage(
         input = ""
         messages.add(AssistantMessage(MessageRole.User, text))
         persistMessages()
-        val requestHistory = messages
-            .takeLast(10)
-            .map {
-                AssistantChatHistoryDto(
-                    role = if (it.role == MessageRole.User) "user" else "assistant",
-                    text = it.text
-                )
-            }
-
         scope.launch {
             sending = true
-            repository.uploadLog(childId = childId, sender = "child", content = text)
-            val reply = repository.chat(
-                gameId = gameId,
-                level = level,
-                screenContext = screenContext,
-                message = text,
-                childId = childId,
-                history = requestHistory
-            )
-            messages.add(AssistantMessage(MessageRole.Assistant, reply))
-            persistMessages()
-            repository.uploadLog(childId = childId, sender = "bot", content = reply)
+            runCatching {
+                repository.uploadLog(childId = childId, sender = "child", content = text)
+            }
+            runCatching {
+                val reply = AssistantKnowledge.reply(text, chatContext)
+                messages.add(
+                    AssistantMessage(
+                        role = MessageRole.Assistant,
+                        text = reply.text,
+                        actions = reply.actions
+                    )
+                )
+                persistMessages()
+                runCatching {
+                    repository.uploadLog(childId = childId, sender = "bot", content = reply.text)
+                }
+            }.onFailure {
+                messages.add(
+                    AssistantMessage(
+                        role = MessageRole.Assistant,
+                        text = "Mình đang gặp trục trặc nhỏ. Con có thể hỏi lại về học cảm xúc, báo cáo, Photobooth hoặc Vườn cảm xúc nhé."
+                    )
+                )
+                persistMessages()
+            }
             sending = false
         }
     }
@@ -194,7 +212,7 @@ fun AssistantPage(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "vi-VN")
             putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, "vi-VN")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Nói câu hỏi cho Mầm Mầm")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Nói câu hỏi cho trợ lý EmoGarden")
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
     }
@@ -344,10 +362,10 @@ fun AssistantPage(
     ) {
         AssistantHeader(onBack = onBack, onClear = { showClearConfirm = true })
 
-        AssistantIntroCard(gameId = gameId, level = level)
+        AssistantIntroCard(chatContext = chatContext)
 
         SuggestionRow(
-            gameId = gameId,
+            suggestions = AssistantKnowledge.quickSuggestions(chatContext),
             enabled = !sending,
             onSuggestionClick = { suggestion -> sendMessage(suggestion) }
         )
@@ -360,7 +378,7 @@ fun AssistantPage(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(messages) { message ->
-                AssistantBubble(message)
+                AssistantBubble(message = message, onActionClick = onChatAction)
             }
             if (sending) {
                 item { AssistantTypingBubble() }
@@ -383,7 +401,7 @@ fun AssistantPage(
             onConfirm = {
                 showClearConfirm = false
                 messages.clear()
-                messages.add(AssistantMessage(MessageRole.Assistant, welcomeMessage(gameId, level)))
+                messages.add(AssistantMessage(MessageRole.Assistant, AssistantKnowledge.welcome(chatContext)))
                 persistMessages()
             }
         )
@@ -396,7 +414,7 @@ private fun AssistantHeader(onBack: () -> Unit, onClear: () -> Unit) {
         AppBackButton(onClick = onBack, text = "← Quay lại")
         Spacer(modifier = Modifier.weight(1f))
         Text(
-            "Mầm Mầm",
+            "Trợ lý EmoGarden",
             color = EgDesign.textPrimary,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 22.sp
@@ -450,7 +468,7 @@ private fun ClearChatConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit)
 }
 
 @Composable
-private fun AssistantIntroCard(gameId: String, level: Int?) {
+private fun AssistantIntroCard(chatContext: AppChatContext) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -485,19 +503,19 @@ private fun AssistantIntroCard(gameId: String, level: Int?) {
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    "Mầm Mầm - bạn nhỏ trong vườn cảm xúc",
+                    "Trợ lý EmoGarden",
                     color = EgDesign.textPrimary,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 17.sp
                 )
                 Text(
-                    "Mình sẽ cùng bé luyện cảm xúc từng bước.",
+                    "Mình đang theo ngữ cảnh màn ${chatContext.currentScreenName}.",
                     color = EgDesign.blue,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    assistantContextText(gameId, level),
+                    AssistantKnowledge.contextText(chatContext),
                     color = EgDesign.textSecondary,
                     fontSize = 13.sp,
                     lineHeight = 18.sp
@@ -509,11 +527,10 @@ private fun AssistantIntroCard(gameId: String, level: Int?) {
 
 @Composable
 private fun SuggestionRow(
-    gameId: String,
+    suggestions: List<String>,
     enabled: Boolean,
     onSuggestionClick: (String) -> Unit
 ) {
-    val suggestions = quickSuggestions(gameId)
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -544,7 +561,10 @@ private fun SuggestionRow(
 }
 
 @Composable
-private fun AssistantBubble(message: AssistantMessage) {
+private fun AssistantBubble(
+    message: AssistantMessage,
+    onActionClick: (ChatAction) -> Unit
+) {
     val isUser = message.role == MessageRole.User
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -567,13 +587,53 @@ private fun AssistantBubble(message: AssistantMessage) {
             border = if (isUser) null else BorderStroke(1.dp, EgDesign.cardBorder),
             shadowElevation = 1.dp
         ) {
-            Text(
-                text = message.text,
+            Column(
                 modifier = Modifier.padding(14.dp),
-                color = if (isUser) Color.White else EgDesign.textPrimary,
-                fontSize = 14.sp,
-                lineHeight = 20.sp
-            )
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = message.text,
+                    color = if (isUser) Color.White else EgDesign.textPrimary,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+                if (!isUser && message.actions.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        message.actions.chunked(2).forEach { rowActions ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                rowActions.forEach { action ->
+                                    Surface(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(34.dp)
+                                            .clickable { onActionClick(action) },
+                                        shape = RoundedCornerShape(EgDesign.pillRadius),
+                                        color = EgDesign.cardSoft,
+                                        border = BorderStroke(1.dp, EgDesign.cardBorder)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.padding(horizontal = 8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = action.label,
+                                                color = EgDesign.blue,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                                if (rowActions.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -646,7 +706,7 @@ private fun AssistantInputRow(
             modifier = Modifier.weight(1f),
             placeholder = {
                 Text(
-                    "Hỏi Mầm Mầm về cảm xúc hoặc cách chơi...",
+                    "Hỏi trợ lý về cảm xúc hoặc cách chơi...",
                     color = EgDesign.textSecondary
                 )
             },
@@ -740,40 +800,3 @@ private fun saveStoredMessages(
     preferences.edit().putString(key, gson.toJson(stored)).apply()
 }
 
-private fun welcomeMessage(gameId: String, level: Int?): String {
-    val context = when (gameId) {
-        "gameCV" -> "màn Câu chuyện khuôn mặt"
-        "game_cv_2" -> "màn Thử thách cảm xúc"
-        "learn" -> "màn Học"
-        "select_game" -> "màn Chơi game"
-        "level_select" -> "màn Chọn cấp độ"
-        else -> "màn hiện tại"
-    }
-    val suffix = if (level != null) " ở cấp độ $level" else ""
-    return "Chào bé! Mình là Mầm Mầm, bạn nhỏ trong vườn cảm xúc. Con có thể hỏi mình cách chơi, nhờ gợi ý biểu cảm hoặc cùng mình tìm hiểu $context$suffix."
-}
-
-private fun assistantContextText(gameId: String, level: Int?): String {
-    val levelText = if (level != null) " Cấp độ $level." else ""
-    return when (gameId) {
-        "home" -> "Hỏi Mầm Mầm nên học cảm xúc nào hoặc nên chơi game gì hôm nay."
-        "learn" -> "Mình có thể giải thích dấu hiệu nhận biết từng cảm xúc."
-        "select_game" -> "Mình có thể gợi ý game phù hợp với bé."
-        "level_select" -> "Mình có thể giải thích cách chọn cấp độ.$levelText"
-        "gameCV" -> "Mình có thể nhắc cách đoán tình huống và đứng trước camera.$levelText"
-        "game_cv_2" -> "Mình có thể gợi ý cách thể hiện cảm xúc qua khuôn mặt.$levelText"
-        "recognize_emotion" -> "Mình có thể nhắc cách chọn cảm xúc đúng.$levelText"
-        else -> "Mình sẽ trả lời theo màn bé đang mở.$levelText"
-    }
-}
-
-private fun quickSuggestions(gameId: String): List<String> {
-    return when (gameId) {
-        "learn" -> listOf("Hôm nay nên học gì?", "Giải thích cảm xúc", "Con đang buồn", "Dành cho phụ huynh")
-        "select_game" -> listOf("Gợi ý trò chơi", "Cách chơi game", "Hôm nay nên học gì?", "Dành cho phụ huynh")
-        "level_select" -> listOf("Cách chơi game", "Gợi ý trò chơi", "Hôm nay nên học gì?", "Dành cho phụ huynh")
-        "gameCV" -> listOf("Cách chơi game", "Giải thích cảm xúc", "Camera không bật", "Con đang buồn")
-        "game_cv_2" -> listOf("Cách chơi game", "Gợi ý trò chơi", "Camera không bật", "Con đang buồn")
-        else -> listOf("Hôm nay nên học gì?", "Gợi ý trò chơi", "Cách chơi game", "Giải thích cảm xúc", "Con đang buồn", "Dành cho phụ huynh")
-    }
-}

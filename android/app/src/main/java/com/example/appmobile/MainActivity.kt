@@ -37,6 +37,8 @@ import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.DraggableAssistantBubble
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.LegalConsentDialog
+import com.example.appmobile.ui.pages.assistant.ChatAction
+import com.example.appmobile.ui.pages.assistant.ChatActionType
 import com.example.appmobile.ui.pages.assistant.AssistantPage
 import com.example.appmobile.ui.pages.auth.LoginPage
 import com.example.appmobile.ui.pages.auth.RegisterPage
@@ -175,6 +177,32 @@ fun AppNavigation(modifier: Modifier = Modifier) {
 
     fun goParentEmailSettings() {
         navController.navigate("settings_parent_email") { launchSingleTop = true }
+    }
+
+    fun handleAssistantAction(action: ChatAction) {
+        when (action.type) {
+            ChatActionType.OPEN_LEARNING -> goLearn()
+            ChatActionType.OPEN_GAME -> goGames()
+            ChatActionType.OPEN_REPORT,
+            ChatActionType.ASK_CONFIRM_SEND_REPORT -> navController.navigate("report") { launchSingleTop = true }
+            ChatActionType.OPEN_GARDEN -> navController.navigate("garden") { launchSingleTop = true }
+            ChatActionType.OPEN_PHOTOBOOTH,
+            ChatActionType.ASK_CONFIRM_SAVE_PHOTO -> navController.navigate("photobooth") { launchSingleTop = true }
+            ChatActionType.OPEN_SETTINGS,
+            ChatActionType.OPEN_PRIVACY_SETTINGS -> goSettings()
+            ChatActionType.OPEN_PARENT_AREA,
+            ChatActionType.OPEN_PARENT_EMAIL_SETTINGS -> goParentEmailSettings()
+            ChatActionType.OPEN_EMOTION_LESSON -> {
+                val emotionId = action.target?.takeIf { it.isNotBlank() } ?: "happy"
+                navController.navigate("learn_detail/$emotionId") { launchSingleTop = true }
+            }
+            ChatActionType.START_EMOTION_CHALLENGE -> {
+                val emotionId = action.target?.takeIf { it.isNotBlank() } ?: "happy"
+                navController.navigate("game/${GameUiCatalog.GAME_CV_REQUEST}/1?emotion=$emotionId") {
+                    launchSingleTop = true
+                }
+            }
+        }
     }
 
     fun goLogin() {
@@ -340,7 +368,12 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 }
             )
         }
-        composable("assistant") { AssistantPage(onBack = { navController.popBackStack() }) }
+        composable("assistant") {
+            AssistantPage(
+                onBack = { navController.popBackStack() },
+                onChatAction = ::handleAssistantAction
+            )
+        }
         composable(
             route = "assistant/{gameId}?level={level}",
             arguments = listOf(
@@ -356,7 +389,8 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             AssistantPage(
                 gameId = assistantGameId,
                 level = assistantLevel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onChatAction = ::handleAssistantAction
             )
         }
         composable("profile") {
@@ -385,7 +419,16 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         val loggedInForAssistant = !activeUserId.isNullOrBlank()
         if (assistantBubbleEnabled && shouldShowAssistantBubble(currentRoute, loggedInForAssistant)) {
             DraggableAssistantBubble(
-                onClick = { navController.navigate(assistantRoute(assistantContext(currentRoute))) },
+                onClick = {
+                    navController.navigate(
+                        assistantRoute(
+                            assistantContext(
+                                route = currentRoute,
+                                args = currentBackStackEntry?.arguments
+                            )
+                        )
+                    )
+                },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -397,22 +440,41 @@ private fun shouldShowAssistantBubble(route: String?, loggedIn: Boolean): Boolea
     if (route == null) return false
     return route != "login" &&
         route != "register" &&
-        route != "report" &&
-        route != "photobooth" &&
-        route != "garden" &&
-        route != "settings_parent_email" &&
-        !route.startsWith("assistant") &&
-        !route.startsWith("game/") &&
-        !route.startsWith("level_select")
+        !route.startsWith("assistant")
 }
 
-private fun assistantContext(route: String?): String {
+private fun assistantContext(route: String?, args: Bundle?): String {
     return when {
         route == null -> "home"
+        route.startsWith("learn_detail") -> {
+            val emotionId = args?.getString("emotionId").orEmpty()
+            if (emotionId.isBlank()) "learn" else "learn_$emotionId"
+        }
         route.startsWith("learn") -> "learn"
         route.startsWith("select_game") -> "select_game"
         route.startsWith("level_select") -> "level_select"
-        route.startsWith("game/") -> "game"
+        route.startsWith("game/") -> {
+            val gameId = args?.getString("gameId").orEmpty()
+            val emotion = args?.getString("emotion").orEmpty()
+            when (gameId) {
+                GameUiCatalog.GAME_CV_STORY,
+                "1b450620-ee43-4f60-bad6-1e214642999e" -> "gameCV"
+                GameUiCatalog.GAME_CV_REQUEST,
+                "3cf6130e-73f3-4146-8d73-d2709b4cf44e" -> {
+                    if (emotion.isBlank()) "game_cv_2" else "game_cv_2_$emotion"
+                }
+                GameUiCatalog.GAME_RECOGNIZE_EMOTION,
+                "6695afe0-6414-40a3-b688-b08a98cd2b61" -> "emotions_box"
+                GameUiCatalog.GAME_FACE_ASSEMBLY,
+                "eea09e6c-8c2f-4df1-a361-f5edc89d8281" -> "face_assembly"
+                GameUiCatalog.GAME_EMOTION_MATCH,
+                "afa91963-f75a-4d92-bcf4-72e4e53c84d2" -> "emotion_match"
+                GameUiCatalog.GAME_DETECTIVE,
+                "17c0cc09-cec9-48dc-bf06-e574cf8bf303" -> "detective_game"
+                else -> "game"
+            }
+        }
+        route == "settings_parent_email" -> "parent_area"
         else -> route.substringBefore("/")
     }
 }
