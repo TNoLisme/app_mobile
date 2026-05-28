@@ -96,7 +96,12 @@ private val faceEmotions = listOf(
 )
 
 @Composable
-fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
+fun FaceAssemblyPage(
+    level: Int = 1,
+    onBack: () -> Unit,
+    onOpenAssistant: () -> Unit = {},
+    onGameCompleted: (Int) -> Unit = {}
+) {
     val selectedEyebrow = remember(level) { mutableIntStateOf(-1) }
     val selectedEyes    = remember(level) { mutableIntStateOf(-1) }
     val selectedMouth   = remember(level) { mutableIntStateOf(-1) }
@@ -154,7 +159,10 @@ fun FaceAssemblyPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
                 }
             } catch (_: Exception) {
                 summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
-            } finally { isSubmitting.value = false }
+            } finally {
+                onGameCompleted(summaryData.value?.score ?: score.intValue)
+                isSubmitting.value = false
+            }
         }
     }
 

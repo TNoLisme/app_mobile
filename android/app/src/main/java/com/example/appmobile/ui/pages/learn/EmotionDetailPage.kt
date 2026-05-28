@@ -42,6 +42,7 @@ import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.pages.game.emotionLearningInfo
+import kotlinx.coroutines.delay
 
 @Composable
 fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
@@ -55,7 +56,6 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
     val imageResourceId = rememberEmotionImageResource(emotionId)
 
     LaunchedEffect(emotionId) {
-        gardenRepository.onLearningEvent(LearningEvent.EmotionLessonCompleted(emotionId))
         val backendEmotion = runCatching {
             repository.getEmotionConcepts()
                 .firstOrNull { it.id == emotionId }
@@ -73,6 +73,11 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
                 description = backendEmotion.description.ifBlank { localEmotion.description }
             ) ?: backendEmotion
         }
+    }
+
+    LaunchedEffect(emotionId) {
+        delay(1500)
+        gardenRepository.onLearningEvent(LearningEvent.EmotionLessonCompleted(emotionId))
     }
 
     val learningInfo = emotionLearningInfo(emotionId)

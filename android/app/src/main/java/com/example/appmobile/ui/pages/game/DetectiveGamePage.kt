@@ -64,7 +64,12 @@ private data class DetectiveQuestionUi(
 )
 
 @Composable
-fun DetectiveGamePage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
+fun DetectiveGamePage(
+    level: Int = 1,
+    onBack: () -> Unit,
+    onOpenAssistant: () -> Unit = {},
+    onGameCompleted: (Int) -> Unit = {}
+) {
     val currentIndex = remember(level) { mutableIntStateOf(0) }
     val score = remember(level) { mutableIntStateOf(0) }
     val selectedEmotionId = remember(level) { mutableStateOf<String?>(null) }
@@ -139,6 +144,7 @@ fun DetectiveGamePage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () ->
                 )
                 summary.value = "Hoàn thành."
             } finally {
+                onGameCompleted(summaryData.value?.score ?: score.intValue)
                 isSubmitting.value = false
             }
         }

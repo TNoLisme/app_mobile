@@ -157,7 +157,7 @@ class GardenRepository(private val context: Context) {
         val snapshot = loadSnapshot().ensureCurrentTasks()
         val updated = when (event) {
             is LearningEvent.EmotionLessonCompleted -> recordEmotionLesson(snapshot, event.emotionId)
-            is LearningEvent.GameCompleted -> recordGameCompleted(snapshot, event.emotionId)
+            is LearningEvent.GameCompleted -> recordGameCompleted(snapshot, event.gameId, event.emotionId)
             is LearningEvent.CameraChallengeCompleted -> {
                 if (event.success) recordCameraChallenge(snapshot, event.emotionId) else snapshot
             }
@@ -169,22 +169,23 @@ class GardenRepository(private val context: Context) {
 
     private fun recordEmotionLesson(snapshot: GardenSnapshot, emotionId: String): GardenSnapshot {
         val emotion = normalizeEmotionId(emotionId)
-        val eventKey = "learn:${todayKey()}:$emotion"
+        val eventKey = "lesson_completed:v2:${todayKey()}:$emotion"
         if (eventKey in snapshot.eventKeys) return snapshot
         return snapshot
             .addEventKey(eventKey)
             .addGrowth(emotion, 2)
-            .advanceTask(GardenTaskType.LEARN_EMOTION, GardenTaskPeriod.DAILY, progressKey = "learn")
-            .advanceTask(GardenTaskType.LEARN_EMOTION, GardenTaskPeriod.WEEKLY, progressKey = emotion)
+            .advanceTask(GardenTaskType.LEARN_EMOTION, GardenTaskPeriod.DAILY, progressKey = eventKey)
+            .advanceTask(GardenTaskType.LEARN_EMOTION, GardenTaskPeriod.WEEKLY, progressKey = "lesson_completed:v2:${weekKey()}:$emotion")
     }
 
-    private fun recordGameCompleted(snapshot: GardenSnapshot, emotionId: String?): GardenSnapshot {
+    private fun recordGameCompleted(snapshot: GardenSnapshot, gameId: String, emotionId: String?): GardenSnapshot {
         val emotion = emotionId?.let(::normalizeEmotionId)
-        val eventKey = "game:${todayKey()}:${emotion ?: "general"}"
+        val safeGameId = gameId.ifBlank { "game" }
+        val eventKey = "game_completed:v2:${todayKey()}:$safeGameId:${System.currentTimeMillis()}"
         if (eventKey in snapshot.eventKeys) return snapshot
         var next = snapshot
             .addEventKey(eventKey)
-            .advanceTask(GardenTaskType.PLAY_GAME, GardenTaskPeriod.DAILY, progressKey = "play")
+            .advanceTask(GardenTaskType.PLAY_GAME, GardenTaskPeriod.DAILY, progressKey = eventKey)
             .advanceTask(GardenTaskType.PLAY_GAME, GardenTaskPeriod.WEEKLY, progressKey = eventKey)
         if (emotion != null) next = next.addGrowth(emotion, 2)
         return next
@@ -198,6 +199,8 @@ class GardenRepository(private val context: Context) {
             .addEventKey(eventKey)
             .addGrowth(emotion, 3)
             .advanceTask(GardenTaskType.COMPLETE_CAMERA_CHALLENGE, GardenTaskPeriod.DAILY, progressKey = "camera")
+            .advanceTask(GardenTaskType.PLAY_GAME, GardenTaskPeriod.DAILY, progressKey = "game_completed:v2:$eventKey")
+            .advanceTask(GardenTaskType.PLAY_GAME, GardenTaskPeriod.WEEKLY, progressKey = "game_completed:v2:$eventKey")
     }
 
     private fun recordPhotoBooth(snapshot: GardenSnapshot, emotionIds: List<String>): GardenSnapshot {
@@ -252,11 +255,28 @@ class GardenRepository(private val context: Context) {
         }
         val byId = activeTasks.associateBy { it.id }
         val generated = dailyTasks(today) + weeklyTasks(today, week)
-        val merged = generated.map { task -> byId[task.id] ?: task }
+        val merged = generated.map { task ->
+            (byId[task.id] ?: task).resetLegacyAutoCompletedTask()
+        }
         return copy(
             plants = EmotionIds.map { emotion -> plants.firstOrNull { it.emotionId == emotion } ?: initialPlant(emotion) },
             tasks = merged,
             eventKeys = eventKeys.filterNot { it.isBlank() }.toSet()
+        )
+    }
+
+    private fun GardenTask.resetLegacyAutoCompletedTask(): GardenTask {
+        if (status == GardenTaskStatus.NOT_STARTED) return this
+        val usesOldCompletionKey = when (type) {
+            GardenTaskType.LEARN_EMOTION -> progressKeys.isEmpty() || progressKeys.any { !it.startsWith("lesson_completed:v2:") }
+            GardenTaskType.PLAY_GAME -> progressKeys.isEmpty() || progressKeys.any { !it.startsWith("game_completed:v2:") }
+            else -> false
+        }
+        if (!usesOldCompletionKey) return this
+        return copy(
+            progress = 0,
+            status = GardenTaskStatus.NOT_STARTED,
+            progressKeys = emptyList()
         )
     }
 

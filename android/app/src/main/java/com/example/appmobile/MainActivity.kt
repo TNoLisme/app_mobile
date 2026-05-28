@@ -205,6 +205,16 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         }
     }
 
+    fun recordGardenGameCompleted(gameId: String, emotionId: String? = null, score: Int? = null) {
+        gardenRepository.onLearningEvent(
+            LearningEvent.GameCompleted(
+                gameId = gameId,
+                emotionId = emotionId,
+                score = score
+            )
+        )
+    }
+
     fun goLogin() {
         navController.navigate("login") {
             launchSingleTop = true
@@ -284,27 +294,36 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             val id = backStackEntry.arguments?.getString("gameId") ?: ""
             val level = backStackEntry.arguments?.getString("level")?.toIntOrNull() ?: 1
             val emotion = backStackEntry.arguments?.getString("emotion")?.takeIf { it.isNotBlank() }
-            LaunchedEffect(id, level, emotion) {
-                if (id.isNotBlank()) {
-                    gardenRepository.onLearningEvent(
-                        LearningEvent.GameCompleted(
-                            gameId = id,
-                            emotionId = emotion,
-                            score = null
-                        )
-                    )
-                }
-            }
             when (id.lowercase()) {
                 // Các game Nhận diện
                 GameUiCatalog.GAME_RECOGNIZE_EMOTION,
-                "6695afe0-6414-40a3-b688-b08a98cd2b61" -> EmotionsBoxPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("emotions_box", level)) })
+                "6695afe0-6414-40a3-b688-b08a98cd2b61" -> EmotionsBoxPage(
+                    level = level,
+                    onBack = { navController.popBackStack() },
+                    onOpenAssistant = { navController.navigate(assistantRoute("emotions_box", level)) },
+                    onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
+                )
                 GameUiCatalog.GAME_FACE_ASSEMBLY,
-                "eea09e6c-8c2f-4df1-a361-f5edc89d8281" -> FaceAssemblyPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("face_assembly", level)) })
+                "eea09e6c-8c2f-4df1-a361-f5edc89d8281" -> FaceAssemblyPage(
+                    level = level,
+                    onBack = { navController.popBackStack() },
+                    onOpenAssistant = { navController.navigate(assistantRoute("face_assembly", level)) },
+                    onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
+                )
                 GameUiCatalog.GAME_EMOTION_MATCH,
-                "afa91963-f75a-4d92-bcf4-72e4e53c84d2" -> EmotionMatchPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("emotion_match", level)) })
+                "afa91963-f75a-4d92-bcf4-72e4e53c84d2" -> EmotionMatchPage(
+                    level = level,
+                    onBack = { navController.popBackStack() },
+                    onOpenAssistant = { navController.navigate(assistantRoute("emotion_match", level)) },
+                    onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
+                )
                 GameUiCatalog.GAME_DETECTIVE,
-                "17c0cc09-cec9-48dc-bf06-e574cf8bf303" -> DetectiveGamePage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("detective_game", level)) })
+                "17c0cc09-cec9-48dc-bf06-e574cf8bf303" -> DetectiveGamePage(
+                    level = level,
+                    onBack = { navController.popBackStack() },
+                    onOpenAssistant = { navController.navigate(assistantRoute("detective_game", level)) },
+                    onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
+                )
                 // Các game Biểu cảm
                 GameUiCatalog.GAME_CV_STORY,
                 "1b450620-ee43-4f60-bad6-1e214642999e" -> GameCVPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("gameCV", level)) })

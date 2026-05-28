@@ -105,7 +105,12 @@ class DragDropState {
 }
 
 @Composable
-fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> Unit = {}) {
+fun EmotionMatchPage(
+    level: Int = 1,
+    onBack: () -> Unit,
+    onOpenAssistant: () -> Unit = {},
+    onGameCompleted: (Int) -> Unit = {}
+) {
     val score = remember(level) { mutableIntStateOf(0) }
     val questions = remember(level) { mutableStateOf(fallbackMatchQuestions()) }
     val sessionId = remember(level) { mutableStateOf<String?>(null) }
@@ -180,6 +185,7 @@ fun EmotionMatchPage(level: Int = 1, onBack: () -> Unit, onOpenAssistant: () -> 
             } catch (_: Exception) {
                 summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
             } finally {
+                onGameCompleted(summaryData?.score ?: score.intValue)
                 isSubmitting.value = false
             }
         }
