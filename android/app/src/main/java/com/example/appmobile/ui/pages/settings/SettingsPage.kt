@@ -68,6 +68,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
+import com.example.appmobile.data.garden.GardenRepository
 import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.UserProfileDto
@@ -99,6 +100,7 @@ fun SettingsPage(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val database = remember { AppDatabase.getDatabase(context) }
+    val gardenRepository = remember(context) { GardenRepository(context) }
     val repository = remember {
         UserRepository(NetworkClient.apiService, FirebaseAuthHelper(), database.userDao())
     }
@@ -287,6 +289,7 @@ fun SettingsPage(
             },
             onCameraPrivacy = { showCameraPrivacy = true },
             onResetPreferences = { confirmAction = ConfirmAction.ResetPreferences },
+            onResetGarden = { confirmAction = ConfirmAction.ResetGarden },
             onClearProgress = { confirmAction = ConfirmAction.ClearProgress }
         )
     }
@@ -404,6 +407,10 @@ fun SettingsPage(
                         AppSettingsState.resetLocalPreferences(context)
                         statusMessage = "Đã đặt lại tùy chọn trên máy."
                     }
+                    ConfirmAction.ResetGarden -> {
+                        gardenRepository.resetGarden()
+                        statusMessage = "Đã đặt lại Vườn cảm xúc."
+                    }
                     ConfirmAction.ClearProgress -> {
                         scope.launch {
                             val targetUserId = userId ?: "local-player"
@@ -412,6 +419,7 @@ fun SettingsPage(
                                 database.reportDao().clearProgressForChild(targetUserId)
                                 database.reportDao().clearOldReports(targetUserId)
                                 CvEmotionScoreState.clearScores(context, targetUserId)
+                                gardenRepository.resetGarden()
                             }.onSuccess {
                                 statusMessage = "Đã xóa tiến độ học trên thiết bị này."
                             }.onFailure {
@@ -706,6 +714,7 @@ private fun ParentAreaBottomSheet(
     onChangePassword: () -> Unit,
     onCameraPrivacy: () -> Unit,
     onResetPreferences: () -> Unit,
+    onResetGarden: () -> Unit,
     onClearProgress: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -764,6 +773,15 @@ private fun ParentAreaBottomSheet(
                             description = "Xem cách app dùng camera và mở cài đặt quyền khi cần.",
                             actionText = "Xem",
                             onClick = onCameraPrivacy
+                        )
+                    }
+                    ParentCompactSection(title = "Vườn cảm xúc", icon = "sparkle") {
+                        ActionSettingsRow(
+                            icon = "sparkle",
+                            title = "Đặt lại Vườn cảm xúc",
+                            description = "Đưa thực vật, giọt nước, ánh nắng và nhiệm vụ vườn về ban đầu.",
+                            actionText = "Đặt lại",
+                            onClick = onResetGarden
                         )
                     }
                     ParentCompactSection(title = "Dữ liệu học tập", icon = "save") {
@@ -1589,6 +1607,7 @@ private fun accountEditContent(target: AccountEditTarget): AccountEditContent {
 
 private enum class ConfirmAction {
     ResetPreferences,
+    ResetGarden,
     ClearProgress,
     Logout
 }
@@ -1607,6 +1626,13 @@ private fun confirmContent(action: ConfirmAction): ConfirmContent {
             icon = "refresh",
             title = "Đặt lại tùy chọn?",
             message = "Các cài đặt giao diện, trợ lý, video và âm thanh sẽ được đưa về mặc định.",
+            confirmText = "Đặt lại",
+            danger = false
+        )
+        ConfirmAction.ResetGarden -> ConfirmContent(
+            icon = "sparkle",
+            title = "Reset Vườn cảm xúc?",
+            message = "Tiến độ thực vật, tài nguyên và nhiệm vụ trong vườn sẽ được đặt lại. Bé có thể bắt đầu chăm vườn lại từ đầu.",
             confirmText = "Đặt lại",
             danger = false
         )

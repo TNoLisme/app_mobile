@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.appmobile.data.garden.GardenHomeSummary
+import com.example.appmobile.data.garden.GardenRepository
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.ReportPayloadDto
@@ -44,6 +46,7 @@ data class HomeUiState(
     val recentGames: List<HomeRecentGameUi> = emptyList(),
     val reportSummary: ReportSummary? = null,
     val reportActionText: String = "Tạo báo cáo",
+    val gardenSummary: GardenHomeSummary? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null
 )
@@ -82,6 +85,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             var weeklyPlayCount = 0
             var reportSummary: ReportSummary? = _state.value.reportSummary
             var reportActionText = _state.value.reportActionText
+            val gardenSummary = GardenRepository(context).getHomeSummary()
 
             runCatching {
                 NetworkClient.apiService.getUserProfile(userId)
@@ -237,6 +241,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     recentGames = recentGames,
                     reportSummary = finalReportSummary,
                     reportActionText = reportActionText,
+                    gardenSummary = gardenSummary,
                     isLoading = false,
                     errorMessage = if (!connected && failedRequests > 0) {
                         "Chưa tải được dữ liệu. Bé vẫn có thể học và chơi trên thiết bị này."

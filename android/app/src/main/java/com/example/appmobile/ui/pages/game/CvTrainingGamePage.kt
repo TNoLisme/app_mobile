@@ -86,6 +86,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.webkit.WebViewAssetLoader
+import com.example.appmobile.data.garden.GardenRepository
+import com.example.appmobile.data.garden.LearningEvent
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
@@ -195,6 +197,7 @@ fun CvTrainingGamePage(
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
+    val gardenRepository = remember(context) { GardenRepository(context) }
     val isStoryMode = gameId == GameUiCatalog.GAME_CV_STORY
     val roundSeconds = if (isStoryMode) CvRoundSeconds else CvRequestRoundSeconds
 
@@ -683,6 +686,7 @@ fun CvTrainingGamePage(
         Log.d(CvLogTag, "completeChallenge called success=$success confidence=$confidence sessionId=${challengeSessionId.value}")
         val question = questions.value[currentIndex.intValue]
         val reviewEmotion = normalizeCvEmotion(question.prompt.correctAnswer)
+        gardenRepository.onLearningEvent(LearningEvent.CameraChallengeCompleted(reviewEmotion, success))
         val targetMeta = cvEmotionMeta(reviewEmotion)
         val normalizedScore = confidence.coerceIn(0f, 100f)
         if (isStoryMode) {

@@ -52,6 +52,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.appmobile.R
+import com.example.appmobile.data.garden.GardenRepository
+import com.example.appmobile.data.garden.LearningEvent
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
@@ -105,6 +107,7 @@ fun LearnPage(
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
+    val gardenRepository = remember(context) { GardenRepository(context) }
     var emotions by remember { mutableStateOf(GameUiCatalog.emotions) }
     var selectedEmotionId by remember { mutableStateOf(GameUiCatalog.emotions.first().id) }
     var pageIndex by remember { mutableIntStateOf(0) }
@@ -136,6 +139,12 @@ fun LearnPage(
     LaunchedEffect(gridEmotions, selectedEmotionId) {
         if (gridEmotions.isNotEmpty() && gridEmotions.none { it.id == selectedEmotionId }) {
             selectedEmotionId = gridEmotions.first().id
+        }
+    }
+
+    LaunchedEffect(isLoading, selectedEmotion.id) {
+        if (!isLoading) {
+            gardenRepository.onLearningEvent(LearningEvent.EmotionLessonCompleted(selectedEmotion.id))
         }
     }
 

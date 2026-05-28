@@ -32,6 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.R
+import com.example.appmobile.data.garden.GardenRepository
+import com.example.appmobile.data.garden.LearningEvent
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
@@ -47,11 +49,13 @@ fun EmotionDetailPage(emotionId: String, onBack: () -> Unit) {
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
+    val gardenRepository = remember(context) { GardenRepository(context) }
     val localEmotion = remember(emotionId) { GameUiCatalog.emotionById(emotionId) }
     var emotion by remember(emotionId) { mutableStateOf(localEmotion) }
     val imageResourceId = rememberEmotionImageResource(emotionId)
 
     LaunchedEffect(emotionId) {
+        gardenRepository.onLearningEvent(LearningEvent.EmotionLessonCompleted(emotionId))
         val backendEmotion = runCatching {
             repository.getEmotionConcepts()
                 .firstOrNull { it.id == emotionId }

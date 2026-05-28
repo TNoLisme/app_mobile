@@ -27,6 +27,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.example.appmobile.data.garden.GardenRepository
+import com.example.appmobile.data.garden.LearningEvent
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
@@ -39,6 +41,7 @@ import com.example.appmobile.ui.pages.assistant.AssistantPage
 import com.example.appmobile.ui.pages.auth.LoginPage
 import com.example.appmobile.ui.pages.auth.RegisterPage
 import com.example.appmobile.ui.pages.game.*
+import com.example.appmobile.ui.pages.garden.GardenPage
 import com.example.appmobile.ui.pages.home.HomePage
 import com.example.appmobile.ui.pages.learn.EmotionDetailPage
 import com.example.appmobile.ui.pages.learn.LearnPage
@@ -131,6 +134,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
     val repository = remember(context) {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
+    val gardenRepository = remember(context) { GardenRepository(context) }
     val activeUserId = AppSession.currentBackendUserId() ?: persistedBackendUserId ?: auth.currentUser?.uid
 
     LaunchedEffect(activeUserId) {
@@ -213,7 +217,8 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 onNavigateToProfile = ::goProfile,
                 onNavigateToSettings = ::goSettings,
                 onNavigateToLevel = { gameId -> navController.navigate("level_select/$gameId") },
-                onNavigateToPhotoBooth = { navController.navigate("photobooth") }
+                onNavigateToPhotoBooth = { navController.navigate("photobooth") },
+                onNavigateToGarden = { navController.navigate("garden") }
             )
         }
         composable("select_game/{type}") { backStackEntry ->
@@ -251,6 +256,17 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             val id = backStackEntry.arguments?.getString("gameId") ?: ""
             val level = backStackEntry.arguments?.getString("level")?.toIntOrNull() ?: 1
             val emotion = backStackEntry.arguments?.getString("emotion")?.takeIf { it.isNotBlank() }
+            LaunchedEffect(id, level, emotion) {
+                if (id.isNotBlank()) {
+                    gardenRepository.onLearningEvent(
+                        LearningEvent.GameCompleted(
+                            gameId = id,
+                            emotionId = emotion,
+                            score = null
+                        )
+                    )
+                }
+            }
             when (id.lowercase()) {
                 // Các game Nhận diện
                 GameUiCatalog.GAME_RECOGNIZE_EMOTION,
@@ -312,6 +328,18 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 onGoHome = ::goHome
             )
         }
+        composable("garden") {
+            GardenPage(
+                onBack = { navController.popBackStack() },
+                onLearnEmotion = { emotionId -> navController.navigate("learn_detail/$emotionId") },
+                onOpenGames = ::goGames,
+                onOpenPhotoBooth = { navController.navigate("photobooth") },
+                onOpenReport = { navController.navigate("report") },
+                onStartEmotionChallenge = { emotionId ->
+                    navController.navigate("game/${GameUiCatalog.GAME_CV_REQUEST}/1?emotion=$emotionId")
+                }
+            )
+        }
         composable("assistant") { AssistantPage(onBack = { navController.popBackStack() }) }
         composable(
             route = "assistant/{gameId}?level={level}",
@@ -371,6 +399,7 @@ private fun shouldShowAssistantBubble(route: String?, loggedIn: Boolean): Boolea
         route != "register" &&
         route != "report" &&
         route != "photobooth" &&
+        route != "garden" &&
         route != "settings_parent_email" &&
         !route.startsWith("assistant") &&
         !route.startsWith("game/") &&

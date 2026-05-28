@@ -11,6 +11,8 @@ import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.appmobile.data.garden.GardenRepository
+import com.example.appmobile.data.garden.LearningEvent
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.ReportPayloadDto
@@ -120,6 +122,7 @@ sealed class PdfState {
 }
 
 class ReportViewModel(application: Application) : AndroidViewModel(application) {
+    private val gardenRepository = GardenRepository(application.applicationContext)
     private val repository = AnalysisRepository(
         reportDao = null,
         apiService = NetworkClient.apiService
@@ -359,6 +362,7 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                     ?: state.value.currentWeekReport
                 markLastSentWeeklyReport(currentUserId(), sentReport)
                 recordSentReport(currentUserId(), sentReport, state.value.parentEmail)
+                gardenRepository.onLearningEvent(LearningEvent.ReportSentToParent)
             }
             _state.update {
                 it.copy(
@@ -405,6 +409,7 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
                         ?: state.value.currentWeekReport
                     markLastSentWeeklyReport(currentUserId(), sentReport)
                     recordSentReport(currentUserId(), sentReport, state.value.parentEmail)
+                    gardenRepository.onLearningEvent(LearningEvent.ReportSentToParent)
                 }
                 _state.update {
                     it.copy(
@@ -443,6 +448,7 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
             if (sent) {
                 markLastSentWeeklyReport(currentUserId(), payload.toGeneratedReport())
                 recordSentReport(currentUserId(), payload.toGeneratedReport(), state.value.parentEmail)
+                gardenRepository.onLearningEvent(LearningEvent.ReportSentToParent)
             }
             _state.update {
                 it.copy(

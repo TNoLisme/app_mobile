@@ -1,6 +1,7 @@
 package com.example.appmobile.ui.pages.home
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
@@ -40,6 +43,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appmobile.R
+import com.example.appmobile.data.garden.GardenHomeSummary
+import com.example.appmobile.data.garden.GardenRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
 import com.example.appmobile.ui.components.EgDesign
@@ -51,6 +56,7 @@ import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
 import com.example.appmobile.ui.viewmodel.ReportSummary
 import com.example.appmobile.ui.viewmodel.HomeUiState
 import com.example.appmobile.ui.viewmodel.HomeViewModel
+import kotlin.math.min
 
 private val HomeCard: Color get() = EgDesign.card
 private val HomeCardSoft: Color get() = EgDesign.cardSoft
@@ -68,6 +74,7 @@ fun HomePage(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToLevel: (String) -> Unit = {},
     onNavigateToPhotoBooth: () -> Unit = {},
+    onNavigateToGarden: () -> Unit = {},
     onNavigateToLearnEmotion: ((String) -> Unit)? = null,
     onStartEmotionChallenge: ((String) -> Unit)? = null,
     vm: HomeViewModel = viewModel()
@@ -122,6 +129,11 @@ fun HomePage(
             onStartChallenge = challengeAction
         )
 
+        EmotionGardenCtaCard(
+            summary = state.gardenSummary,
+            onOpenGarden = onNavigateToGarden
+        )
+
         ReportCtaCard(
             reportSummary = state.reportSummary,
             actionText = state.reportActionText,
@@ -147,6 +159,96 @@ fun HomePage(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun EmotionGardenCtaCard(summary: GardenHomeSummary?, onOpenGarden: () -> Unit) {
+    val pending = summary?.pendingRewardCount ?: 0
+    val taskText = summary?.let {
+        "${it.todayTaskCount} nhiệm vụ hôm nay · ${it.pendingRewardCount} phần thưởng chờ nhận"
+    } ?: "Chăm vườn bằng nhiệm vụ học cảm xúc"
+    val suggested = summary?.suggestedEmotionToCare?.let { "${GardenRepository.plantSpeciesName(it)} cần được chăm thêm." }
+        ?: "Hôm nay mình chăm vườn cảm xúc nhé!"
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = HomeCard),
+        border = BorderStroke(1.dp, HomeCardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            MiniEmotionGarden(progress = summary?.gardenProgressPercent ?: 0)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Vườn cảm xúc",
+                        color = HomeTextPrimary,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 17.sp
+                    )
+                    if (pending > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = Color(0xFFDCFCE7),
+                            border = BorderStroke(1.dp, Color(0xFF86D39E))
+                        ) {
+                            Text(
+                                text = "$pending",
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                color = Color(0xFF15803D),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = suggested,
+                    color = HomeTextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = taskText,
+                    color = HomeBlue,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            HomeActionPill("Chăm vườn", onOpenGarden, primary = true)
+        }
+    }
+}
+
+@Composable
+private fun MiniEmotionGarden(progress: Int) {
+    Canvas(
+        modifier = Modifier
+            .size(width = 54.dp, height = 64.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFFE8F8EE))
+            .padding(4.dp)
+    ) {
+        val s = min(size.width, size.height)
+        drawOval(Color(0xFF8ED49B), Offset(s * 0.08f, s * 0.70f), Size(s * 0.88f, s * 0.20f))
+        val colors = listOf(Color(0xFFFFD64D), Color(0xFF6CB8FF), Color(0xFFFF8A55))
+        colors.forEachIndexed { index, color ->
+            val x = s * (0.25f + index * 0.25f)
+            val y = s * (0.66f - (progress.coerceIn(0, 100) / 100f) * 0.20f)
+            drawLine(Color(0xFF45A162), Offset(x, s * 0.76f), Offset(x, y), s * 0.045f)
+            drawCircle(color, s * 0.10f, Offset(x, y))
+            drawCircle(Color.White.copy(alpha = 0.55f), s * 0.03f, Offset(x - s * 0.03f, y - s * 0.03f))
+        }
     }
 }
 

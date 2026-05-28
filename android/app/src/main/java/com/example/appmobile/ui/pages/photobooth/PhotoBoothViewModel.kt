@@ -8,6 +8,8 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.appmobile.data.garden.GardenRepository
+import com.example.appmobile.data.garden.LearningEvent
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -27,6 +29,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class PhotoBoothViewModel(application: Application) : AndroidViewModel(application) {
+    private val gardenRepository = GardenRepository(application.applicationContext)
     private val _state = MutableStateFlow(PhotoBoothUiState())
     val state: StateFlow<PhotoBoothUiState> = _state.asStateFlow()
 
@@ -211,6 +214,7 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
     fun saveToGallery() {
         val current = _state.value
         val uri = current.composedPhotoUri ?: return
+        val selectedEmotions = current.selectedEmotionIds
         viewModelScope.launch {
             _state.update { it.copy(phase = PhotoBoothPhase.Saving, isBusy = true, friendlyMessage = "Đang lưu ảnh vào máy...") }
             val result = runCatching {
@@ -223,12 +227,16 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
                     friendlyMessage = if (result.isSuccess) "Đã lưu ảnh photobooth vào máy." else "Chưa lưu được ảnh. Con thử lại nhé."
                 )
             }
+            if (result.isSuccess) {
+                gardenRepository.onLearningEvent(LearningEvent.PhotoBoothSaved(selectedEmotions))
+            }
         }
     }
 
     fun saveToAlbum() {
         val current = _state.value
         val uri = current.composedPhotoUri ?: return
+        val selectedEmotions = current.selectedEmotionIds
         viewModelScope.launch {
             _state.update { it.copy(phase = PhotoBoothPhase.Saving, isBusy = true, friendlyMessage = "Đang lưu vào album...") }
             val result = runCatching {
@@ -240,6 +248,9 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
                     isBusy = false,
                     friendlyMessage = if (result.isSuccess) "Đã lưu vào album photobooth." else "Chưa lưu được vào album. Con thử lại nhé."
                 )
+            }
+            if (result.isSuccess) {
+                gardenRepository.onLearningEvent(LearningEvent.PhotoBoothSaved(selectedEmotions))
             }
         }
     }
