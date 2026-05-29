@@ -39,6 +39,8 @@ import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.DraggableAssistantBubble
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.LegalConsentDialog
+import com.example.appmobile.ui.components.LegalDocumentDialog
+import com.example.appmobile.ui.components.LegalDocumentType
 import com.example.appmobile.ui.pages.assistant.ChatAction
 import com.example.appmobile.ui.pages.assistant.ChatActionType
 import com.example.appmobile.ui.pages.assistant.AssistantPage
@@ -90,6 +92,8 @@ private fun AppRoot() {
     }
     val legalAccepted by AppSettingsState.legalPolicyAccepted
     var showLegalNotice by remember { mutableStateOf(false) }
+    var showPrivacyPolicy by remember { mutableStateOf(false) }
+    var showTermsOfUse by remember { mutableStateOf(false) }
 
     LaunchedEffect(legalAccepted) {
         showLegalNotice = !legalAccepted
@@ -117,6 +121,7 @@ private fun AppRoot() {
 
     AppMobileTheme(darkTheme = useDarkTheme, dynamicColor = dynamicColorEnabled) {
         AppNavigation(modifier = Modifier.fillMaxSize())
+
         if (showLegalNotice || !legalAccepted) {
             LegalConsentDialog(
                 onAccept = {
@@ -125,7 +130,23 @@ private fun AppRoot() {
                 },
                 onDismiss = {
                     activity?.finish()
-                }
+                },
+                onOpenPrivacyPolicy = { showPrivacyPolicy = true },
+                onOpenTermsOfUse = { showTermsOfUse = true }
+            )
+        }
+
+        if (showPrivacyPolicy) {
+            LegalDocumentDialog(
+                type = LegalDocumentType.PrivacyPolicy,
+                onDismiss = { showPrivacyPolicy = false }
+            )
+        }
+
+        if (showTermsOfUse) {
+            LegalDocumentDialog(
+                type = LegalDocumentType.TermsOfUse,
+                onDismiss = { showTermsOfUse = false }
             )
         }
     }

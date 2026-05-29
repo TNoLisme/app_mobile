@@ -87,6 +87,8 @@ import com.example.appmobile.ui.state.CvEmotionScoreState
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 @Composable
@@ -146,6 +148,9 @@ fun SettingsPage(
     val learningReminderMinute by AppSettingsState.learningReminderMinute
     val dynamicColorEnabled by AppSettingsState.dynamicColorEnabled
     val themeMode by AppSettingsState.themeMode
+    val acceptedPolicyVersion by AppSettingsState.acceptedPolicyVersion
+    val acceptedTermsVersion by AppSettingsState.acceptedTermsVersion
+    val legalAcceptedAt by AppSettingsState.legalAcceptedAt
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
@@ -241,6 +246,9 @@ fun SettingsPage(
         learningReminderEnabled = learningReminderEnabled,
         isLoggedIn = isLoggedIn,
         statusMessage = statusMessage,
+        acceptedPolicyVersion = acceptedPolicyVersion,
+        acceptedTermsVersion = acceptedTermsVersion,
+        acceptedAtText = formatConsentDate(legalAcceptedAt),
         onBack = onBack,
         onThemeModeChanged = { AppSettingsState.setThemeMode(context, it) },
         onDynamicColorChanged = { AppSettingsState.setDynamicColorEnabled(context, it) },
@@ -445,6 +453,9 @@ private fun SettingsScreen(
     learningReminderEnabled: Boolean,
     isLoggedIn: Boolean,
     statusMessage: String?,
+    acceptedPolicyVersion: String?,
+    acceptedTermsVersion: String?,
+    acceptedAtText: String,
     onBack: () -> Unit,
     onThemeModeChanged: (AppThemeMode) -> Unit,
     onDynamicColorChanged: (Boolean) -> Unit,
@@ -495,6 +506,9 @@ private fun SettingsScreen(
         )
         ParentAreaEntryCard(onClick = onOpenParentArea)
         AboutAppSection(
+            acceptedPolicyVersion = acceptedPolicyVersion,
+            acceptedTermsVersion = acceptedTermsVersion,
+            acceptedAtText = acceptedAtText,
             onOpenPrivacyPolicy = onOpenPrivacyPolicy,
             onOpenTerms = onOpenTerms,
             onOpenSupportContact = onOpenSupportContact
@@ -614,6 +628,12 @@ private fun formatReminderTime(hour: Int, minute: Int): String {
     return String.format(Locale.getDefault(), "%02d:%02d", hour, minute)
 }
 
+private fun formatConsentDate(timestamp: Long?): String {
+    return timestamp
+        ?.let { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(it)) }
+        ?: "Chưa đồng ý"
+}
+
 @Composable
 private fun ParentAreaEntryCard(onClick: () -> Unit) {
     EgSoftCard {
@@ -644,12 +664,23 @@ private fun ParentAreaEntryCard(onClick: () -> Unit) {
 
 @Composable
 private fun AboutAppSection(
+    acceptedPolicyVersion: String?,
+    acceptedTermsVersion: String?,
+    acceptedAtText: String,
     onOpenPrivacyPolicy: () -> Unit,
     onOpenTerms: () -> Unit,
     onOpenSupportContact: () -> Unit
 ) {
     SettingsSection(title = "Về ứng dụng", icon = "info") {
         CompactValueRow("info", "Phiên bản ứng dụng", "1.0")
+        ThinDivider()
+        CompactValueRow(
+            "document",
+            "Phiên bản chính sách",
+            "${acceptedPolicyVersion ?: AppSettingsState.CURRENT_PRIVACY_POLICY_VERSION} / ${acceptedTermsVersion ?: AppSettingsState.CURRENT_TERMS_VERSION}"
+        )
+        ThinDivider()
+        CompactValueRow("clock", "Ngày đã đồng ý", acceptedAtText)
         ThinDivider()
         ActionSettingsRow(
             icon = "lock",

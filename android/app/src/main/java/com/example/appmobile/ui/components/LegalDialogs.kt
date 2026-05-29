@@ -7,14 +7,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -41,27 +39,45 @@ enum class LegalDocumentType {
 @Composable
 fun LegalConsentDialog(
     onAccept: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit,
+    onOpenTermsOfUse: () -> Unit
 ) {
     LegalDialogShell(onDismiss = onDismiss) {
         LegalDialogHeader(
             icon = "lock",
-            title = "Chính sách & điều khoản",
-            subtitle = "Trước khi vào app, bạn cần đồng ý với cách ứng dụng thu thập và sử dụng dữ liệu."
+            title = "Chính sách & Điều khoản",
+            subtitle = "Phụ huynh/người giám hộ vui lòng đọc và đồng ý trước khi bé sử dụng EmoGarden."
         )
         LegalSummaryCard(
             title = "Tóm tắt nhanh",
             items = listOf(
-                "App lưu tài khoản, tiến độ học và tùy chọn của bé để đồng bộ trên thiết bị.",
-                "Camera chỉ dùng khi chơi game biểu cảm và không lưu ảnh/video của bé.",
-                "Thông báo chỉ dùng để nhắc học hằng ngày khi bạn bật tính năng này.",
-                "Bạn có thể xem chi tiết Chính sách quyền riêng tư và Điều khoản sử dụng trong Cài đặt."
+                "EmoGarden lưu tên bé, tiến độ học, kết quả chơi game và báo cáo để cá nhân hóa trải nghiệm.",
+                "Camera chỉ dùng để nhận diện biểu cảm khi chơi game. App không tự động lưu video.",
+                "Ảnh Photobooth chỉ được lưu khi người dùng chọn lưu.",
+                "Báo cáo chỉ được gửi đến email phụ huynh khi có xác nhận.",
+                "Phụ huynh có thể xem lại, thay đổi hoặc xóa dữ liệu trong Cài đặt/Khu vực phụ huynh."
             )
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            LegalTextLink(
+                text = "Xem Chính sách quyền riêng tư",
+                onClick = onOpenPrivacyPolicy,
+                modifier = Modifier.weight(1f)
+            )
+            LegalTextLink(
+                text = "Xem Điều khoản sử dụng",
+                onClick = onOpenTermsOfUse,
+                modifier = Modifier.weight(1f)
+            )
+        }
         LegalDialogActions(
             primaryText = "Đồng ý & tiếp tục",
             onPrimary = onAccept,
-            secondaryText = "Thoát",
+            secondaryText = "Không đồng ý",
             onSecondary = onDismiss
         )
     }
@@ -127,30 +143,46 @@ private fun legalDocumentContent(type: LegalDocumentType): LegalDocumentContent 
         LegalDocumentType.PrivacyPolicy -> LegalDocumentContent(
             icon = "lock",
             title = "Chính sách quyền riêng tư",
-            subtitle = "Tóm tắt cách app thu thập, dùng và bảo vệ dữ liệu.",
+            subtitle = "Cách EmoGarden lưu, sử dụng và bảo vệ dữ liệu học tập của bé.",
             sections = listOf(
                 LegalSection(
-                    title = "Dữ liệu được dùng",
+                    title = "Dữ liệu được lưu",
                     items = listOf(
-                        "Tài khoản, tên hiển thị, email và số điện thoại phụ huynh.",
-                        "Tiến độ học, điểm số và lịch sử trò chơi của bé.",
-                        "Tùy chọn giao diện, âm thanh và nhắc nhở học tập."
+                        "Tên đăng nhập, tên hiển thị, email tài khoản và email phụ huynh nếu được cung cấp.",
+                        "Tiến độ học cảm xúc, kết quả chơi game, báo cáo tuần và trạng thái Vườn cảm xúc.",
+                        "Tùy chọn giao diện, âm thanh, nhắc học và các cài đặt trên thiết bị."
                     )
                 ),
                 LegalSection(
-                    title = "Quyền truy cập thiết bị",
+                    title = "Camera",
                     items = listOf(
-                        "Camera chỉ dùng trong game cần nhận diện biểu cảm.",
-                        "Thông báo chỉ dùng để nhắc học hằng ngày.",
-                        "Bạn có thể tắt các quyền này trong cài đặt điện thoại bất cứ lúc nào."
+                        "Camera dùng để nhận diện biểu cảm trong game camera.",
+                        "App không tự động lưu video khi bé chơi game biểu cảm.",
+                        "Phụ huynh có thể tắt quyền camera trong cài đặt thiết bị bất cứ lúc nào."
                     )
                 ),
                 LegalSection(
-                    title = "Cam kết bảo vệ",
+                    title = "Photobooth",
                     items = listOf(
-                        "App không chủ động bán dữ liệu cá nhân cho bên thứ ba.",
-                        "Ảnh và video không được lưu nếu không cần cho tính năng.",
-                        "Dữ liệu chỉ dùng để vận hành, đồng bộ và hỗ trợ học tập."
+                        "Photobooth chỉ tạo ảnh khi người dùng chủ động chụp.",
+                        "Ảnh ghép chỉ được lưu vào máy hoặc album trong app khi người dùng chọn lưu.",
+                        "Ảnh không được tự động gửi ra ngoài."
+                    )
+                ),
+                LegalSection(
+                    title = "Báo cáo email",
+                    items = listOf(
+                        "Báo cáo tiến bộ chỉ được gửi đến email phụ huynh đã lưu.",
+                        "Trước khi gửi báo cáo, app luôn yêu cầu xác nhận.",
+                        "Phụ huynh có thể cập nhật email nhận báo cáo trong Khu vực phụ huynh."
+                    )
+                ),
+                LegalSection(
+                    title = "Quyền của phụ huynh",
+                    items = listOf(
+                        "Phụ huynh có thể xem lại, chỉnh sửa hoặc xóa dữ liệu học tập trong Cài đặt/Khu vực phụ huynh.",
+                        "Phụ huynh có thể thay đổi quyền camera, thông báo và các tùy chọn học tập.",
+                        "Nếu cần hỗ trợ, hãy dùng mục Liên hệ hỗ trợ trong Cài đặt."
                     )
                 )
             )
@@ -159,30 +191,37 @@ private fun legalDocumentContent(type: LegalDocumentType): LegalDocumentContent 
         LegalDocumentType.TermsOfUse -> LegalDocumentContent(
             icon = "document",
             title = "Điều khoản sử dụng",
-            subtitle = "Các điều cần lưu ý khi dùng ứng dụng cho bé học và chơi.",
+            subtitle = "Các điều cần lưu ý khi dùng EmoGarden cho bé học và chơi.",
             sections = listOf(
                 LegalSection(
-                    title = "Cách sử dụng",
+                    title = "Sử dụng cùng phụ huynh",
                     items = listOf(
-                        "Ứng dụng dành cho học tập và giải trí có hướng dẫn của người lớn.",
-                        "Phụ huynh chịu trách nhiệm giám sát việc sử dụng của trẻ.",
-                        "Không được can thiệp, sửa đổi hay lạm dụng app vào mục đích khác."
+                        "EmoGarden dành cho bé học cảm xúc với sự đồng hành của phụ huynh/người giám hộ.",
+                        "Phụ huynh chịu trách nhiệm giám sát việc bé sử dụng app và các thao tác liên quan email, ảnh, dữ liệu.",
+                        "Các nội dung trong app hỗ trợ học tập, không thay thế tư vấn y tế hoặc chuyên môn."
                     )
                 ),
                 LegalSection(
-                    title = "Quyền và trách nhiệm",
+                    title = "Tính năng cần xác nhận",
                     items = listOf(
-                        "Bạn đồng ý cung cấp thông tin đúng khi tạo hoặc quản lý tài khoản.",
-                        "Bạn có thể tắt nhắc nhở, quyền camera và quyền thông báo trong máy.",
-                        "Các tính năng có thể thay đổi theo từng bản cập nhật."
+                        "Gửi báo cáo qua email cần có email phụ huynh và xác nhận trước khi gửi.",
+                        "Lưu ảnh Photobooth chỉ thực hiện khi người dùng chọn lưu.",
+                        "Xóa dữ liệu hoặc đặt lại tiến độ cần xác nhận trong khu vực phù hợp."
                     )
                 ),
                 LegalSection(
-                    title = "Giới hạn trách nhiệm",
+                    title = "Cài đặt và cập nhật",
                     items = listOf(
-                        "App được cung cấp theo trạng thái hiện có để hỗ trợ học tập.",
-                        "Nếu có lỗi hoặc cần trợ giúp, hãy dùng mục Liên hệ hỗ trợ trong Cài đặt.",
-                        "Khi tiếp tục sử dụng app, bạn chấp nhận các điều khoản này."
+                        "Phụ huynh có thể điều chỉnh âm thanh, nhắc học, camera và quyền riêng tư trong Cài đặt.",
+                        "Tính năng có thể thay đổi theo từng bản cập nhật để cải thiện trải nghiệm học tập.",
+                        "Khi chính sách hoặc điều khoản thay đổi, app sẽ yêu cầu phụ huynh đồng ý lại."
+                    )
+                ),
+                LegalSection(
+                    title = "Liên hệ hỗ trợ",
+                    items = listOf(
+                        "Nếu gặp lỗi hoặc cần góp ý, phụ huynh có thể dùng mục Liên hệ hỗ trợ trong Cài đặt.",
+                        "Khi tiếp tục sử dụng app, phụ huynh xác nhận đã đọc và đồng ý với các điều khoản này."
                     )
                 )
             )
@@ -212,7 +251,9 @@ private fun LegalDialogShell(
                 shadowElevation = 8.dp
             ) {
                 Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     content()
@@ -265,6 +306,30 @@ private fun LegalSummaryCard(
                 Text(item, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.weight(1f))
             }
         }
+    }
+}
+
+@Composable
+private fun LegalTextLink(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = EgDesign.accentSoft,
+        border = BorderStroke(1.dp, EgDesign.cardBorder)
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            color = EgDesign.primaryDark,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.Center,
+            lineHeight = 16.sp
+        )
     }
 }
 

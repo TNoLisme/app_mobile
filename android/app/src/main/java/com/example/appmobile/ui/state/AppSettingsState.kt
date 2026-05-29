@@ -16,6 +16,9 @@ enum class AppThemeMode(val key: String) {
 }
 
 object AppSettingsState {
+    const val CURRENT_PRIVACY_POLICY_VERSION = "1.0.0"
+    const val CURRENT_TERMS_VERSION = "1.0.0"
+
     private const val PREF_NAME = "app_settings"
     private const val KEY_ASSISTANT_BUBBLE = "assistant_bubble_enabled"
     private const val KEY_LEARN_VIDEO_AUTOPLAY = "learn_video_autoplay_enabled"
@@ -25,6 +28,9 @@ object AppSettingsState {
     private const val KEY_LEARNING_REMINDER_HOUR = "learning_reminder_hour"
     private const val KEY_LEARNING_REMINDER_MINUTE = "learning_reminder_minute"
     private const val KEY_LEGAL_ACCEPTED = "legal_policy_accepted"
+    private const val KEY_ACCEPTED_POLICY_VERSION = "accepted_policy_version"
+    private const val KEY_ACCEPTED_TERMS_VERSION = "accepted_terms_version"
+    private const val KEY_LEGAL_ACCEPTED_AT = "legal_policy_accepted_at"
     private const val KEY_DYNAMIC_COLOR = "dynamic_color_enabled"
     private const val KEY_THEME_MODE = "theme_mode"
 
@@ -36,6 +42,9 @@ object AppSettingsState {
     val learningReminderHour = mutableStateOf(19)
     val learningReminderMinute = mutableStateOf(0)
     val legalPolicyAccepted = mutableStateOf(false)
+    val acceptedPolicyVersion = mutableStateOf<String?>(null)
+    val acceptedTermsVersion = mutableStateOf<String?>(null)
+    val legalAcceptedAt = mutableStateOf<Long?>(null)
     val dynamicColorEnabled = mutableStateOf(true)
     val themeMode = mutableStateOf(AppThemeMode.System)
     val activeDarkTheme = mutableStateOf(false)
@@ -49,7 +58,14 @@ object AppSettingsState {
         learningReminderEnabled.value = preferences.getBoolean(KEY_LEARNING_REMINDER, false)
         learningReminderHour.value = preferences.getInt(KEY_LEARNING_REMINDER_HOUR, 19)
         learningReminderMinute.value = preferences.getInt(KEY_LEARNING_REMINDER_MINUTE, 0)
-        legalPolicyAccepted.value = preferences.getBoolean(KEY_LEGAL_ACCEPTED, false)
+        val storedPolicyVersion = preferences.getString(KEY_ACCEPTED_POLICY_VERSION, null)
+        val storedTermsVersion = preferences.getString(KEY_ACCEPTED_TERMS_VERSION, null)
+        acceptedPolicyVersion.value = storedPolicyVersion
+        acceptedTermsVersion.value = storedTermsVersion
+        legalAcceptedAt.value = preferences.getLong(KEY_LEGAL_ACCEPTED_AT, 0L).takeIf { it > 0L }
+        legalPolicyAccepted.value = preferences.getBoolean(KEY_LEGAL_ACCEPTED, false) &&
+            storedPolicyVersion == CURRENT_PRIVACY_POLICY_VERSION &&
+            storedTermsVersion == CURRENT_TERMS_VERSION
         dynamicColorEnabled.value = preferences.getBoolean(KEY_DYNAMIC_COLOR, true)
         themeMode.value = AppThemeMode.fromKey(preferences.getString(KEY_THEME_MODE, AppThemeMode.System.key))
     }
@@ -90,7 +106,28 @@ object AppSettingsState {
 
     fun setLegalPolicyAccepted(context: Context, accepted: Boolean) {
         legalPolicyAccepted.value = accepted
-        context.settingsEditor().putBoolean(KEY_LEGAL_ACCEPTED, accepted).apply()
+        if (accepted) {
+            val acceptedAt = System.currentTimeMillis()
+            acceptedPolicyVersion.value = CURRENT_PRIVACY_POLICY_VERSION
+            acceptedTermsVersion.value = CURRENT_TERMS_VERSION
+            legalAcceptedAt.value = acceptedAt
+            context.settingsEditor()
+                .putBoolean(KEY_LEGAL_ACCEPTED, true)
+                .putString(KEY_ACCEPTED_POLICY_VERSION, CURRENT_PRIVACY_POLICY_VERSION)
+                .putString(KEY_ACCEPTED_TERMS_VERSION, CURRENT_TERMS_VERSION)
+                .putLong(KEY_LEGAL_ACCEPTED_AT, acceptedAt)
+                .apply()
+        } else {
+            acceptedPolicyVersion.value = null
+            acceptedTermsVersion.value = null
+            legalAcceptedAt.value = null
+            context.settingsEditor()
+                .putBoolean(KEY_LEGAL_ACCEPTED, false)
+                .remove(KEY_ACCEPTED_POLICY_VERSION)
+                .remove(KEY_ACCEPTED_TERMS_VERSION)
+                .remove(KEY_LEGAL_ACCEPTED_AT)
+                .apply()
+        }
     }
 
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) {
