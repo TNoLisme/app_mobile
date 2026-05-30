@@ -200,18 +200,14 @@ fun DetectiveGamePage(
         bottomSpacerHeight = 0.dp
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AppBackButton(onClick = onBack)
-                Spacer(modifier = Modifier.weight(1f))
-                Text("Thám tử cảm xúc", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GameStatChip("Câu ${currentIndex.intValue + 1}/${questions.value.size}")
-                GameStatChip("Điểm ${score.intValue}")
-                GameStatChip("Level $level")
-            }
+            GameHeader(
+                title = "Thám tử cảm xúc",
+                level = level,
+                currentQuestion = currentIndex.intValue + 1,
+                totalQuestions = questions.value.size,
+                score = score.intValue,
+                onBack = onBack
+            )
 
             if (summary.value != null) {
                 Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {

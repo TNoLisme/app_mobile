@@ -77,6 +77,45 @@ fun GameStatChip(text: String) {
 }
 
 @Composable
+fun GameHeader(
+    title: String,
+    level: Int,
+    currentQuestion: Int,
+    totalQuestions: Int,
+    score: Int,
+    onBack: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            com.example.appmobile.ui.components.AppBackButton(
+                onClick = onBack, 
+                modifier = Modifier.align(Alignment.CenterStart)
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = EgDesign.textPrimary
+                ),
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                GameStatChip("Level $level")
+                GameStatChip("Câu $currentQuestion/$totalQuestions")
+                GameStatChip("Điểm $score")
+            }
+        }
+    }
+}
+
+@Composable
 fun GameFeedbackCard(message: String) {
     val isCorrect = message.startsWith("Đúng")
     Surface(
