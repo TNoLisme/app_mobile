@@ -67,6 +67,7 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.GameScreenShell
@@ -229,7 +230,7 @@ fun EmotionMatchPage(
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
             // TOP BAR
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = onBack) { Text("← Quay lại") }
+                AppBackButton(onClick = onBack)
                 Spacer(modifier = Modifier.weight(1f))
                 GameStatChip("Câu ${currentRoundIndex.intValue + 1}/${rounds.size}")
                 Spacer(modifier = Modifier.width(8.dp))

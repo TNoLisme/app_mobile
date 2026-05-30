@@ -503,29 +503,19 @@ fun EgGradientPill(
 fun AppBackButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    text: String = "← Quay lại"
+    @Suppress("UNUSED_PARAMETER") text: String = ""
 ) {
     Surface(
         modifier = modifier
-            .height(42.dp)
+            .size(42.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(EgDesign.pillRadius),
+        shape = CircleShape,
         color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = 1.dp
     ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 14.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                color = EgDesign.blue,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+        Box(contentAlignment = Alignment.Center) {
+            EgVectorEmojiIcon("back", size = 26.dp, tint = EgDesign.blue)
         }
     }
 }

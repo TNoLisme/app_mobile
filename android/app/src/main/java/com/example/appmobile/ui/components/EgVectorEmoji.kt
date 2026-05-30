@@ -61,7 +61,8 @@ private val MonoPreferredKeys = setOf(
     "next",
     "fullscreen",
     "trash",
-    "lock"
+    "lock",
+    "back"
 )
 
 fun egVectorEmojiKey(value: String): String {
@@ -105,6 +106,7 @@ fun egVectorEmojiKey(value: String): String {
         raw == "\uD83D\uDCD6" || raw == "\uD83D\uDCDA" -> "book"
         raw == "\uD83C\uDF81" -> "gift"
         raw == "\uD83D\uDDD1\uFE0F" || raw == "\uD83D\uDDD1" -> "trash"
+        "back" in lower || "undo" in lower -> "back"
         else -> lower
     }
 }
@@ -142,6 +144,7 @@ private fun DrawScope.drawColorGlyph(key: String) {
         "info" -> drawInfoBadge()
         "refresh" -> drawRefreshBadge()
         "edit" -> drawEditBadge()
+        "back" -> drawBackArrowBadge()
         "home" -> drawMonoGlyph("home", EgDesign.blue)
         "play", "next" -> drawMonoGlyph("play", EgDesign.blue)
         "fullscreen" -> drawMonoGlyph("fullscreen", EgDesign.blue)
@@ -623,6 +626,7 @@ private fun DrawScope.drawMonoGlyph(key: String, color: Color) {
         "fullscreen" -> drawFullscreenLine(color)
         "trash" -> drawTrashBadge()
         "home" -> drawHomeLine(color)
+        "back" -> drawBackArrowLine(color)
         else -> drawStar(center(), min(size.width, size.height) * 0.34f, min(size.width, size.height) * 0.15f, color)
     }
 }
@@ -848,4 +852,27 @@ private fun DrawScope.drawHomeLine(color: Color) {
     }
     drawPath(p, color, style = Stroke(s * 0.06f, cap = StrokeCap.Round, join = StrokeJoin.Round))
     drawRoundRect(color, Offset(c.x - s * 0.24f, c.y - s * 0.02f), Size(s * 0.48f, s * 0.32f), CornerRadius(s * 0.04f, s * 0.04f), style = Stroke(s * 0.06f))
+}
+
+private fun DrawScope.drawBackArrowBadge() {
+    drawBadgeBase(Color(0xFFE9F5FF))
+    drawBackArrowLine(EgDesign.blue)
+}
+
+private fun DrawScope.drawBackArrowLine(color: Color) {
+    val s = min(size.width, size.height)
+    val c = center()
+    val strokeWidth = s * 0.12f
+    val stroke = Stroke(strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    
+    // Horizontal line
+    drawLine(color, Offset(c.x + s * 0.28f, c.y), Offset(c.x - s * 0.28f, c.y), strokeWidth, StrokeCap.Round)
+    
+    // Arrow heads
+    val p = Path().apply {
+        moveTo(c.x - s * 0.04f, c.y - s * 0.22f)
+        lineTo(c.x - s * 0.28f, c.y)
+        lineTo(c.x - s * 0.04f, c.y + s * 0.22f)
+    }
+    drawPath(p, color, style = stroke)
 }

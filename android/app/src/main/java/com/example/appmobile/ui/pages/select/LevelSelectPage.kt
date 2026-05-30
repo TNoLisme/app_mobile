@@ -269,9 +269,7 @@ fun LevelSelectPage(
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AppBackButton(onClick = onBack); if (false) {
-                    Text("←", style = MaterialTheme.typography.headlineMedium)
-                }
+                AppBackButton(onClick = onBack)
                 Spacer(modifier = Modifier.width(8.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -531,21 +529,6 @@ private fun CvEmotionSelectTopBar(onBack: () -> Unit) {
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AppBackButton(onClick = onBack)
-            if (false) Surface(
-                modifier = Modifier.clickable(onClick = onBack),
-                shape = RoundedCornerShape(999.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, EgDesign.cardBorder),
-                shadowElevation = 1.dp
-            ) {
-                Text(
-                    text = "← Quay lại",
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    color = EgDesign.blue,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
         }
         Text(
             text = "Thử thách cảm xúc",
