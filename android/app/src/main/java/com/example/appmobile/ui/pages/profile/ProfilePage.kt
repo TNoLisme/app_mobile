@@ -78,6 +78,8 @@ import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
+import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
+import com.example.appmobile.ui.components.EgTab
 import com.example.appmobile.ui.state.UserAvatarState
 import com.google.firebase.auth.FirebaseAuth
 import coil.compose.AsyncImage
@@ -110,7 +112,13 @@ private data class ProfileStat(
 )
 
 @Composable
-fun ProfilePage(onBack: () -> Unit) {
+fun ProfilePage(
+    onBack: () -> Unit,
+    onGoHome: () -> Unit = {},
+    onOpenLearn: () -> Unit = {},
+    onOpenGames: () -> Unit = {},
+    onOpenSettings: () -> Unit = {}
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val userId = remember {
@@ -217,17 +225,21 @@ fun ProfilePage(onBack: () -> Unit) {
         loadProfileData()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(ProfileBackgroundGradient)
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    EgCollapsibleMainScaffold(
+        activeTab = EgTab.Profile,
+        onHome = onGoHome,
+        onLearn = onOpenLearn,
+        onGames = onOpenGames,
+        onProfile = {},
+        onSettings = onOpenSettings
     ) {
-        ProfileTopBar(onBack = onBack)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
 
         if (loading) {
             Box(
@@ -271,7 +283,8 @@ fun ProfilePage(onBack: () -> Unit) {
                 )
             )
             ProfileActions(onEdit = { showEdit = true })
-            Spacer(modifier = Modifier.height(96.dp))
+            Spacer(modifier = Modifier.height(32.dp))
+        }
         }
     }
 

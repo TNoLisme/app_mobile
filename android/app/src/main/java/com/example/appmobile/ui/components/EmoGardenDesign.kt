@@ -73,7 +73,9 @@ import com.google.firebase.auth.FirebaseAuth
 enum class EgTab(val title: String) {
     Home("Trang chủ"),
     Learn("Học"),
-    Games("Chơi game")
+    Games("Chơi game"),
+    Profile("Hồ sơ"),
+    Settings("Cài đặt")
 }
 
 object EgDesign {
@@ -133,13 +135,13 @@ fun EgCollapsibleMainScaffold(
     var navHeightPx by remember(density) { mutableIntStateOf(with(density) { 78.dp.roundToPx() }) }
     var horizontalDragPx by remember { mutableFloatStateOf(0f) }
     val navHeightDp = with(density) { navHeightPx.toDp() }
-    val topActionReserveDp = with(density) { WindowInsets.statusBars.getTop(this).toDp() } + 76.dp
+    val topActionReserveDp = with(density) { WindowInsets.statusBars.getTop(this).toDp() } + 16.dp
     val horizontalPaddingPx = with(density) { (EgDesign.screenPadding * 2).toPx() }
     val tabsTrackWidthPx = with(density) {
         (configuration.screenWidthDp.dp.toPx() - horizontalPaddingPx)
             .coerceAtLeast(220.dp.toPx())
     }
-    val tabSlotWidthPx = (tabsTrackWidthPx / 3f).coerceAtLeast(1f)
+    val tabSlotWidthPx = (tabsTrackWidthPx / 5f).coerceAtLeast(1f)
     val swipeCommitRatio = 0.55f
     val tabIndicatorPosition = mainTabIndicatorPosition(
         activeTab = activeTab,
@@ -194,25 +196,13 @@ fun EgCollapsibleMainScaffold(
             )
         }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = EgDesign.screenPadding, vertical = 8.dp)
-        ) {
-            EgTopActions(
-                onProfile = onProfile,
-                onSettings = onSettings,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
         EgMainBottomNavSurface(
             activeTab = activeTab,
             onHome = onHome,
             onLearn = onLearn,
             onGames = onGames,
+            onProfile = onProfile,
+            onSettings = onSettings,
             indicatorPosition = tabIndicatorPosition,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -234,6 +224,7 @@ private fun mainTabDragBounds(
         EgTab.Home -> -tabSlotWidthPx..0f
         EgTab.Learn -> -tabSlotWidthPx..tabSlotWidthPx
         EgTab.Games -> 0f..tabSlotWidthPx
+        else -> 0f..0f
     }
 }
 
@@ -245,7 +236,7 @@ private fun mainTabIndicatorPosition(
     val baseIndex = activeTab.ordinal.toFloat()
     if (tabSlotWidthPx <= 0f) return baseIndex
     val dragDeltaInTabs = -horizontalDragPx / tabSlotWidthPx
-    return (baseIndex + dragDeltaInTabs).coerceIn(0f, 2f)
+    return (baseIndex + dragDeltaInTabs).coerceIn(0f, 4f)
 }
 
 private fun handleMainSwipe(
@@ -259,6 +250,7 @@ private fun handleMainSwipe(
         EgTab.Home -> if (!fingerMovesRight) onLearn()
         EgTab.Learn -> if (fingerMovesRight) onHome() else onGames()
         EgTab.Games -> if (fingerMovesRight) onLearn()
+        else -> {}
     }
 }
 
@@ -295,6 +287,8 @@ private fun EgMainTopNavSurface(
                 onHome = onHome,
                 onLearn = onLearn,
                 onGames = onGames,
+                onProfile = onProfile,
+                onSettings = onSettings,
                 indicatorPosition = indicatorPosition
             )
         }
@@ -307,6 +301,8 @@ private fun EgMainBottomNavSurface(
     onHome: () -> Unit,
     onLearn: () -> Unit,
     onGames: () -> Unit,
+    onProfile: (() -> Unit)?,
+    onSettings: (() -> Unit)?,
     indicatorPosition: Float,
     modifier: Modifier = Modifier
 ) {
@@ -328,6 +324,8 @@ private fun EgMainBottomNavSurface(
                 onHome = onHome,
                 onLearn = onLearn,
                 onGames = onGames,
+                onProfile = onProfile,
+                onSettings = onSettings,
                 indicatorPosition = indicatorPosition
             )
         }
@@ -370,6 +368,8 @@ fun EgSegmentedTabs(
     onHome: () -> Unit,
     onLearn: () -> Unit,
     onGames: () -> Unit,
+    onProfile: (() -> Unit)?,
+    onSettings: (() -> Unit)?,
     indicatorPosition: Float,
     modifier: Modifier = Modifier
 ) {
@@ -387,6 +387,8 @@ fun EgSegmentedTabs(
             EgTabButton(EgTab.Home, activeTab, onHome, Modifier.weight(1f))
             EgTabButton(EgTab.Learn, activeTab, onLearn, Modifier.weight(1f))
             EgTabButton(EgTab.Games, activeTab, onGames, Modifier.weight(1f))
+            EgTabButton(EgTab.Profile, activeTab, onProfile ?: {}, Modifier.weight(1f))
+            EgTabButton(EgTab.Settings, activeTab, onSettings ?: {}, Modifier.weight(1f))
         }
         Box(
             modifier = Modifier
@@ -395,7 +397,7 @@ fun EgSegmentedTabs(
                 .padding(bottom = 1.dp)
         ) {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val segmentWidth = maxWidth / 3f
+                val segmentWidth = maxWidth / 5f
                 val lineWidth = segmentWidth * 0.58f
                 val leftPadding = (segmentWidth - lineWidth) / 2f
                 Box(
@@ -501,29 +503,19 @@ fun EgGradientPill(
 fun AppBackButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    text: String = "← Quay lại"
+    @Suppress("UNUSED_PARAMETER") text: String = ""
 ) {
     Surface(
         modifier = modifier
-            .height(42.dp)
+            .size(42.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(EgDesign.pillRadius),
+        shape = CircleShape,
         color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = 1.dp
     ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 14.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                color = EgDesign.blue,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+        Box(contentAlignment = Alignment.Center) {
+            EgVectorEmojiIcon("back", size = 26.dp, tint = EgDesign.blue)
         }
     }
 }
@@ -695,6 +687,44 @@ private fun EgMainTabIcon(tab: EgTab, color: Color, modifier: Modifier = Modifie
                     strokeWidth = stroke.width,
                     cap = StrokeCap.Round
                 )
+            }
+            EgTab.Profile -> {
+                drawCircle(
+                    color = color,
+                    center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.35f),
+                    radius = w * 0.16f,
+                    style = stroke
+                )
+                val body = Path().apply {
+                    moveTo(w * 0.2f, h * 0.85f)
+                    quadraticBezierTo(w * 0.2f, h * 0.65f, w * 0.5f, h * 0.65f)
+                    quadraticBezierTo(w * 0.8f, h * 0.65f, w * 0.8f, h * 0.85f)
+                }
+                drawPath(body, color = color, style = stroke)
+            }
+            EgTab.Settings -> {
+                drawCircle(
+                    color = color,
+                    center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
+                    radius = w * 0.16f,
+                    style = stroke
+                )
+                for (i in 0 until 6) {
+                    val angle = i * Math.PI / 3
+                    drawLine(
+                        color = color,
+                        start = androidx.compose.ui.geometry.Offset(
+                            (w * 0.5f + Math.cos(angle) * w * 0.16f).toFloat(),
+                            (h * 0.5f + Math.sin(angle) * w * 0.16f).toFloat()
+                        ),
+                        end = androidx.compose.ui.geometry.Offset(
+                            (w * 0.5f + Math.cos(angle) * w * 0.32f).toFloat(),
+                            (h * 0.5f + Math.sin(angle) * w * 0.32f).toFloat()
+                        ),
+                        strokeWidth = stroke.width,
+                        cap = StrokeCap.Round
+                    )
+                }
             }
         }
     }

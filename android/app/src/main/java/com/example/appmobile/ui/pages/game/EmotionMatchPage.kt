@@ -67,6 +67,7 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
+import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.GameScreenShell
@@ -227,19 +228,14 @@ fun EmotionMatchPage(
         scrollEnabled = false, bottomSpacerHeight = 0.dp
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-            // TOP BAR
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = onBack) { Text("← Quay lại") }
-                Spacer(modifier = Modifier.weight(1f))
-                GameStatChip("Câu ${currentRoundIndex.intValue + 1}/${rounds.size}")
-                Spacer(modifier = Modifier.width(8.dp))
-                GameStatChip("Điểm ${score.intValue}")
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Text("Cảm xúc đúng chỗ", style = MaterialTheme.typography.titleLarge, color = EgDesign.textPrimary, fontWeight = FontWeight.Bold)
-            }
+            GameHeader(
+                title = "Cảm xúc đúng chỗ",
+                level = level,
+                currentQuestion = currentRoundIndex.intValue + 1,
+                totalQuestions = rounds.size,
+                score = score.intValue,
+                onBack = onBack
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -319,7 +315,7 @@ fun EmotionMatchPage(
                                 modifier = Modifier.fillMaxWidth().height(140.dp)
                             ) {
                                 val cleanPath = question.imagePath.replace(Regex("^/fe/"), "/")
-                                val imgUrl = "http://10.0.2.2:8000$cleanPath"
+                                val imgUrl = "file:///android_asset/fe$cleanPath"
                                 AsyncImage(
                                     model = imgUrl,
                                     contentDescription = null,
