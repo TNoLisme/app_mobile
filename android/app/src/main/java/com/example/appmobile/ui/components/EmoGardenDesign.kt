@@ -236,7 +236,7 @@ private fun mainTabIndicatorPosition(
     val baseIndex = activeTab.ordinal.toFloat()
     if (tabSlotWidthPx <= 0f) return baseIndex
     val dragDeltaInTabs = -horizontalDragPx / tabSlotWidthPx
-    return (baseIndex + dragDeltaInTabs).coerceIn(0f, 2f)
+    return (baseIndex + dragDeltaInTabs).coerceIn(0f, 4f)
 }
 
 private fun handleMainSwipe(

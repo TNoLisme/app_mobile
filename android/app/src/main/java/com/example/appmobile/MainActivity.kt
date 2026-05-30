@@ -453,12 +453,20 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         }
         composable("profile") {
             ProfilePage(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onGoHome = ::goHome,
+                onOpenLearn = ::goLearn,
+                onOpenGames = ::goGames,
+                onOpenSettings = ::goSettings
             )
         }
         composable("settings") {
             SettingsPage(
                 onBack = { navController.popBackStack() },
+                onGoHome = ::goHome,
+                onOpenLearn = ::goLearn,
+                onOpenGames = ::goGames,
+                onOpenProfile = ::goProfile,
                 onLogout = ::logout,
                 onLogin = ::goLogin
             )
