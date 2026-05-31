@@ -49,7 +49,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -90,7 +89,7 @@ object EgDesign {
     val textSecondary: Color get() = if (isDark) Color(0xFFC2CBD7) else Color(0xFF6B7280)
     val blue: Color get() = if (isDark) Color(0xFF9DD4FF) else Color(0xFF0B5DAE)
     val accentSoft: Color get() = if (isDark) Color(0xFF1E344D) else Color(0xFFEAF2FF)
-    val cardRadius = 18.dp
+    val cardRadius = 16.dp
     val pillRadius = 999.dp
     val screenPadding = 16.dp
 }
@@ -263,45 +262,6 @@ private fun handleMainSwipe(
 }
 
 @Composable
-private fun EgMainTopNavSurface(
-    activeTab: EgTab,
-    onHome: () -> Unit,
-    onLearn: () -> Unit,
-    onGames: () -> Unit,
-    onProfile: (() -> Unit)?,
-    onSettings: (() -> Unit)?,
-    progress: Float,
-    indicatorPosition: Float,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer { alpha = progress },
-        shape = RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp),
-        color = EgDesign.card,
-        border = BorderStroke(1.dp, EgDesign.cardBorder),
-        shadowElevation = if (progress > 0.05f) 3.dp else 0.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            EgTopActions(onProfile = onProfile, onSettings = onSettings)
-            EgSegmentedTabs(
-                activeTab = activeTab,
-                onHome = onHome,
-                onLearn = onLearn,
-                onGames = onGames,
-                indicatorPosition = indicatorPosition
-            )
-        }
-    }
-}
-
-@Composable
 private fun EgMainBottomNavSurface(
     activeTab: EgTab,
     onHome: () -> Unit,
@@ -312,10 +272,10 @@ private fun EgMainBottomNavSurface(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
         color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder),
-        shadowElevation = 5.dp
+        shadowElevation = 3.dp
     ) {
         Column(
             modifier = Modifier
@@ -457,7 +417,7 @@ fun EgSoftCard(
         shape = RoundedCornerShape(radius),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         border = BorderStroke(1.dp, EgDesign.cardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         content()
     }
@@ -477,7 +437,7 @@ fun EgGradientPill(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(EgDesign.pillRadius),
         color = Color.Transparent,
-        shadowElevation = 2.dp
+        shadowElevation = 1.dp
     ) {
         Box(
             modifier = Modifier

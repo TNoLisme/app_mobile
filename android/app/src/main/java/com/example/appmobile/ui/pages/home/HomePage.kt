@@ -54,7 +54,6 @@ import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.egEmotionDisplayName
 import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
 import com.example.appmobile.ui.viewmodel.ReportSummary
-import com.example.appmobile.ui.viewmodel.HomeUiState
 import com.example.appmobile.ui.viewmodel.HomeViewModel
 import kotlin.math.min
 
@@ -90,12 +89,8 @@ fun HomePage(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val suggestedEmotionId = state.weakEmotionId ?: state.recommendedEmotionId
     val startLearningAction = {
         if (onNavigateToLearnEmotion != null) onNavigateToLearnEmotion(state.recommendedEmotionId) else onNavigateToLearn()
-    }
-    val suggestionAction = {
-        if (onNavigateToLearnEmotion != null) onNavigateToLearnEmotion(suggestedEmotionId) else onNavigateToLearn()
     }
     val challengeAction = {
         if (onStartEmotionChallenge != null) {
@@ -141,11 +136,6 @@ fun HomePage(
         )
 
         PhotoBoothCtaCard(onStart = onNavigateToPhotoBooth)
-
-        TodaySuggestionCard(
-            state = state,
-            onOpenSuggestion = suggestionAction
-        )
 
         RecentGamesSection(
             games = state.recentGames,
@@ -440,52 +430,6 @@ private fun ReportCtaCard(
                 }
             }
             HomeActionPill(actionText, onOpenReport, primary = true)
-        }
-    }
-}
-
-@Composable
-private fun TodaySuggestionCard(state: HomeUiState, onOpenSuggestion: () -> Unit) {
-    val message = when {
-        state.weakEmotionId != null -> {
-            "Bé có thể luyện thêm cảm xúc ${egEmotionDisplayName(state.weakEmotionId)}"
-        }
-        state.learnedEmotionCount == 0 -> {
-            "Bắt đầu với cảm xúc Vui vẻ"
-        }
-        else -> {
-            "Bé đang làm tốt, hãy thử một thử thách mới nhé!"
-        }
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = HomeCard),
-        border = BorderStroke(1.dp, HomeCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            EgVectorEmojiIcon("sparkle", size = 30.dp)
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "Gợi ý hôm nay",
-                    color = HomeTextPrimary,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 16.sp
-                )
-                Text(
-                    text = message,
-                    color = HomeTextSecondary,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp
-                )
-            }
-            HomeActionPill("Xem bài học", onOpenSuggestion, primary = false)
         }
     }
 }
