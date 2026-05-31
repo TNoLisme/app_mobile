@@ -4,6 +4,7 @@ import android.media.MediaPlayer
 import android.view.Surface
 import android.view.TextureView
 import android.graphics.Matrix
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -42,7 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,8 +87,7 @@ private data class EmotionDetailContent(
 
 private data class SituationVisualContent(
     val sceneTitle: String,
-    val mainIcon: String,
-    val objectIcon: String,
+    val imageRes: Int,
     val caption: String,
     val startColor: Color,
     val endColor: Color
@@ -410,11 +412,25 @@ private fun SituationIllustration(emotion: EmotionUiItem) {
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.linearGradient(listOf(visual.startColor, visual.endColor)))
-            .background(if (AppSettingsState.activeDarkTheme.value) Color.Black.copy(alpha = 0.35f) else Color.Transparent)
-            .padding(horizontal = 18.dp, vertical = 14.dp)
     ) {
+        Image(
+            painter = painterResource(id = visual.imageRes),
+            contentDescription = visual.sceneTitle,
+            modifier = Modifier.matchParentSize(),
+            contentScale = ContentScale.Crop
+        )
+        if (AppSettingsState.activeDarkTheme.value) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(Color.Black.copy(alpha = 0.16f))
+            )
+        }
+
         Surface(
-            modifier = Modifier.align(Alignment.TopStart),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(horizontal = 18.dp, vertical = 14.dp),
             shape = RoundedCornerShape(999.dp),
             color = EgDesign.card.copy(alpha = 0.88f),
             border = BorderStroke(1.dp, EgDesign.cardBorder)
@@ -430,27 +446,10 @@ private fun SituationIllustration(emotion: EmotionUiItem) {
             )
         }
 
-        Row(
-            modifier = Modifier.align(Alignment.Center),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            Surface(
-                modifier = Modifier.size(86.dp),
-                shape = CircleShape,
-                color = EgDesign.card.copy(alpha = 0.9f),
-                border = BorderStroke(2.dp, EgDesign.cardBorder)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    EgVectorEmojiIcon(visual.mainIcon, size = 58.dp)
-                }
-            }
-            EgVectorEmojiIcon(visual.objectIcon, size = 58.dp)
-        }
-
         Surface(
             modifier = Modifier
                 .align(Alignment.BottomStart)
+                .padding(horizontal = 18.dp, vertical = 14.dp)
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             color = EgDesign.card.copy(alpha = 0.92f),
@@ -950,56 +949,49 @@ private fun situationVisualForEmotion(emotionId: String): SituationVisualContent
     return when (egEmotionKey(emotionId)) {
         "happy" -> SituationVisualContent(
             sceneTitle = "Được tặng quà",
-            mainIcon = "happy",
-            objectIcon = "gift",
+            imageRes = R.drawable.learn_scene_happy,
             caption = "Lan vui vì nhận được món quà bất ngờ.",
             startColor = Color(0xFFFFF6C7),
             endColor = Color(0xFFFFE6A3)
         )
         "sad" -> SituationVisualContent(
             sceneTitle = "Rơi cây kem",
-            mainIcon = "sad",
-            objectIcon = "sparkle",
+            imageRes = R.drawable.learn_scene_sad,
             caption = "An buồn vì cây kem yêu thích bị rơi.",
             startColor = Color(0xFFE8F5FF),
             endColor = Color(0xFFCFE9FF)
         )
         "angry" -> SituationVisualContent(
             sceneTitle = "Bị giành đồ chơi",
-            mainIcon = "angry",
-            objectIcon = "puzzle",
+            imageRes = R.drawable.learn_scene_angry,
             caption = "Nam tức giận khi bạn lấy đồ chơi.",
             startColor = Color(0xFFFFE0D8),
             endColor = Color(0xFFFFC5B8)
         )
         "fear" -> SituationVisualContent(
             sceneTitle = "Lạc trong siêu thị",
-            mainIcon = "fear",
-            objectIcon = "warning",
+            imageRes = R.drawable.learn_scene_fear,
             caption = "Mai sợ hãi khi chưa nhìn thấy mẹ.",
             startColor = Color(0xFFEAF0FF),
             endColor = Color(0xFFD9E0FF)
         )
         "surprise" -> SituationVisualContent(
             sceneTitle = "Mở hộp quà",
-            mainIcon = "surprise",
-            objectIcon = "gift",
+            imageRes = R.drawable.learn_scene_surprise,
             caption = "Huy ngạc nhiên khi thấy món đồ chơi.",
             startColor = Color(0xFFFFEED8),
             endColor = Color(0xFFFFD7A8)
         )
         "disgust" -> SituationVisualContent(
             sceneTitle = "Mùi khó chịu",
-            mainIcon = "disgust",
-            objectIcon = "trash",
+            imageRes = R.drawable.learn_scene_disgust,
             caption = "Minh thấy ghê tởm khi ngửi mùi rác.",
             startColor = Color(0xFFE5F9E9),
             endColor = Color(0xFFCFF1D8)
         )
         else -> SituationVisualContent(
             sceneTitle = "Quan sát cảm xúc",
-            mainIcon = egEmotionKey(emotionId),
-            objectIcon = "chat",
+            imageRes = R.drawable.learn_scene_happy,
             caption = "Bé quan sát tình huống và gọi tên cảm xúc.",
             startColor = Color(0xFFEAF7FF),
             endColor = Color(0xFFD9F0FF)
