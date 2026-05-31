@@ -255,26 +255,15 @@ fun FaceAssemblyPage(
             } else {
 
                 /* ═══ TOP BAR ═══ */
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    AppBackButton(onClick = onBack)
-                    Spacer(Modifier.weight(1f))
-                    Text("Xưởng Cảm Xúc", fontSize = 17.sp,
-                        fontWeight = FontWeight.ExtraBold, color = EgDesign.textPrimary)
-                    Spacer(Modifier.weight(1f))
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("Câu ${currentIndex.intValue + 1}/$totalQ",
-                            fontSize = 11.sp, color = EgDesign.textSecondary)
-                        Spacer(Modifier.height(2.dp))
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.width(64.dp).height(4.dp).clip(CircleShape),
-                            color = EgDesign.primary, trackColor = EgDesign.cardBorder
-                        )
-                    }
-                }
+                val totalQ = questions.value.size
+                GameHeader(
+                    title = "Xưởng Cảm Xúc",
+                    level = level,
+                    currentQuestion = currentIndex.intValue + 1,
+                    totalQuestions = totalQ,
+                    score = score.intValue,
+                    onBack = onBack
+                )
 
                 /* ═══ CARD 1 – Question only (blue, compact) ═══ */
                 Card(

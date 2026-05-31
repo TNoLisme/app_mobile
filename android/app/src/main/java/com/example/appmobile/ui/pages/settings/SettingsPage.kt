@@ -81,6 +81,8 @@ import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.LegalDocumentDialog
 import com.example.appmobile.ui.components.LegalDocumentType
 import com.example.appmobile.ui.components.SupportContactDialog
+import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
+import com.example.appmobile.ui.components.EgTab
 import com.example.appmobile.ui.state.AppSettingsState
 import com.example.appmobile.ui.state.AppThemeMode
 import com.example.appmobile.ui.state.CvEmotionScoreState
@@ -94,6 +96,10 @@ import java.util.Locale
 @Composable
 fun SettingsPage(
     onBack: () -> Unit,
+    onGoHome: () -> Unit = {},
+    onOpenLearn: () -> Unit = {},
+    onOpenGames: () -> Unit = {},
+    onOpenProfile: () -> Unit = {},
     onLogout: () -> Unit,
     onLogin: () -> Unit = {},
     openParentArea: Boolean = false,
@@ -236,36 +242,44 @@ fun SettingsPage(
         }
     }
 
-    SettingsScreen(
-        themeMode = themeMode,
-        dynamicColorEnabled = dynamicColorEnabled,
-        assistantBubbleEnabled = assistantBubbleEnabled,
-        autoPlayVideo = autoPlayVideo,
-        videoSoundEnabled = videoSoundEnabled,
-        soundEffectsEnabled = soundEffectsEnabled,
-        learningReminderEnabled = learningReminderEnabled,
-        isLoggedIn = isLoggedIn,
-        statusMessage = statusMessage,
-        acceptedPolicyVersion = acceptedPolicyVersion,
-        acceptedTermsVersion = acceptedTermsVersion,
-        acceptedAtText = formatConsentDate(legalAcceptedAt),
-        onBack = onBack,
-        onThemeModeChanged = { AppSettingsState.setThemeMode(context, it) },
-        onDynamicColorChanged = { AppSettingsState.setDynamicColorEnabled(context, it) },
-        onAssistantBubbleChanged = { AppSettingsState.setAssistantBubbleEnabled(context, it) },
-        onAutoPlayVideoChanged = { AppSettingsState.setLearnVideoAutoplayEnabled(context, it) },
-        onVideoSoundChanged = { AppSettingsState.setLearnVideoSoundEnabled(context, it) },
-        onSoundEffectsChanged = { AppSettingsState.setSoundEffectsEnabled(context, it) },
-        onLearningReminderChanged = onLearningReminderChanged,
-        reminderTimeText = formatReminderTime(learningReminderHour, learningReminderMinute),
-        onOpenReminderTimePicker = onOpenReminderTimePicker,
-        onOpenParentArea = { showParentGate = true },
-        onLogin = onLogin,
-        onOpenPrivacyPolicy = { showPrivacyPolicy = true },
-        onOpenTerms = { showTermsOfUse = true },
-        onOpenSupportContact = { showSupportContact = true },
-        onLogout = { confirmAction = ConfirmAction.Logout }
-    )
+    EgCollapsibleMainScaffold(
+        activeTab = EgTab.Settings,
+        onHome = onGoHome,
+        onLearn = onOpenLearn,
+        onGames = onOpenGames,
+        onProfile = onOpenProfile,
+        onSettings = {}
+    ) {
+        SettingsScreen(
+            themeMode = themeMode,
+            dynamicColorEnabled = dynamicColorEnabled,
+            assistantBubbleEnabled = assistantBubbleEnabled,
+            autoPlayVideo = autoPlayVideo,
+            videoSoundEnabled = videoSoundEnabled,
+            soundEffectsEnabled = soundEffectsEnabled,
+            learningReminderEnabled = learningReminderEnabled,
+            isLoggedIn = isLoggedIn,
+            statusMessage = statusMessage,
+            acceptedPolicyVersion = acceptedPolicyVersion,
+            acceptedTermsVersion = acceptedTermsVersion,
+            acceptedAtText = formatConsentDate(legalAcceptedAt),
+            onThemeModeChanged = { AppSettingsState.setThemeMode(context, it) },
+            onDynamicColorChanged = { AppSettingsState.setDynamicColorEnabled(context, it) },
+            onAssistantBubbleChanged = { AppSettingsState.setAssistantBubbleEnabled(context, it) },
+            onAutoPlayVideoChanged = { AppSettingsState.setLearnVideoAutoplayEnabled(context, it) },
+            onVideoSoundChanged = { AppSettingsState.setLearnVideoSoundEnabled(context, it) },
+            onSoundEffectsChanged = { AppSettingsState.setSoundEffectsEnabled(context, it) },
+            onLearningReminderChanged = onLearningReminderChanged,
+            reminderTimeText = formatReminderTime(learningReminderHour, learningReminderMinute),
+            onOpenReminderTimePicker = onOpenReminderTimePicker,
+            onOpenParentArea = { showParentGate = true },
+            onLogin = onLogin,
+            onOpenPrivacyPolicy = { showPrivacyPolicy = true },
+            onOpenTerms = { showTermsOfUse = true },
+            onOpenSupportContact = { showSupportContact = true },
+            onLogout = { confirmAction = ConfirmAction.Logout }
+        )
+    }
 
     if (showParentGate) {
         ParentGateDialog(
@@ -456,7 +470,6 @@ private fun SettingsScreen(
     acceptedPolicyVersion: String?,
     acceptedTermsVersion: String?,
     acceptedAtText: String,
-    onBack: () -> Unit,
     onThemeModeChanged: (AppThemeMode) -> Unit,
     onDynamicColorChanged: (Boolean) -> Unit,
     onAssistantBubbleChanged: (Boolean) -> Unit,
@@ -475,14 +488,11 @@ private fun SettingsScreen(
 ) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .background(EgDesign.background)
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
+            .fillMaxWidth()
             .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SettingsHeader(onBack = onBack)
+        SettingsHeader()
         statusMessage?.let { SettingsStatusBanner(it) }
         AppearanceSection(
             themeMode = themeMode,
@@ -519,12 +529,8 @@ private fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsHeader(onBack: () -> Unit) {
+private fun SettingsHeader() {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AppBackButton(onClick = onBack)
-            Spacer(modifier = Modifier.weight(1f))
-        }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Cài đặt", color = EgDesign.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
             Text(

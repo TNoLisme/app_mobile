@@ -326,38 +326,47 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             when (id.lowercase()) {
                 // Các game Nhận diện
                 GameUiCatalog.GAME_RECOGNIZE_EMOTION,
-                "6695afe0-6414-40a3-b688-b08a98cd2b61" -> EmotionsBoxPage(
+                "6695AFE0-6414-40A3-B688-B08A98CD2B61" -> EmotionsBoxPage(
                     level = level,
                     onBack = { navController.popBackStack() },
                     onOpenAssistant = { navController.navigate(assistantRoute("emotions_box", level)) },
                     onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
                 )
+
                 GameUiCatalog.GAME_FACE_ASSEMBLY,
-                "eea09e6c-8c2f-4df1-a361-f5edc89d8281" -> FaceAssemblyPage(
+                "EEA09E6C-8C2F-4DF1-A361-F5EDC89D8281" -> FaceAssemblyPage(
                     level = level,
                     onBack = { navController.popBackStack() },
                     onOpenAssistant = { navController.navigate(assistantRoute("face_assembly", level)) },
                     onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
                 )
+
                 GameUiCatalog.GAME_EMOTION_MATCH,
-                "afa91963-f75a-4d92-bcf4-72e4e53c84d2" -> EmotionMatchPage(
+                "AFA91963-F75A-4D92-BCF4-72E4E53C84D2" -> EmotionMatchPage(
                     level = level,
                     onBack = { navController.popBackStack() },
                     onOpenAssistant = { navController.navigate(assistantRoute("emotion_match", level)) },
                     onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
                 )
+
                 GameUiCatalog.GAME_DETECTIVE,
-                "17c0cc09-cec9-48dc-bf06-e574cf8bf303" -> DetectiveGamePage(
+                "17C0CC09-CEC9-48DC-BF06-E574CF8BF303" -> DetectiveGamePage(
                     level = level,
                     onBack = { navController.popBackStack() },
                     onOpenAssistant = { navController.navigate(assistantRoute("detective_game", level)) },
                     onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
                 )
+
                 // Các game Biểu cảm
                 GameUiCatalog.GAME_CV_STORY,
-                "1b450620-ee43-4f60-bad6-1e214642999e" -> GameCVPage(level = level, onBack = { navController.popBackStack() }, onOpenAssistant = { navController.navigate(assistantRoute("gameCV", level)) })
+                "1B450620-EE43-4F60-BAD6-1E214642999E" -> GameCVPage(
+                    level = level,
+                    onBack = { navController.popBackStack() },
+                    onOpenAssistant = { navController.navigate(assistantRoute("gameCV", level)) }
+                )
+
                 GameUiCatalog.GAME_CV_REQUEST,
-                "3cf6130e-73f3-4146-8d73-d2709b4cf44e" -> GameCV2Page(
+                "3CF6130E-73F3-4146-8D73-D2709B4CF44E" -> GameCV2Page(
                     level = level,
                     selectedEmotion = emotion,
                     onBack = { navController.popBackStack() },
@@ -371,6 +380,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                     },
                     onOpenAssistant = { navController.navigate(assistantRoute("game_cv_2", level)) }
                 )
+
                 else -> {
                     // Xử lý an toàn khi không tìm thấy Game ID
                     LaunchedEffect(Unit) {
@@ -443,12 +453,20 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         }
         composable("profile") {
             ProfilePage(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onGoHome = ::goHome,
+                onOpenLearn = ::goLearn,
+                onOpenGames = ::goGames,
+                onOpenSettings = ::goSettings
             )
         }
         composable("settings") {
             SettingsPage(
                 onBack = { navController.popBackStack() },
+                onGoHome = ::goHome,
+                onOpenLearn = ::goLearn,
+                onOpenGames = ::goGames,
+                onOpenProfile = ::goProfile,
                 onLogout = ::logout,
                 onLogin = ::goLogin
             )
@@ -506,19 +524,25 @@ private fun assistantContext(route: String?, args: Bundle?): String {
             val emotion = args?.getString("emotion").orEmpty()
             when (gameId) {
                 GameUiCatalog.GAME_CV_STORY,
-                "1b450620-ee43-4f60-bad6-1e214642999e" -> "gameCV"
+                "1B450620-EE43-4F60-BAD6-1E214642999E" -> "gameCV"
+
                 GameUiCatalog.GAME_CV_REQUEST,
-                "3cf6130e-73f3-4146-8d73-d2709b4cf44e" -> {
+                "3CF6130E-73F3-4146-8D73-D2709B4CF44E" -> {
                     if (emotion.isBlank()) "game_cv_2" else "game_cv_2_$emotion"
                 }
+
                 GameUiCatalog.GAME_RECOGNIZE_EMOTION,
-                "6695afe0-6414-40a3-b688-b08a98cd2b61" -> "emotions_box"
+                "6695AFE0-6414-40A3-B688-B08A98CD2B61" -> "emotions_box"
+
                 GameUiCatalog.GAME_FACE_ASSEMBLY,
-                "eea09e6c-8c2f-4df1-a361-f5edc89d8281" -> "face_assembly"
+                "EEA09E6C-8C2F-4DF1-A361-F5EDC89D8281" -> "face_assembly"
+
                 GameUiCatalog.GAME_EMOTION_MATCH,
-                "afa91963-f75a-4d92-bcf4-72e4e53c84d2" -> "emotion_match"
+                "AFA91963-F75A-4D92-BCF4-72E4E53C84D2" -> "emotion_match"
+
                 GameUiCatalog.GAME_DETECTIVE,
-                "17c0cc09-cec9-48dc-bf06-e574cf8bf303" -> "detective_game"
+                "17C0CC09-CEC9-48DC-BF06-E574CF8BF303" -> "detective_game"
+
                 else -> "game"
             }
         }

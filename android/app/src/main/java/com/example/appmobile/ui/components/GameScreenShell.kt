@@ -70,17 +70,5 @@ fun GameScreenShell(
                 }
             }
         }
-        onOpenAssistant?.let { openAssistant ->
-            EgGradientPill(
-                text = "Mầm Mầm",
-                onClick = openAssistant,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .statusBarsPadding()
-                    .padding(16.dp),
-                height = 38.dp,
-                fontSize = 13
-            )
-        }
     }
 }
