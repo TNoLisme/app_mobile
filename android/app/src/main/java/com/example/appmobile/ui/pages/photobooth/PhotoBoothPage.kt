@@ -66,9 +66,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -90,6 +93,7 @@ import java.io.File
 fun PhotoBoothPage(
     onBack: () -> Unit,
     onGoHome: () -> Unit,
+    onOpenAlbum: () -> Unit,
     vm: PhotoBoothViewModel = viewModel()
 ) {
     val state by vm.state.collectAsState()
@@ -161,7 +165,7 @@ fun PhotoBoothPage(
             .background(EgDesign.background)
     ) {
         when (state.phase) {
-            PhotoBoothPhase.Intro -> PhotoBoothIntro(onBack = onBack, onStart = vm::startPicking)
+            PhotoBoothPhase.Intro -> PhotoBoothIntro(onBack = onBack, onStart = vm::startPicking, onOpenAlbum = onOpenAlbum)
             PhotoBoothPhase.PickingEmotions -> EmotionMultiPicker(state, onBack = { vm.resetToIntro() }, vm = vm)
             PhotoBoothPhase.PickingFrame -> FramePicker(state = state, onBack = vm::backToEmotionPicker, vm = vm)
             PhotoBoothPhase.Preparing -> PreparationScreen(state = state, onBack = { vm.goToFramePicker() }, onStart = vm::beginCapture)
@@ -183,7 +187,11 @@ fun PhotoBoothPage(
                 onSaveGallery = vm::saveToGallery,
                 onSaveAlbum = vm::saveToAlbum,
                 onRestart = vm::restartSession,
-                onGoHome = onGoHome
+                onGoHome = {
+                    vm.resetToIntro()
+                    onGoHome()
+                },
+                onOpenAlbum = onOpenAlbum
             )
             PhotoBoothPhase.PermissionDenied -> PermissionDeniedScreen(
                 onBack = onBack,
@@ -210,11 +218,11 @@ fun PhotoBoothPage(
 }
 
 @Composable
-private fun PhotoBoothIntro(onBack: () -> Unit, onStart: () -> Unit) {
+private fun PhotoBoothIntro(onBack: () -> Unit, onStart: () -> Unit, onOpenAlbum: () -> Unit) {
     PhotoBoothScaffold(onBack = onBack) {
-        Text("Photobooth cảm xúc", color = EgDesign.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+        Text("EmoGarden Photobooth", color = EgDesign.textPrimary, fontSize = 27.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Chọn nhiều cảm xúc, chụp từng ảnh rồi ghép thành một dải ảnh thật dễ thương.",
+            "Chọn vài cảm xúc, chụp từng biểu cảm rồi ghép thành một bộ ảnh dễ thương.",
             color = EgDesign.textSecondary,
             fontSize = 15.sp,
             lineHeight = 21.sp
@@ -226,14 +234,8 @@ private fun PhotoBoothIntro(onBack: () -> Unit, onStart: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 MiniStripPreview()
-                Text(
-                    "Con có thể chọn Vui vẻ, Buồn bã, Tức giận... rồi chụp lần lượt từng khuôn mặt.",
-                    color = EgDesign.textSecondary,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    textAlign = TextAlign.Center
-                )
                 EgGradientPill("Bắt đầu", onClick = onStart, modifier = Modifier.fillMaxWidth(), height = 46.dp, fontSize = 14)
+                OutlinePill("Xem album", onClick = onOpenAlbum, modifier = Modifier.fillMaxWidth())
             }
         }
     }
@@ -243,23 +245,51 @@ private fun PhotoBoothIntro(onBack: () -> Unit, onStart: () -> Unit) {
 private fun EmotionMultiPicker(state: PhotoBoothUiState, onBack: () -> Unit, vm: PhotoBoothViewModel) {
     PhotoBoothScaffold(onBack = onBack) {
         SectionHeader(
-            title = "Chọn cảm xúc con muốn chụp",
+            title = "Chọn cảm xúc",
             subtitle = "Chọn từ 2 đến 4 cảm xúc. Thứ tự chọn sẽ là thứ tự chụp ảnh."
         )
         EmotionPickerGrid(state = state, onToggle = vm::toggleEmotion)
+        if (state.selectedEmotionIds.size < 2) {
+            Text(
+                "Chọn ít nhất 2 cảm xúc để tiếp tục.",
+                color = EgDesign.textSecondary,
+                fontSize = 13.sp
+            )
+        }
         state.validationMessage?.let { FriendlyNotice(it, isError = true) }
-        EgGradientPill("Tiếp tục", onClick = vm::goToFramePicker, modifier = Modifier.fillMaxWidth(), height = 46.dp, fontSize = 14)
+        EgGradientPill(
+            "Tiếp tục",
+            onClick = vm::goToFramePicker,
+            modifier = Modifier.fillMaxWidth(),
+            height = 46.dp,
+            fontSize = 14,
+            enabled = state.selectedEmotionIds.size >= 2
+        )
     }
 }
 
 @Composable
 private fun FramePicker(state: PhotoBoothUiState, onBack: () -> Unit, vm: PhotoBoothViewModel) {
-    PhotoBoothScaffold(onBack = onBack) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(EgDesign.background)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        AppBackButton(onClick = onBack)
         SectionHeader(
-            title = "Chọn khung photobooth",
-            subtitle = "Chọn khung dễ thương cho bộ ảnh cảm xúc của con."
+            title = "Chọn khung",
+            subtitle = "Chọn khung dễ thương cho bộ ảnh của con."
         )
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             PhotoBoothCatalog.frames.forEach { frame ->
                 FrameTemplateCard(
                     frame = frame,
@@ -303,8 +333,8 @@ private fun PreparationScreen(state: PhotoBoothUiState, onBack: () -> Unit, onSt
                     Text("Mẹo nhỏ", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
                 }
                 TipText("Đưa khuôn mặt vào giữa khung.")
-                TipText("Giữ điện thoại ổn định khi chụp.")
-                TipText("Sau mỗi ảnh, con có thể dùng ảnh đó hoặc chụp lại.")
+                TipText("Chọn nơi đủ sáng.")
+                TipText("Sau mỗi ảnh, con có thể chụp lại nếu muốn.")
             }
         }
         EgGradientPill("Bắt đầu chụp", onClick = onStart, modifier = Modifier.fillMaxWidth(), height = 46.dp, fontSize = 14)
@@ -335,7 +365,15 @@ private fun CaptureSequenceScreen(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AppBackButton(onClick = onBack)
-            Spacer(Modifier.weight(1f))
+            Text(
+                "EmoGarden Photobooth",
+                modifier = Modifier.weight(1f),
+                color = EgDesign.textPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             Surface(
                 shape = RoundedCornerShape(999.dp),
                 color = EgDesign.card,
@@ -350,7 +388,6 @@ private fun CaptureSequenceScreen(
                 )
             }
         }
-        Text("Photobooth cảm xúc", color = EgDesign.textPrimary, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
         EgSoftCard {
             Row(
                 modifier = Modifier.padding(14.dp),
@@ -360,13 +397,21 @@ private fun CaptureSequenceScreen(
                 EgEmotionVectorIcon(emotionId, size = 42.dp)
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        "Con hãy làm khuôn mặt ${PhotoBoothCatalog.emotionName(emotionId)}",
+                        if (state.phase == PhotoBoothPhase.ReviewingShot) {
+                            "Ảnh ${PhotoBoothCatalog.emotionName(emotionId)} của con"
+                        } else {
+                            "Làm khuôn mặt ${PhotoBoothCatalog.emotionName(emotionId)}"
+                        },
                         color = EgDesign.textPrimary,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 17.sp
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
                     )
                     Text(
-                        state.friendlyMessage ?: "Đưa khuôn mặt vào giữa khung nhé.",
+                        if (state.phase == PhotoBoothPhase.ReviewingShot) {
+                            "Đẹp lắm! Con muốn dùng ảnh này không?"
+                        } else {
+                            state.friendlyMessage ?: "Đưa mặt vào giữa khung nhé."
+                        },
                         color = EgDesign.textSecondary,
                         fontSize = 13.sp,
                         lineHeight = 18.sp
@@ -400,7 +445,9 @@ private fun CaptureSequenceScreen(
                     contentScale = ContentScale.Crop
                 )
             }
-            CameraFrameOverlay(frame = frame, countdown = state.countdown)
+            if (state.phase != PhotoBoothPhase.ReviewingShot) {
+                CameraFrameOverlay(frame = frame, countdown = state.countdown)
+            }
         }
         state.errorMessage?.let { FriendlyNotice(message = it, isError = true) }
         if (state.phase == PhotoBoothPhase.ReviewingShot) {
@@ -414,7 +461,8 @@ private fun CaptureSequenceScreen(
                 onClick = onCapture,
                 modifier = Modifier.fillMaxWidth(),
                 height = 50.dp,
-                fontSize = 15
+                fontSize = 15,
+                enabled = !state.isBusy
             )
         }
     }
@@ -446,7 +494,8 @@ private fun FinalPreviewScreen(
     onSaveGallery: () -> Unit,
     onSaveAlbum: () -> Unit,
     onRestart: () -> Unit,
-    onGoHome: () -> Unit
+    onGoHome: () -> Unit,
+    onOpenAlbum: () -> Unit
 ) {
     PhotoBoothScaffold(onBack = onGoHome) {
         SectionHeader(
@@ -455,16 +504,28 @@ private fun FinalPreviewScreen(
         )
         EgSoftCard {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                AsyncImage(
-                    model = state.composedPhotoUri,
-                    contentDescription = "Ảnh photobooth",
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 420.dp, max = 560.dp)
                         .clip(RoundedCornerShape(18.dp))
-                        .background(EgDesign.cardSoft),
-                    contentScale = ContentScale.Fit
-                )
+                        .background(EgDesign.cardSoft)
+                ) {
+                    AsyncImage(
+                        model = state.composedPhotoUri,
+                        contentDescription = "Ảnh photobooth",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                    PhotoBoothDownloadButton(
+                        isBusy = state.isBusy,
+                        isSaved = state.gallerySaved,
+                        onClick = onSaveGallery,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(10.dp)
+                    )
+                }
                 Text(
                     text = "Cảm xúc: " + state.selectedEmotionIds.joinToString(" · ") { PhotoBoothCatalog.emotionName(it) },
                     color = EgDesign.textSecondary,
@@ -474,18 +535,17 @@ private fun FinalPreviewScreen(
             }
         }
         state.friendlyMessage?.let { FriendlyNotice(message = it, isError = false) }
-        EgGradientPill(
-            text = if (state.isBusy) "Đang lưu..." else "Lưu vào máy",
-            onClick = onSaveGallery,
-            modifier = Modifier.fillMaxWidth(),
-            height = 46.dp,
-            fontSize = 14
-        )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinePill("Lưu album", onClick = onSaveAlbum, modifier = Modifier.weight(1f))
-            OutlinePill("Chụp lại", onClick = onRestart, modifier = Modifier.weight(1f))
+            OutlinePill(
+                text = if (state.albumSaved) "Đã thêm vào album" else "Thêm vào album",
+                onClick = onSaveAlbum,
+                modifier = Modifier.weight(1f),
+                enabled = !state.isBusy && !state.albumSaved
+            )
+            OutlinePill("Xem album", onClick = onOpenAlbum, modifier = Modifier.weight(1f), enabled = !state.isBusy)
         }
-        OutlinePill("Về Trang chủ", onClick = onGoHome, modifier = Modifier.fillMaxWidth())
+        OutlinePill("Chụp lại", onClick = onRestart, modifier = Modifier.fillMaxWidth(), enabled = !state.isBusy)
+        OutlinePill("Về Trang chủ", onClick = onGoHome, modifier = Modifier.fillMaxWidth(), enabled = !state.isBusy)
     }
 }
 
@@ -670,6 +730,20 @@ private fun PhotoBoothFramePreview(frame: PhotoBoothFrameTemplate, layout: Photo
         )
         drawRoundRect(
             color = Color.White.copy(alpha = 0.88f),
+            topLeft = Offset(4f, 4f),
+            size = Size(size.width - 8f, size.height - 8f),
+            cornerRadius = CornerRadius(14f, 14f),
+            style = Stroke(width = 2.4f)
+        )
+        drawRoundRect(
+            color = Color.White.copy(alpha = 0.5f),
+            topLeft = Offset(8f, 8f),
+            size = Size(size.width - 16f, size.height - 16f),
+            cornerRadius = CornerRadius(11f, 11f),
+            style = Stroke(width = 1.2f)
+        )
+        drawRoundRect(
+            color = Color.White.copy(alpha = 0.88f),
             topLeft = Offset(size.width * 0.12f, size.height * 0.10f),
             size = Size(size.width * 0.76f, size.height * 0.06f),
             cornerRadius = CornerRadius(999f, 999f)
@@ -694,8 +768,122 @@ private fun PhotoBoothFramePreview(frame: PhotoBoothFrameTemplate, layout: Photo
                 )
             }
         }
-        drawDecorativeDots(frame.id)
+        drawFramePreviewDecorations(frame.id)
     }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFramePreviewDecorations(frameId: String) {
+    when (frameId) {
+        "garden_blue" -> {
+            drawPreviewLeaf(Offset(size.width * 0.13f, size.height * 0.88f), Color(0xFF65B37D), -28f)
+            drawPreviewLeaf(Offset(size.width * 0.22f, size.height * 0.84f), Color(0xFF86C99B), 34f)
+            drawPreviewFlower(Offset(size.width * 0.18f, size.height * 0.86f), Color(0xFFFFD86A))
+            drawPreviewLeaf(Offset(size.width * 0.86f, size.height * 0.87f), Color(0xFF65B37D), 22f)
+            drawPreviewFlower(Offset(size.width * 0.82f, size.height * 0.86f), Color(0xFF7CC8FF))
+        }
+        "rainbow_feelings" -> {
+            repeat(3) { index ->
+                drawArc(
+                    color = listOf(Color(0xFFFF8A8A), Color(0xFFFFD86A), Color(0xFF7CC8FF))[index],
+                    startAngle = 195f,
+                    sweepAngle = 150f,
+                    useCenter = false,
+                    topLeft = Offset(size.width * 0.56f + index * 5f, size.height * 0.77f + index * 5f),
+                    size = Size(size.width * 0.32f - index * 10f, size.height * 0.18f - index * 10f),
+                    style = Stroke(width = 4f)
+                )
+            }
+            drawPreviewCloud(Offset(size.width * 0.22f, size.height * 0.86f))
+            drawPreviewCloud(Offset(size.width * 0.78f, size.height * 0.87f))
+        }
+        "emotion_stickers" -> {
+            listOf(
+                Offset(size.width * 0.18f, size.height * 0.86f) to Color(0xFFFFD64D),
+                Offset(size.width * 0.82f, size.height * 0.86f) to Color(0xFFFF8A35),
+                Offset(size.width * 0.84f, size.height * 0.18f) to Color(0xFF86B6FF)
+            ).forEach { (center, color) ->
+                drawCircle(color, radius = 9f, center = center)
+                drawCircle(Color(0xFF243040), radius = 1.5f, center = center + Offset(-3f, -2f))
+                drawCircle(Color(0xFF243040), radius = 1.5f, center = center + Offset(3f, -2f))
+                drawArc(
+                    color = Color(0xFF243040),
+                    startAngle = 18f,
+                    sweepAngle = 144f,
+                    useCenter = false,
+                    topLeft = center + Offset(-4f, 1f),
+                    size = Size(8f, 5f),
+                    style = Stroke(width = 1.4f)
+                )
+            }
+        }
+        "flower_booth" -> {
+            drawPreviewLeaf(Offset(size.width * 0.13f, size.height * 0.88f), Color(0xFF65B37D), -30f)
+            drawPreviewFlower(Offset(size.width * 0.18f, size.height * 0.86f), Color(0xFF7CC8FF))
+            drawPreviewFlower(Offset(size.width * 0.29f, size.height * 0.89f), Color(0xFFFFC2D5))
+            drawPreviewLeaf(Offset(size.width * 0.88f, size.height * 0.88f), Color(0xFF65B37D), 30f)
+            drawPreviewFlower(Offset(size.width * 0.82f, size.height * 0.86f), Color(0xFFFFD86A))
+            drawPreviewFlower(Offset(size.width * 0.71f, size.height * 0.89f), Color(0xFF7CC8FF))
+        }
+        "starry_night" -> {
+            drawCircle(Color(0xFFFFE170), radius = 9f, center = Offset(size.width * 0.82f, size.height * 0.16f))
+            drawCircle(frameNightColor, radius = 9f, center = Offset(size.width * 0.86f, size.height * 0.13f))
+            listOf(
+                Offset(size.width * 0.18f, size.height * 0.84f),
+                Offset(size.width * 0.82f, size.height * 0.86f),
+                Offset(size.width * 0.18f, size.height * 0.18f)
+            ).forEach { center ->
+                drawPreviewStar(center)
+            }
+        }
+        else -> {
+            drawCircle(Color(0xFF7CC8FF), radius = 5f, center = Offset(size.width * 0.18f, size.height * 0.87f))
+            drawCircle(Color(0xFFFFD86A), radius = 4f, center = Offset(size.width * 0.82f, size.height * 0.87f))
+            drawLine(
+                Color.White.copy(alpha = 0.72f),
+                Offset(size.width * 0.18f, size.height * 0.91f),
+                Offset(size.width * 0.82f, size.height * 0.91f),
+                strokeWidth = 2f
+            )
+        }
+    }
+}
+
+private val frameNightColor = Color(0xFF172A42)
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPreviewLeaf(center: Offset, color: Color, rotation: Float) {
+    rotate(rotation, pivot = center) {
+        drawOval(
+            color = color,
+            topLeft = center + Offset(-8f, -4f),
+            size = Size(16f, 8f)
+        )
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPreviewFlower(center: Offset, color: Color) {
+    repeat(5) { petal ->
+        val angle = Math.toRadians((petal * 72).toDouble())
+        drawCircle(
+            color = color,
+            radius = 3.5f,
+            center = Offset(
+                center.x + kotlin.math.cos(angle).toFloat() * 6f,
+                center.y + kotlin.math.sin(angle).toFloat() * 6f
+            )
+        )
+    }
+    drawCircle(Color.White, radius = 2.8f, center = center)
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPreviewCloud(center: Offset) {
+    drawCircle(Color.White.copy(alpha = 0.9f), radius = 6f, center = center + Offset(-6f, 0f))
+    drawCircle(Color.White.copy(alpha = 0.9f), radius = 8f, center = center)
+    drawCircle(Color.White.copy(alpha = 0.9f), radius = 5f, center = center + Offset(7f, 1f))
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPreviewStar(center: Offset) {
+    drawLine(Color(0xFFFFE170), center + Offset(-5f, 0f), center + Offset(5f, 0f), strokeWidth = 2f)
+    drawLine(Color(0xFFFFE170), center + Offset(0f, -5f), center + Offset(0f, 5f), strokeWidth = 2f)
 }
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDecorativeDots(frameId: String) {
@@ -706,8 +894,6 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDecorativeDots(
         else -> listOf(Color(0xFF7CC8FF), Color(0xFFFFE28A))
     }
     listOf(
-        Offset(size.width * 0.12f, size.height * 0.20f),
-        Offset(size.width * 0.88f, size.height * 0.20f),
         Offset(size.width * 0.14f, size.height * 0.88f),
         Offset(size.width * 0.86f, size.height * 0.88f)
     ).forEachIndexed { index, offset ->
@@ -717,33 +903,65 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDecorativeDots(
 
 @Composable
 private fun MiniStripPreview() {
-    Canvas(modifier = Modifier.size(width = 150.dp, height = 220.dp)) {
-        drawRoundRect(
-            brush = Brush.linearGradient(listOf(Color(0xFFE7F7FF), Color(0xFFFFF5CA))),
-            cornerRadius = CornerRadius(28f, 28f)
+    Column(
+        modifier = Modifier
+            .width(168.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFFE7F7FF), Color(0xFFE9FAEF))))
+            .border(2.dp, Color.White, RoundedCornerShape(20.dp))
+            .padding(horizontal = 11.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            "EmoGarden",
+            color = Color(0xFF0B3A6E),
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 11.sp
         )
-        repeat(3) { index ->
-            val top = 34f + index * 56f
-            drawRoundRect(
-                color = Color.White,
-                topLeft = Offset(24f, top),
-                size = Size(size.width - 48f, 42f),
-                cornerRadius = CornerRadius(12f, 12f)
+        MiniStripFrame("Vui vẻ", Color(0xFFFFD86A))
+        MiniStripFrame("Buồn bã", Color(0xFF86B6FF))
+        MiniStripFrame("Tức giận", Color(0xFFFF9B7A))
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            listOf(Color(0xFF65B37D), Color(0xFF7CC8FF), Color(0xFFFFD86A)).forEach { color ->
+                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(color))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniStripFrame(label: String, accent: Color) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(42.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(Color.White)
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(accent)
             )
-            drawCircle(Color(0xFFFFD64D), 10f, Offset(42f, top + 21f))
-            drawRoundRect(
-                color = Color(0xFFD8ECFF),
-                topLeft = Offset(62f, top + 14f),
-                size = Size(56f, 8f),
-                cornerRadius = CornerRadius(999f, 999f)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 5.dp)
+                    .width(32.dp)
+                    .height(5.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(accent.copy(alpha = 0.34f))
             )
         }
-        drawRoundRect(
-            color = Color(0xFF0B3A6E).copy(alpha = 0.75f),
-            topLeft = Offset(36f, size.height - 32f),
-            size = Size(size.width - 72f, 8f),
-            cornerRadius = CornerRadius(999f, 999f)
-        )
+        Text(label, color = Color(0xFF0B3A6E), fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -828,19 +1046,52 @@ private fun FriendlyNotice(message: String, isError: Boolean) {
 }
 
 @Composable
-private fun OutlinePill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun PhotoBoothDownloadButton(
+    isBusy: Boolean,
+    isSaved: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .size(38.dp)
+            .semantics {
+                contentDescription = if (isSaved) "Đã tải ảnh xuống" else "Tải ảnh xuống"
+            }
+            .clickable(enabled = !isBusy && !isSaved, onClick = onClick),
+        shape = CircleShape,
+        color = if (isSaved) Color(0xFFF0FAF4).copy(alpha = 0.96f) else Color.White.copy(alpha = 0.94f),
+        border = BorderStroke(1.dp, if (isSaved) Color(0xFF65B37D) else EgDesign.cardBorder),
+        shadowElevation = 3.dp
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            if (isBusy) {
+                CircularProgressIndicator(modifier = Modifier.size(17.dp), color = EgDesign.primaryDark, strokeWidth = 2.dp)
+            } else {
+                EgVectorEmojiIcon(
+                    if (isSaved) "check" else "download",
+                    size = 18.dp,
+                    tint = if (isSaved) Color(0xFF3A9B63) else EgDesign.primaryDark
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OutlinePill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     Surface(
         modifier = modifier
             .height(46.dp)
-            .clickable(onClick = onClick),
+            .clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(999.dp),
-        color = EgDesign.card,
+        color = if (enabled) EgDesign.card else EgDesign.cardSoft,
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
         Box(modifier = Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
             Text(
                 text,
-                color = EgDesign.textPrimary,
+                color = if (enabled) EgDesign.textPrimary else EgDesign.textSecondary,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 13.sp,
                 maxLines = 1,

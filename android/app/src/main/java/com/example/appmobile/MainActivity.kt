@@ -52,6 +52,7 @@ import com.example.appmobile.ui.pages.home.HomePage
 import com.example.appmobile.ui.pages.learn.EmotionDetailPage
 import com.example.appmobile.ui.pages.learn.LearnPage
 import com.example.appmobile.ui.pages.photobooth.PhotoBoothPage
+import com.example.appmobile.ui.pages.photobooth.PhotoBoothAlbumPage
 import com.example.appmobile.ui.pages.profile.ProfilePage
 import com.example.appmobile.ui.pages.report.ReportPage
 import com.example.appmobile.ui.pages.select.LevelSelectPage
@@ -411,8 +412,12 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         composable("photobooth") {
             PhotoBoothPage(
                 onBack = { navController.popBackStack() },
-                onGoHome = ::goHome
+                onGoHome = ::goHome,
+                onOpenAlbum = { navController.navigate("photobooth_album") }
             )
+        }
+        composable("photobooth_album") {
+            PhotoBoothAlbumPage(onBack = { navController.popBackStack() })
         }
         composable("garden") {
             GardenPage(
@@ -506,6 +511,7 @@ private fun shouldShowAssistantBubble(route: String?, loggedIn: Boolean): Boolea
     if (route == null) return false
     return route != "login" &&
         route != "register" &&
+        !route.startsWith("photobooth") &&
         !route.startsWith("assistant")
 }
 

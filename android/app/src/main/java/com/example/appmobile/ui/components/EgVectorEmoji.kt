@@ -59,6 +59,7 @@ private val MonoPreferredKeys = setOf(
     "refresh",
     "play",
     "next",
+    "download",
     "fullscreen",
     "trash",
     "lock",
@@ -102,6 +103,7 @@ fun egVectorEmojiKey(value: String): String {
         raw == "\uD83D\uDD14" -> "bell"
         raw == "\u23F0" -> "clock"
         raw == "\uD83D\uDCBE" -> "save"
+        raw == "\u2B07\uFE0F" || raw == "\u2B07" || "download" in lower -> "download"
         raw == "\uD83D\uDEAA" -> "exit"
         raw == "\uD83D\uDCD6" || raw == "\uD83D\uDCDA" -> "book"
         raw == "\uD83C\uDF81" -> "gift"
@@ -147,6 +149,7 @@ private fun DrawScope.drawColorGlyph(key: String) {
         "back" -> drawBackArrowBadge()
         "home" -> drawMonoGlyph("home", EgDesign.blue)
         "play", "next" -> drawMonoGlyph("play", EgDesign.blue)
+        "download" -> drawMonoGlyph("download", EgDesign.blue)
         "fullscreen" -> drawMonoGlyph("fullscreen", EgDesign.blue)
         else -> drawSparkleBadge()
     }
@@ -623,6 +626,7 @@ private fun DrawScope.drawMonoGlyph(key: String, color: Color) {
         "edit" -> drawEditLine(color)
         "refresh" -> drawRefreshLine(color)
         "play", "next" -> drawPlayTriangle(color)
+        "download" -> drawDownloadLine(color)
         "fullscreen" -> drawFullscreenLine(color)
         "trash" -> drawTrashBadge()
         "home" -> drawHomeLine(color)
@@ -826,6 +830,16 @@ private fun DrawScope.drawPlayTriangle(color: Color) {
         close()
     }
     drawPath(p, color)
+}
+
+private fun DrawScope.drawDownloadLine(color: Color) {
+    val s = min(size.width, size.height)
+    val c = center()
+    val stroke = s * 0.07f
+    drawLine(color, Offset(c.x, c.y - s * 0.30f), Offset(c.x, c.y + s * 0.12f), stroke, StrokeCap.Round)
+    drawLine(color, Offset(c.x, c.y + s * 0.12f), Offset(c.x - s * 0.17f, c.y - s * 0.04f), stroke, StrokeCap.Round)
+    drawLine(color, Offset(c.x, c.y + s * 0.12f), Offset(c.x + s * 0.17f, c.y - s * 0.04f), stroke, StrokeCap.Round)
+    drawLine(color, Offset(c.x - s * 0.28f, c.y + s * 0.29f), Offset(c.x + s * 0.28f, c.y + s * 0.29f), stroke, StrokeCap.Round)
 }
 
 private fun DrawScope.drawFullscreenLine(color: Color) {

@@ -259,7 +259,7 @@ private fun PhotoBoothCtaCard(onStart: () -> Unit) {
             MiniPhotoBoothStrip()
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Photobooth cảm xúc",
+                    text = "EmoGarden Photobooth",
                     color = HomeTextPrimary,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 17.sp

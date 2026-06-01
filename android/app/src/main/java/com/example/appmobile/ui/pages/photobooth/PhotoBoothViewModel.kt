@@ -1,18 +1,12 @@
 package com.example.appmobile.ui.pages.photobooth
 
 import android.app.Application
-import android.content.ContentValues
 import android.net.Uri
-import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.appmobile.data.garden.GardenRepository
 import com.example.appmobile.data.garden.LearningEvent
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +24,7 @@ import kotlinx.coroutines.withContext
 
 class PhotoBoothViewModel(application: Application) : AndroidViewModel(application) {
     private val gardenRepository = GardenRepository(application.applicationContext)
+    private val albumRepository = PhotoBoothAlbumRepository(application.applicationContext)
     private val _state = MutableStateFlow(PhotoBoothUiState())
     val state: StateFlow<PhotoBoothUiState> = _state.asStateFlow()
 
@@ -37,6 +32,7 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
     val events: SharedFlow<PhotoBoothEvent> = _events.asSharedFlow()
 
     private var countdownJob: Job? = null
+    private var gardenEventSent = false
 
     fun startPicking() {
         _state.update {
@@ -61,7 +57,7 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
                 selectedEmotionIds = next,
                 selectedLayout = PhotoBoothCatalog.layoutFor(next.size),
                 validationMessage = if (emotionId !in selected && selected.size >= MaxEmotionCount) {
-                    "Con chỉ nên chọn tối đa 4 cảm xúc cho một ảnh photobooth nhé."
+                    "Con chỉ nên chọn tối đa 4 cảm xúc cho một bộ ảnh nhé."
                 } else {
                     null
                 }
@@ -98,6 +94,8 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
 
     fun beginCapture() {
         countdownJob?.cancel()
+        clearTemporaryShots()
+        gardenEventSent = false
         _state.update {
             it.copy(
                 phase = PhotoBoothPhase.Capturing,
@@ -108,7 +106,9 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
                 countdown = null,
                 friendlyMessage = "Đưa khuôn mặt vào giữa khung nhé.",
                 errorMessage = null,
-                isBusy = false
+                isBusy = false,
+                gallerySaved = false,
+                albumSaved = false
             )
         }
     }
@@ -188,6 +188,7 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun retakeCurrentShot() {
+        deleteFile(_state.value.currentPreviewUri)
         _state.update {
             it.copy(
                 phase = PhotoBoothPhase.Capturing,
@@ -213,50 +214,65 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
 
     fun saveToGallery() {
         val current = _state.value
+        if (current.isBusy || current.gallerySaved) return
         val uri = current.composedPhotoUri ?: return
         val selectedEmotions = current.selectedEmotionIds
         viewModelScope.launch {
             _state.update { it.copy(phase = PhotoBoothPhase.Saving, isBusy = true, friendlyMessage = "Đang lưu ảnh vào máy...") }
             val result = runCatching {
-                withContext(Dispatchers.IO) { saveFinalPhotoToGallery(uri) }
+                withContext(Dispatchers.IO) {
+                    PhotoBoothGallerySaver.save(getApplication<Application>().applicationContext, uri)
+                }
             }
             _state.update {
                 it.copy(
                     phase = PhotoBoothPhase.PreviewFinal,
                     isBusy = false,
+                    gallerySaved = it.gallerySaved || result.isSuccess,
                     friendlyMessage = if (result.isSuccess) "Đã lưu ảnh photobooth vào máy." else "Chưa lưu được ảnh. Con thử lại nhé."
                 )
             }
             if (result.isSuccess) {
-                gardenRepository.onLearningEvent(LearningEvent.PhotoBoothSaved(selectedEmotions))
+                recordGardenEventOnce(selectedEmotions)
             }
         }
     }
 
     fun saveToAlbum() {
         val current = _state.value
+        if (current.isBusy || current.albumSaved) return
         val uri = current.composedPhotoUri ?: return
         val selectedEmotions = current.selectedEmotionIds
         viewModelScope.launch {
             _state.update { it.copy(phase = PhotoBoothPhase.Saving, isBusy = true, friendlyMessage = "Đang lưu vào album...") }
             val result = runCatching {
-                withContext(Dispatchers.IO) { saveFinalPhotoToAppAlbum(uri) }
+                withContext(Dispatchers.IO) {
+                    saveFinalPhotoToAppAlbum(
+                        uriString = uri,
+                        emotionIds = selectedEmotions,
+                        frameId = current.selectedFrameId,
+                        layoutType = current.selectedLayout
+                    )
+                }
             }
             _state.update {
                 it.copy(
                     phase = PhotoBoothPhase.PreviewFinal,
                     isBusy = false,
-                    friendlyMessage = if (result.isSuccess) "Đã lưu vào album photobooth." else "Chưa lưu được vào album. Con thử lại nhé."
+                    albumSaved = it.albumSaved || result.isSuccess,
+                    friendlyMessage = if (result.isSuccess) "Đã thêm vào album photobooth." else "Chưa thêm được vào album. Con thử lại nhé."
                 )
             }
             if (result.isSuccess) {
-                gardenRepository.onLearningEvent(LearningEvent.PhotoBoothSaved(selectedEmotions))
+                recordGardenEventOnce(selectedEmotions)
             }
         }
     }
 
     fun restartSession() {
         countdownJob?.cancel()
+        clearSessionFiles()
+        gardenEventSent = false
         _state.update {
             PhotoBoothUiState(
                 phase = PhotoBoothPhase.PickingEmotions,
@@ -267,6 +283,8 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
 
     fun resetToIntro() {
         countdownJob?.cancel()
+        clearSessionFiles()
+        gardenEventSent = false
         _state.update { PhotoBoothUiState() }
     }
 
@@ -290,6 +308,9 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
                         outputDir = File(getApplication<Application>().cacheDir, "photobooth/final")
                     )
                 }
+            }
+            if (result.isSuccess) {
+                clearTemporaryShots()
             }
             _state.update {
                 if (result.isSuccess) {
@@ -316,44 +337,20 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
         return File(dir, "shot_${emotionId}_${System.currentTimeMillis()}.jpg")
     }
 
-    private fun saveFinalPhotoToGallery(uriString: String) {
-        val context = getApplication<Application>().applicationContext
+    private fun saveFinalPhotoToAppAlbum(
+        uriString: String,
+        emotionIds: List<String>,
+        frameId: String,
+        layoutType: PhotoBoothLayoutType
+    ) {
         val source = fileFromUri(uriString)
-        val fileName = "EmoGarden_Photobooth_${System.currentTimeMillis()}.jpg"
-        val resolver = context.contentResolver
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
-                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/EmoGarden")
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-            val imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                ?: throw IllegalStateException("Cannot create image entry")
-            resolver.openOutputStream(imageUri)?.use { output ->
-                FileInputStream(source).use { input -> input.copyTo(output) }
-            } ?: throw IllegalStateException("Cannot open image output")
-            values.clear()
-            values.put(MediaStore.Images.Media.IS_PENDING, 0)
-            resolver.update(imageUri, values, null, null)
-        } else {
-            val pictures = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-            val dir = File(pictures, "EmoGarden").apply { mkdirs() }
-            val target = File(dir, fileName)
-            FileInputStream(source).use { input ->
-                FileOutputStream(target).use { output -> input.copyTo(output) }
-            }
-        }
-    }
-
-    private fun saveFinalPhotoToAppAlbum(uriString: String) {
-        val source = fileFromUri(uriString)
-        val albumDir = File(getApplication<Application>().filesDir, "photobooth_album").apply { mkdirs() }
-        val target = File(albumDir, "photobooth_${System.currentTimeMillis()}.jpg")
-        FileInputStream(source).use { input ->
-            FileOutputStream(target).use { output -> input.copyTo(output) }
-        }
+        albumRepository.save(
+            source = source,
+            sourceUri = uriString,
+            emotionIds = emotionIds,
+            frameId = frameId,
+            layoutType = layoutType
+        )
     }
 
     private fun fileFromUri(uriString: String): File {
@@ -364,7 +361,28 @@ class PhotoBoothViewModel(application: Application) : AndroidViewModel(applicati
 
     override fun onCleared() {
         countdownJob?.cancel()
+        clearTemporaryShots()
         super.onCleared()
+    }
+
+    private fun clearSessionFiles() {
+        clearTemporaryShots()
+        File(getApplication<Application>().cacheDir, "photobooth/final").deleteRecursively()
+    }
+
+    private fun clearTemporaryShots() {
+        File(getApplication<Application>().cacheDir, "photobooth/shots").deleteRecursively()
+    }
+
+    private fun deleteFile(uriString: String?) {
+        uriString ?: return
+        runCatching { fileFromUri(uriString).delete() }
+    }
+
+    private suspend fun recordGardenEventOnce(selectedEmotions: List<String>) {
+        if (gardenEventSent) return
+        gardenEventSent = true
+        gardenRepository.onLearningEvent(LearningEvent.PhotoBoothSaved(selectedEmotions))
     }
 
     private companion object {

@@ -119,7 +119,7 @@ object AppFeatureRegistry {
         ),
         AppFeature(
             id = "photobooth",
-            name = "Photobooth cảm xúc",
+            name = "EmoGarden Photobooth",
             descriptionForChild = "Con chọn nhiều cảm xúc, chụp từng khuôn mặt rồi app ghép thành một ảnh.",
             descriptionForParent = "Photobooth là trải nghiệm sáng tạo; ảnh chỉ lưu hoặc chia sẻ khi người dùng xác nhận.",
             route = "photobooth",
@@ -221,7 +221,7 @@ object AssistantKnowledge {
 
             contextId == "photobooth" -> AppChatContext(
                 currentRoute = "photobooth",
-                currentScreenName = "Photobooth cảm xúc",
+                currentScreenName = "EmoGarden Photobooth",
                 level = level,
                 gardenSummary = gardenSummary
             )
@@ -297,7 +297,7 @@ object AssistantKnowledge {
             "camera_challenge_game" -> "Đang hỗ trợ: Thử thách cảm xúc$levelText"
             "game", "select_game", "level_select" -> "Đang hỗ trợ: Chơi game$levelText"
             "report" -> "Đang hỗ trợ: Báo cáo của bé"
-            "photobooth" -> "Đang hỗ trợ: Photobooth cảm xúc"
+            "photobooth" -> "Đang hỗ trợ: EmoGarden Photobooth"
             "garden" -> gardenContextText(context.gardenSummary)
             "settings" -> "Đang hỗ trợ: Cài đặt"
             "parent_area" -> "Đang hỗ trợ: Khu vực phụ huynh"

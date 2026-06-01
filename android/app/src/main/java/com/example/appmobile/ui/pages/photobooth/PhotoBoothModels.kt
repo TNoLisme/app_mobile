@@ -54,7 +54,9 @@ data class PhotoBoothUiState(
     val validationMessage: String? = null,
     val friendlyMessage: String? = null,
     val errorMessage: String? = null,
-    val isBusy: Boolean = false
+    val isBusy: Boolean = false,
+    val gallerySaved: Boolean = false,
+    val albumSaved: Boolean = false
 )
 
 sealed interface PhotoBoothEvent {
