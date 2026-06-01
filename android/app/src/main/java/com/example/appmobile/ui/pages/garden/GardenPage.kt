@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,7 +29,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -48,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -63,7 +67,6 @@ import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
-import kotlinx.coroutines.launch
 import kotlin.math.min
 
 @Composable
@@ -78,8 +81,7 @@ fun GardenPage(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val state by vm.state.collectAsState()
-    val scrollState = rememberScrollState()
-    val scope = rememberCoroutineScope()
+    var showTasks by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner, vm) {
         val observer = LifecycleEventObserver { _, event ->
@@ -94,25 +96,27 @@ fun GardenPage(
             .fillMaxSize()
             .background(EgDesign.background)
             .statusBarsPadding()
-            .verticalScroll(scrollState)
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
-        AppBackButton(onClick = onBack)
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = "Vườn cảm xúc",
-                color = EgDesign.textPrimary,
-                fontSize = 27.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Text(
-                text = "Hoàn thành nhiệm vụ để chăm những loài thực vật cảm xúc.",
-                color = EgDesign.textSecondary,
-                fontSize = 14.sp,
-                lineHeight = 20.sp
-            )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AppBackButton(onClick = onBack)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "Vườn cảm xúc",
+                    color = EgDesign.textPrimary,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = "Chăm sóc cảm xúc mỗi ngày để vườn luôn tươi tốt nhé!",
+                    color = EgDesign.textSecondary,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
         if (state.isLoading) {
@@ -120,47 +124,31 @@ fun GardenPage(
         } else {
             GardenTopCard(state = state)
             state.message?.let { GardenMessageCard(message = it, onDismiss = vm::clearMessage) }
-            if (state.isFirstTimeGarden()) {
-                GardenWelcomeCard(onStart = vm::checkIn, busy = state.isBusy)
-            }
             PlantGardenGrid(
                 plants = state.plants,
+                modifier = Modifier.weight(1f),
                 onOpenPlant = vm::openPlant
             )
-            TaskSection(
-                title = "Nhiệm vụ hôm nay",
-                tasks = state.dailyTasks,
-                busy = state.isBusy,
-                onTaskAction = { task ->
-                    handleTaskAction(
-                        task = task,
-                        vm = vm,
-                        onLearnEmotion = { onLearnEmotion(state.plants.firstOrNull()?.emotionId ?: "happy") },
-                        onOpenGames = onOpenGames,
-                        onOpenPhotoBooth = onOpenPhotoBooth,
-                        onOpenReport = onOpenReport,
-                        onStartEmotionChallenge = { onStartEmotionChallenge(state.plants.firstOrNull()?.emotionId ?: "happy") }
-                    )
-                }
-            )
-            TaskSection(
-                title = "Nhiệm vụ tuần này",
-                tasks = state.weeklyTasks,
-                busy = state.isBusy,
-                onTaskAction = { task ->
-                    handleTaskAction(
-                        task = task,
-                        vm = vm,
-                        onLearnEmotion = { onLearnEmotion(state.plants.firstOrNull()?.emotionId ?: "happy") },
-                        onOpenGames = onOpenGames,
-                        onOpenPhotoBooth = onOpenPhotoBooth,
-                        onOpenReport = onOpenReport,
-                        onStartEmotionChallenge = { onStartEmotionChallenge(state.plants.firstOrNull()?.emotionId ?: "happy") }
-                    )
-                }
-            )
-            UnlocksPreview()
+            GardenTaskLauncher(state = state, onOpenTasks = { showTasks = true })
         }
+    }
+
+    if (showTasks) {
+        GardenTaskPanel(
+            state = state,
+            onDismiss = { showTasks = false },
+            onTaskAction = { task ->
+                handleTaskAction(
+                    task = task,
+                    vm = vm,
+                    onLearnEmotion = { onLearnEmotion(state.plants.firstOrNull()?.emotionId ?: "happy") },
+                    onOpenGames = onOpenGames,
+                    onOpenPhotoBooth = onOpenPhotoBooth,
+                    onOpenReport = onOpenReport,
+                    onStartEmotionChallenge = { onStartEmotionChallenge(state.plants.firstOrNull()?.emotionId ?: "happy") }
+                )
+            }
+        )
     }
 
     val selectedPlant = state.selectedPlantId?.let { emotionId ->
@@ -173,11 +161,7 @@ fun GardenPage(
             busy = state.isBusy,
             onDismiss = vm::closePlant,
             onWater = { vm.waterPlant(selectedPlant.emotionId) },
-            onSun = { vm.sunPlant(selectedPlant.emotionId) },
-            onShowTasks = {
-                vm.closePlant()
-                scope.launch { scrollState.animateScrollTo(scrollState.maxValue) }
-            }
+            onSun = { vm.sunPlant(selectedPlant.emotionId) }
         )
     }
 }
@@ -230,32 +214,27 @@ private fun GardenTopCard(state: GardenUiState) {
     }
     EgSoftCard(radius = 24.dp) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 GardenScenePreview(
                     plants = state.plants,
-                    modifier = Modifier.size(92.dp)
+                    modifier = Modifier.size(70.dp)
                 )
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = "Hôm nay mình chăm vườn nhé!",
                         color = EgDesign.textPrimary,
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        text = "Hoàn thành nhiệm vụ để nhận nước và ánh nắng.",
-                        color = EgDesign.textSecondary,
-                        fontSize = 13.sp
                     )
                     PendingRewardChip(text = statusText, active = state.pendingRewardCount > 0)
                     GardenProgressBar(progress = state.gardenProgressPercent / 100f)
                     Text(
                         text = "Vườn phát triển ${state.gardenProgressPercent}%",
                         color = EgDesign.blue,
-                        fontSize = 13.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -285,35 +264,6 @@ private fun PendingRewardChip(text: String, active: Boolean) {
 }
 
 @Composable
-private fun GardenWelcomeCard(onStart: () -> Unit, busy: Boolean) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = Color(0xFFE8F8EE).copy(alpha = if (EgDesign.background == Color(0xFF101820)) 0.20f else 1f),
-        border = BorderStroke(1.dp, Color(0xFF8ED49B)),
-        shadowElevation = 1.dp
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            GardenScenePreview(plants = emptyList(), modifier = Modifier.size(58.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Chào mừng đến Vườn cảm xúc!", color = EgDesign.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
-                Text(
-                    "Mỗi cảm xúc là một loài thực vật riêng. Bé hoàn thành nhiệm vụ để giúp vườn lớn lên nhé.",
-                    color = EgDesign.textSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp
-                )
-            }
-            GardenPill("Bắt đầu", onStart, primary = true, enabled = !busy, height = 38.dp)
-        }
-    }
-}
-
-@Composable
 private fun ResourceRow(inventory: GardenInventory) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         ResourceChip(label = "Giọt nước", value = inventory.water, type = "water", modifier = Modifier.weight(1f))
@@ -330,14 +280,14 @@ private fun ResourceChip(label: String, value: Int, type: String, modifier: Modi
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            GardenResourceIcon(type = type, modifier = Modifier.size(26.dp))
+            GardenResourceIcon(type = type, modifier = Modifier.size(22.dp))
             Column {
-                Text(value.toString(), color = EgDesign.primaryDark, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
-                Text(label, color = EgDesign.textSecondary, fontSize = 11.sp, maxLines = 1)
+                Text(value.toString(), color = EgDesign.primaryDark, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                Text(label, color = EgDesign.textSecondary, fontSize = 10.sp, maxLines = 1)
             }
         }
     }
@@ -372,19 +322,24 @@ private fun GardenMessageCard(message: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun PlantGardenGrid(plants: List<EmotionPlant>, onOpenPlant: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Khu vườn của con", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-        plants.chunked(2).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                row.forEach { plant ->
-                    PlantCard(
-                        plant = plant,
-                        modifier = Modifier.weight(1f),
-                        onClick = { onOpenPlant(plant.emotionId) }
-                    )
+private fun PlantGardenGrid(plants: List<EmotionPlant>, modifier: Modifier = Modifier, onOpenPlant: (String) -> Unit) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Text("Khu vườn của con", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            plants.chunked(3).forEach { row ->
+                Row(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    row.forEach { plant ->
+                        PlantCard(
+                            plant = plant,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            onClick = { onOpenPlant(plant.emotionId) }
+                        )
+                    }
+                    repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
-                repeat(2 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
         }
     }
@@ -400,28 +355,27 @@ private fun PlantCard(plant: EmotionPlant, modifier: Modifier = Modifier, onClic
     )
     Surface(
         modifier = modifier
-            .height(196.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder),
-        shadowElevation = 2.dp
+        shadowElevation = 1.dp
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 7.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(7.dp)
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                EmotionPlantVisual(plant = plant, modifier = Modifier.size(88.dp).scale(scale))
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                EmotionPlantVisual(plant = plant, modifier = Modifier.size(66.dp).scale(scale))
                 Surface(
-                    modifier = Modifier.align(Alignment.TopEnd).size(30.dp),
+                    modifier = Modifier.align(Alignment.TopEnd).size(24.dp),
                     shape = CircleShape,
                     color = EgDesign.cardSoft,
                     border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        EgEmotionVectorIcon(emotion = plant.emotionId, size = 22.dp)
+                        EgEmotionVectorIcon(emotion = plant.emotionId, size = 18.dp)
                     }
                 }
             }
@@ -429,49 +383,203 @@ private fun PlantCard(plant: EmotionPlant, modifier: Modifier = Modifier, onClic
                 text = GardenRepository.emotionName(plant.emotionId),
                 color = EgDesign.textPrimary,
                 fontWeight = FontWeight.ExtraBold,
-                fontSize = 14.sp,
+                fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = species.speciesName,
                 color = EgDesign.textPrimary,
-                fontSize = 12.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "Level ${plant.level} · ${GardenRepository.plantStageName(plant.emotionId, plant.level)}",
+                text = "Lv. ${plant.level} · ${GardenRepository.plantStageName(plant.emotionId, plant.level)}",
                 color = EgDesign.textSecondary,
-                fontSize = 11.sp,
-                maxLines = 1
+                fontSize = 9.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             GardenProgressBar(
                 progress = progress,
-                height = 7.dp
-            )
-            Text(
-                text = if (plant.pointsToNextLevel == 0) "Đã trưởng thành" else "${plant.growthPoints}/${plant.pointsToNextLevel} để lên cấp",
-                color = EgDesign.blue,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
+                height = 5.dp
             )
         }
     }
 }
 
 @Composable
-private fun TaskSection(
-    title: String,
-    tasks: List<GardenTask>,
-    busy: Boolean,
+private fun GardenTaskLauncher(state: GardenUiState, onOpenTasks: () -> Unit) {
+    val completedDaily = state.dailyTasks.count {
+        it.status == GardenTaskStatus.CLAIMED || it.status == GardenTaskStatus.COMPLETED_NOT_CLAIMED
+    }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpenTasks),
+        shape = RoundedCornerShape(18.dp),
+        color = EgDesign.card,
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
+        shadowElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            TaskIcon(
+                type = GardenTaskType.DAILY_CHECK_IN,
+                status = if (state.pendingRewardCount > 0) {
+                    GardenTaskStatus.COMPLETED_NOT_CLAIMED
+                } else {
+                    GardenTaskStatus.IN_PROGRESS
+                },
+                modifier = Modifier.size(38.dp)
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Nhiệm vụ chăm vườn", color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "$completedDaily/${state.dailyTasks.size} nhiệm vụ hôm nay · ${state.pendingRewardCount} phần thưởng chờ nhận",
+                    color = EgDesign.textSecondary,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = EgDesign.cardSoft,
+                border = BorderStroke(1.dp, EgDesign.cardBorder)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text("Xem", color = EgDesign.blue, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("›", color = EgDesign.blue, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GardenTaskPanel(
+    state: GardenUiState,
+    onDismiss: () -> Unit,
     onTaskAction: (GardenTask) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        Text(title, color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-        tasks.forEach { task ->
-            TaskCard(task = task, busy = busy, onAction = { onTaskAction(task) })
+    var showWeekly by remember { mutableStateOf(false) }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.82f),
+                shape = RoundedCornerShape(26.dp),
+                color = EgDesign.card,
+                border = BorderStroke(1.dp, EgDesign.cardBorder),
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        TaskIcon(
+                            type = GardenTaskType.DAILY_CHECK_IN,
+                            status = GardenTaskStatus.IN_PROGRESS,
+                            modifier = Modifier.size(42.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Nhiệm vụ chăm vườn", color = EgDesign.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(
+                                "Hoàn thành nhiệm vụ để nhận nước và ánh nắng.",
+                                color = EgDesign.textSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Surface(
+                            modifier = Modifier.size(34.dp).clickable(onClick = onDismiss),
+                            shape = CircleShape,
+                            color = EgDesign.cardSoft,
+                            border = BorderStroke(1.dp, EgDesign.cardBorder)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("×", color = EgDesign.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        GardenTaskTab(
+                            label = "Hôm nay",
+                            count = state.dailyTasks.size,
+                            selected = !showWeekly,
+                            onClick = { showWeekly = false },
+                            modifier = Modifier.weight(1f)
+                        )
+                        GardenTaskTab(
+                            label = "Tuần này",
+                            count = state.weeklyTasks.size,
+                            selected = showWeekly,
+                            onClick = { showWeekly = true },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(9.dp)
+                    ) {
+                        val tasks = if (showWeekly) state.weeklyTasks else state.dailyTasks
+                        tasks.forEach { task ->
+                            TaskCard(task = task, busy = state.isBusy, onAction = { onTaskAction(task) })
+                        }
+                        UnlocksPreview()
+                    }
+                    GardenPill("Đóng", onDismiss, Modifier.fillMaxWidth(), enabled = !state.isBusy)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GardenTaskTab(
+    label: String,
+    count: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(42.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) EgDesign.primary else EgDesign.cardSoft,
+        border = BorderStroke(1.dp, if (selected) EgDesign.primary else EgDesign.cardBorder)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                "$label · $count",
+                color = if (selected) Color.White else EgDesign.blue,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
         }
     }
 }
@@ -615,8 +723,7 @@ private fun PlantDetailDialog(
     busy: Boolean,
     onDismiss: () -> Unit,
     onWater: () -> Unit,
-    onSun: () -> Unit,
-    onShowTasks: () -> Unit
+    onSun: () -> Unit
 ) {
     val species = GardenRepository.plantSpecies(plant.emotionId)
     val stageName = GardenRepository.plantStageName(plant.emotionId, plant.level)
@@ -703,7 +810,6 @@ private fun PlantDetailDialog(
                         height = 42.dp
                     )
                 }
-                GardenPill("Xem nhiệm vụ", onShowTasks, Modifier.fillMaxWidth(), enabled = !busy)
                 GardenPill("Đóng", onDismiss, Modifier.fillMaxWidth(), enabled = !busy)
             }
         }
@@ -1063,13 +1169,6 @@ private fun plantColor(emotionId: String): Color {
         "disgust" -> Color(0xFF8BD36D)
         else -> Color(0xFF7CC8FF)
     }
-}
-
-private fun GardenUiState.isFirstTimeGarden(): Boolean {
-    return plants.all { it.totalGrowthPoints == 0 && it.level == 0 } &&
-        inventory.water == 0 &&
-        inventory.sunlight == 0 &&
-        dailyTasks.none { it.status == GardenTaskStatus.CLAIMED || it.status == GardenTaskStatus.COMPLETED_NOT_CLAIMED }
 }
 
 private fun rewardText(task: GardenTask): String {
