@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -52,14 +51,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,13 +66,11 @@ import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.NetworkClient
-import com.example.appmobile.data.remote.dto.RecentGameDto
 import com.example.appmobile.data.remote.dto.SessionHistoryItemDto
 import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
-import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
@@ -89,9 +84,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
 import java.util.Locale
-import kotlin.math.roundToInt
 
-private val ProfileBackgroundGradient: Color get() = EgDesign.background
 private val ProfileButtonGradient: Color get() = EgDesign.primary
 private val ProfileTextPrimary: Color get() = EgDesign.textPrimary
 private val ProfileTextSecondary: Color get() = EgDesign.textSecondary
@@ -105,15 +98,8 @@ private data class ProfileBadge(
     val icon: String
 )
 
-private data class ProfileStat(
-    val value: String,
-    val label: String,
-    val icon: String
-)
-
 @Composable
 fun ProfilePage(
-    onBack: () -> Unit,
     onGoHome: () -> Unit = {},
     onOpenLearn: () -> Unit = {},
     onOpenGames: () -> Unit = {},
@@ -136,7 +122,6 @@ fun ProfilePage(
     }
 
     var profile by remember { mutableStateOf<UserProfileDto?>(null) }
-    var recentGames by remember { mutableStateOf<List<RecentGameDto>>(emptyList()) }
     var sessions by remember { mutableStateOf<List<SessionHistoryItemDto>>(emptyList()) }
     var cvEmotionScores by remember { mutableStateOf<Map<String, Float>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
@@ -191,7 +176,6 @@ fun ProfilePage(
             withTimeoutOrNull(8000) {
                 coroutineScope {
                 val profileDeferred = async { repository.getProfile(userId) }
-                val recentGamesDeferred = async { repository.getRecentGames(userId) }
                 val sessionsDeferred = async { repository.getSessionHistory(userId) }
                 val cvScoresDeferred = async { repository.getCvEmotionScores(userId)?.scores.orEmpty() }
 
@@ -202,7 +186,6 @@ fun ProfilePage(
                 message = if (profile == null) "Chưa tải được hồ sơ từ backend." else null
                 loading = false
 
-                recentGames = recentGamesDeferred.await()
                 sessions = sessionsDeferred.await()
                 cvEmotionScores = cvScoresDeferred.await()
                     true
@@ -236,7 +219,7 @@ fun ProfilePage(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
+                .padding(vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -266,6 +249,7 @@ fun ProfilePage(
                 }
             }
 
+            ProfilePageIntro()
             ProfileCard(
                 profile = profile,
                 badges = profileBadges(),
@@ -275,13 +259,6 @@ fun ProfilePage(
                 onBadgeClick = { badge -> selectedBadge = badge }
             )
             ProfilePersonalInfoGrid(profile)
-            ProfileStatsSection(
-                stats = profileStats(
-                    sessions = sessions,
-                    recentGames = recentGames,
-                    unlockedBadges = unlockedBadges.size
-                )
-            )
             ProfileActions(onEdit = { showEdit = true })
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -316,17 +293,6 @@ fun ProfilePage(
             unlocked = badge.id in unlockedBadges,
             onDismiss = { selectedBadge = null }
         )
-    }
-}
-
-@Composable
-private fun ProfileTopBar(onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AppBackButton(onClick = onBack)
-        Spacer(modifier = Modifier.weight(1f))
     }
 }
 
@@ -366,6 +332,26 @@ private fun ErrorAlert(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
+private fun ProfilePageIntro() {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = "Hồ sơ của bé",
+            color = ProfileTextPrimary,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+        Text(
+            text = "Thông tin cá nhân và những huy hiệu bé đã mở khóa.",
+            color = ProfileTextSecondary,
+            fontSize = 13.sp
+        )
+    }
+}
+
+@Composable
 private fun ProfileCard(
     profile: UserProfileDto?,
     badges: List<ProfileBadge>,
@@ -387,7 +373,7 @@ private fun ProfileCard(
                 Avatar(avatarUri = avatarUri, onClick = onChangeAvatar)
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Text(
                         text = profile?.name?.takeIf { it.isNotBlank() } ?: "Bé yêu",
@@ -397,12 +383,10 @@ private fun ProfileCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
-                        text = "Cấp độ 1",
-                        color = ProfileTextSecondary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ProfileMetaChip("Cấp độ 1")
+                        ProfileMetaChip("${unlocked.size}/${badges.size} huy hiệu")
+                    }
                 }
             }
 
@@ -419,6 +403,23 @@ private fun ProfileCard(
                 BadgeGrid(badges = badges, unlocked = unlocked, onBadgeClick = onBadgeClick)
             }
         }
+    }
+}
+
+@Composable
+private fun ProfileMetaChip(text: String) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = ProfileSoftSection,
+        border = BorderStroke(1.dp, ProfileCardBorder)
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            color = ProfileBlue,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
     }
 }
 
@@ -469,30 +470,6 @@ private fun Avatar(avatarUri: String?, onClick: () -> Unit) {
         ) {
             Box(contentAlignment = Alignment.Center) {
                 EgVectorEmojiIcon("camera", size = 16.dp)
-            }
-        }
-    }
-}
-
-@Composable
-private fun Avatar() {
-    Box(
-        modifier = Modifier
-            .size(54.dp)
-            .background(
-                Color(0xFFFFF1A8),
-                CircleShape
-            )
-            .padding(4.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            shape = CircleShape,
-            color = Color(0xFFFFE082)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                EgVectorEmojiIcon("child", size = 36.dp)
             }
         }
     }
@@ -594,54 +571,57 @@ private fun BadgeRequirementDialog(
 
 @Composable
 private fun ProfilePersonalInfoGrid(profile: UserProfileDto?) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("user", "Tên đăng nhập", fallback(profile?.username), Modifier.weight(1f))
-            InfoTile("mail", "Email", fallback(profile?.email), Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("child", "Tên hiển thị", personalFallback(profile?.name), Modifier.weight(1f))
-            InfoTile("cake", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("calendar", "Ngày sinh", formatPersonalDate(profile?.child?.dob), Modifier.weight(1f))
-            InfoTile("user", "Giới tính", formatGender(profile?.child?.gender), Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("phone", "Số điện thoại", fallback(profile?.child?.phone), Modifier.weight(1f))
-            InfoTile("calendar", "Ngày tham gia", formatPersonalDate(profile?.createdAt), Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun ProfileInfoGrid(profile: UserProfileDto?) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("user", "Tên đăng nhập", fallback(profile?.username), Modifier.weight(1f))
-            InfoTile("mail", "Email", fallback(profile?.email), Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoTile("calendar", "Ngày tham gia", formatDate(profile?.createdAt), Modifier.weight(1f))
-            InfoTile("cake", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
+    ProfileSurface {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                EgVectorEmojiIcon("user", size = 20.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text(
+                        text = "Thông tin của bé",
+                        color = ProfileTextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Bố mẹ có thể chỉnh sửa thông tin khi cần.",
+                        color = ProfileTextSecondary,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InfoTile("user", "Tên đăng nhập", fallback(profile?.username), Modifier.weight(1f))
+                InfoTile("mail", "Email", fallback(profile?.email), Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InfoTile("child", "Tên hiển thị", personalFallback(profile?.name), Modifier.weight(1f))
+                InfoTile("cake", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InfoTile("calendar", "Ngày sinh", formatPersonalDate(profile?.child?.dob), Modifier.weight(1f))
+                InfoTile("user", "Giới tính", formatGender(profile?.child?.gender), Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InfoTile("phone", "Số điện thoại", fallback(profile?.child?.phone), Modifier.weight(1f))
+                InfoTile("calendar", "Ngày tham gia", formatPersonalDate(profile?.createdAt), Modifier.weight(1f))
+            }
         }
     }
 }
 
 @Composable
 private fun InfoTile(icon: String, label: String, value: String, modifier: Modifier = Modifier) {
-    Card(
+    Surface(
         modifier = modifier.height(62.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
-        border = BorderStroke(1.dp, ProfileCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(11.dp),
+        color = ProfileSoftSection,
+        border = BorderStroke(1.dp, ProfileCardBorder.copy(alpha = 0.72f))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
@@ -663,75 +643,6 @@ private fun InfoTile(icon: String, label: String, value: String, modifier: Modif
                 color = ProfileTextPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProfileStatsSection(stats: List<ProfileStat>) {
-    ProfileSurface {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                EgVectorEmojiIcon("report", size = 24.dp)
-                Text(
-                    text = "Thống kê chơi game",
-                    color = ProfileTextPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                stats.chunked(2).forEach { rowStats ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        rowStats.forEach { stat ->
-                            StatTile(stat, Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatTile(stat: ProfileStat, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.height(62.dp),
-        shape = RoundedCornerShape(14.dp),
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, ProfileCardBorder),
-        shadowElevation = 1.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .background(EgDesign.cardSoft)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                EgVectorEmojiIcon(stat.icon, size = 24.dp)
-                Text(
-                    text = stat.value,
-                    color = Color(0xFF0B66C3),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1
-                )
-            }
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = stat.label,
-                color = ProfileTextSecondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -815,174 +726,6 @@ private fun StatusBanner(message: String) {
             lineHeight = 17.sp,
             fontSize = 13.sp
         )
-    }
-}
-
-@Composable
-private fun EditProfileDialog(
-    profile: UserProfileDto?,
-    saving: Boolean,
-    onDismiss: () -> Unit,
-    onSave: (UserProfileUpdateDto) -> Unit
-) {
-    var name by remember(profile?.userId) { mutableStateOf(profile?.name.orEmpty()) }
-    var username by remember(profile?.userId) { mutableStateOf(profile?.username.orEmpty()) }
-    var email by remember(profile?.userId) { mutableStateOf(profile?.email.orEmpty()) }
-    var age by remember(profile?.userId) { mutableStateOf(profile?.child?.age?.toString().orEmpty()) }
-    var gender by remember(profile?.userId) { mutableStateOf(profile?.child?.gender.orEmpty()) }
-    var dateOfBirth by remember(profile?.userId) { mutableStateOf(profile?.child?.dob.orEmpty()) }
-    var phone by remember(profile?.userId) { mutableStateOf(profile?.child?.phone.orEmpty()) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Chỉnh sửa hồ sơ") },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Tên hiển thị") }, singleLine = true)
-                OutlinedTextField(value = username, onValueChange = { username = it }, label = { Text("Tên đăng nhập") }, singleLine = true)
-                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true)
-                OutlinedTextField(
-                    value = age,
-                    onValueChange = { if (it.all(Char::isDigit)) age = it },
-                    label = { Text("Tuổi") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                OutlinedTextField(value = gender, onValueChange = { gender = it }, label = { Text("Giới tính") }, singleLine = true)
-                OutlinedTextField(value = dateOfBirth, onValueChange = { dateOfBirth = it.take(10) }, label = { Text("Ngày sinh") }, singleLine = true)
-                OutlinedTextField(value = phone, onValueChange = { if (it.all(Char::isDigit)) phone = it.take(10) }, label = { Text("Số điện thoại") }, singleLine = true)
-            }
-        },
-        confirmButton = {
-            Button(
-                enabled = !saving,
-                onClick = {
-                    onSave(
-                        UserProfileUpdateDto(
-                            name = name.trim().ifBlank { null },
-                            username = username.trim().ifBlank { null },
-                            email = email.trim().ifBlank { null },
-                            age = age.toIntOrNull(),
-                            gender = gender.trim().ifBlank { null },
-                            dateOfBirth = dateOfBirth.trim().ifBlank { null },
-                            phoneNumber = phone.trim().ifBlank { null }
-                        )
-                    )
-                }
-            ) {
-                Text(if (saving) "Đang lưu..." else "Lưu")
-            }
-        },
-        dismissButton = {
-            TextButton(enabled = !saving, onClick = onDismiss) { Text("Hủy") }
-        }
-    )
-}
-
-@Composable
-private fun EditPersonalProfileDialog(
-    profile: UserProfileDto?,
-    saving: Boolean,
-    onDismiss: () -> Unit,
-    onSave: (UserProfileUpdateDto) -> Unit
-) {
-    var name by rememberSaveable(profile?.userId) { mutableStateOf(profile?.name.orEmpty()) }
-    var age by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.age?.toString().orEmpty()) }
-    var dateOfBirth by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.dob.orEmpty()) }
-    var formError by rememberSaveable(profile?.userId) { mutableStateOf<String?>(null) }
-
-    fun validate(): Boolean {
-        val cleanName = name.trim()
-        val cleanAge = age.trim()
-        val cleanDob = dateOfBirth.trim()
-        formError = when {
-            cleanName.length !in 2..50 -> "Tên hiển thị phải từ 2 đến 50 ký tự."
-            cleanAge.toIntOrNull() == null || cleanAge.toInt() !in 1..120 -> "Tuổi phải là số hợp lệ từ 1 đến 120."
-            cleanDob.isNotEmpty() && !isValidBackendDate(cleanDob) -> "Ngày sinh phải đúng định dạng yyyy-MM-dd và là ngày hợp lệ."
-            else -> null
-        }
-        return formError == null
-    }
-
-    Dialog(
-        onDismissRequest = { if (!saving) onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 18.dp)
-                .imePadding()
-                .navigationBarsPadding(),
-            contentAlignment = Alignment.Center
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = 560.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, ProfileCardBorder),
-                shadowElevation = 8.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    EditProfileHeader(saving = saving, onDismiss = onDismiss)
-                    Text(
-                        text = "Ngày tham gia: ${formatPersonalDate(profile?.createdAt)}",
-                        color = ProfileTextSecondary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    formError?.let { FormErrorBanner(it) }
-
-                    ProfileSectionCard(title = "Thông tin cá nhân") {
-                        ProfileTextField(name, { name = it }, "Tên hiển thị", "Tên của bé")
-                        ProfileTextField(
-                            value = age,
-                            onValueChange = { input -> if (input.all(Char::isDigit) && input.length <= 3) age = input },
-                            label = "Tuổi",
-                            placeholder = "Ví dụ: 6",
-                            keyboardType = KeyboardType.Number
-                        )
-                        ProfileTextField(
-                            value = dateOfBirth,
-                            onValueChange = { dateOfBirth = it.take(10) },
-                            label = "Ngày sinh",
-                            placeholder = "yyyy-MM-dd",
-                            trailing = "calendar"
-                        )
-                    }
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SecondaryPillButton("Hủy", enabled = !saving, onClick = onDismiss, modifier = Modifier.weight(1f))
-                        GradientPill(
-                            text = if (saving) "Đang lưu..." else "Lưu thay đổi",
-                            onClick = {
-                                if (!saving && validate()) {
-                                    onSave(
-                                        UserProfileUpdateDto(
-                                            name = name.trim(),
-                                            age = age.trim().toIntOrNull(),
-                                            dateOfBirth = dateOfBirth.trim().ifBlank { null }
-                                        )
-                                    )
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            heightDp = 48,
-                            horizontalPaddingDp = 10,
-                            fontSizeSp = 13,
-                            shadowDp = 1
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -1312,26 +1055,6 @@ private fun SecondaryPillButton(
     }
 }
 
-private fun profileStats(
-    sessions: List<SessionHistoryItemDto>,
-    recentGames: List<RecentGameDto>,
-    unlockedBadges: Int
-): List<ProfileStat> {
-    val playedGames = sessions.mapNotNull { it.gameId }.distinct().size.takeIf { it > 0 } ?: recentGames.size
-    val avgScore = if (sessions.isNotEmpty()) {
-        sessions.map { it.score ?: 0 }.average().roundToInt().coerceIn(0, 100)
-    } else {
-        0
-    }
-    val playTimeHours = sessions.sumOf { sessionDurationMillis(it) }.toDouble() / (1000 * 60 * 60)
-    return listOf(
-        ProfileStat(playedGames.toString(), "Trò đã chơi", "gamepad"),
-        ProfileStat("$avgScore/100", "Điểm TB", "star"),
-        ProfileStat("$unlockedBadges/${profileBadges().size}", "Huy hiệu mở", "trophy"),
-        ProfileStat(String.format(Locale.US, "%.1fh", playTimeHours), "Thời gian luyện", "clock")
-    )
-}
-
 private fun profileBadges(): List<ProfileBadge> {
     return listOf(
         ProfileBadge(GameUiCatalog.GAME_RECOGNIZE_EMOTION, "Kho Báu Cảm Xúc", "gift"),
@@ -1427,25 +1150,6 @@ private fun formatGender(value: String?): String {
         null, "" -> "Chưa có"
         else -> value.trim()
     }
-}
-
-private fun formatDate(value: String?): String {
-    if (value.isNullOrBlank()) return "Chưa có"
-    return value.substringBefore("T").substringBefore(" ")
-}
-
-private fun sessionDurationMillis(session: SessionHistoryItemDto): Long {
-    val start = parseBackendDate(session.startTime) ?: return 0L
-    val end = parseBackendDate(session.endTime) ?: return 0L
-    return (end - start).coerceAtLeast(0L)
-}
-
-private fun parseBackendDate(value: String?): Long? {
-    if (value.isNullOrBlank()) return null
-    val normalized = value.substringBefore(".").substringBefore("+").replace("Z", "")
-    return runCatching {
-        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).parse(normalized)?.time
-    }.getOrNull()
 }
 
 private fun personalFallback(value: String?): String {
