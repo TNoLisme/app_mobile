@@ -128,13 +128,10 @@ fun FaceAssemblyPage(
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
     val summaryData = remember(level) { mutableStateOf<LevelSummaryData?>(null) }
-    val showHint = remember(currentIndex.intValue) { mutableStateOf(false) }
-
     fun resetCurrentQuestion() {
         resetSelections(selectedEyebrow, selectedEyes, selectedMouth)
         feedback.value = null
         questionStartMs.value = System.currentTimeMillis()
-        showHint.value = false
     }
 
     fun finishLevel(finalResults: List<AnswerResultDto>) {
@@ -257,7 +254,7 @@ fun FaceAssemblyPage(
                 /* ═══ TOP BAR ═══ */
                 val totalQ = questions.value.size
                 GameHeader(
-                    title = "Xưởng Cảm Xúc",
+                    title = "Xưởng lắp ghép cảm xúc",
                     level = level,
                     currentQuestion = currentIndex.intValue + 1,
                     totalQuestions = totalQ,
@@ -266,38 +263,26 @@ fun FaceAssemblyPage(
                 )
 
                 /* ═══ CARD 1 – Question only (blue, compact) ═══ */
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFD6EEFF)),
-                    elevation = CardDefaults.cardElevation(0.dp)
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            question.text,
-                            fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                            color = EgDesign.textPrimary, textAlign = TextAlign.Center
-                        )
-                    }
-                }
+                ClickGameInstructionCard(
+                    title = "Quan sát và lắp đúng khuôn mặt",
+                    description = question.text,
+                    iconKey = "puzzle"
+                )
 
                 Spacer(Modifier.height(6.dp))
 
                 /* ═══ CARD 2 – Image (white, weight) ═══ */
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).weight(2f),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    modifier = Modifier.fillMaxWidth().weight(2f),
+                    shape = RoundedCornerShape(EgDesign.radiusLarge),
+                    colors = CardDefaults.cardColors(containerColor = EgDesign.card),
                     border = BorderStroke(1.dp, EgDesign.cardBorder),
                     elevation = CardDefaults.cardElevation(1.dp)
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize().padding(8.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFFF8FAFF)),
+                            .clip(RoundedCornerShape(EgDesign.radiusMedium))
+                            .background(EgDesign.cardSoft),
                         contentAlignment = Alignment.Center
                     ) {
                         if (!question.mediaPath.isNullOrBlank()) {
@@ -319,9 +304,9 @@ fun FaceAssemblyPage(
 
                 /* ═══ CARD 3 – Face preview + controls (2 col × 3 row, weight) ═══ */
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).weight(1.8f),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    modifier = Modifier.fillMaxWidth().weight(1.8f),
+                    shape = RoundedCornerShape(EgDesign.radiusLarge),
+                    colors = CardDefaults.cardColors(containerColor = EgDesign.card),
                     border = BorderStroke(1.dp, EgDesign.cardBorder),
                     elevation = CardDefaults.cardElevation(1.dp)
                 ) {
@@ -363,41 +348,9 @@ fun FaceAssemblyPage(
 
                 Spacer(Modifier.height(4.dp))
 
-                /* ═══ HINT ROW ═══ */
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(if (showHint.value) Color(0xFFFFF8E1) else Color.Transparent)
-                            .clickable { showHint.value = !showHint.value }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        EgVectorEmojiIcon("bulb", size = 18.dp)
-                        if (showHint.value) {
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = question.explanation ?: "Hãy ghép khuôn mặt phù hợp.",
-                                fontSize = 13.sp,
-                                color = Color(0xFF7D6300),
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(4.dp))
-
                 /* ═══ FEEDBACK strip (fixed height – does not shift layout) ═══ */
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(72.dp),
+                    modifier = Modifier.fillMaxWidth().height(58.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     if (hasFeedback) GameFeedbackCard(feedback.value.orEmpty())
@@ -409,7 +362,7 @@ fun FaceAssemblyPage(
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -418,7 +371,7 @@ fun FaceAssemblyPage(
                             onClick = { resetCurrentQuestion() },
                             enabled = !hasFeedback && !isSubmitting.value,
                             modifier = Modifier.weight(1f).height(46.dp),
-                            shape = RoundedCornerShape(99.dp),
+                            shape = RoundedCornerShape(EgDesign.pillRadius),
                             border = BorderStroke(1.5.dp, EgDesign.cardBorder)
                         ) {
                             Text("Thử lại", fontSize = 13.sp,
@@ -440,7 +393,7 @@ fun FaceAssemblyPage(
                             },
                             enabled = (canCheck || hasFeedback) && !isSubmitting.value && learningEmotionId.value == null,
                             modifier = Modifier.weight(1.5f).height(46.dp),
-                            shape = RoundedCornerShape(99.dp),
+                            shape = RoundedCornerShape(EgDesign.pillRadius),
                             colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primary)
                         ) {
                             val learnTarget = pendingLearnEmotion.value?.let { GameUiCatalog.emotionById(it)?.name ?: it }
@@ -501,7 +454,7 @@ private fun FaceAssemblyRow(
     ) {
         // Left column – sprite preview (2/3 width)
         Box(
-            modifier = Modifier.weight(2f).fillMaxHeight().background(Color(0xFFF8FAFF)),
+            modifier = Modifier.weight(2f).fillMaxHeight().background(EgDesign.cardSoft),
             contentAlignment = Alignment.Center
         ) {
             if (emotionIndex < 0 || emotionIndex >= faceEmotions.size) {
@@ -540,9 +493,14 @@ private fun FaceAssemblyRow(
                 label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                 color = EgDesign.textPrimary, textAlign = TextAlign.Center
             )
-            if (emotionIndex >= 0 && emotionIndex < faceEmotions.size) {
-                EgEmotionVectorIcon(faceEmotions[emotionIndex].id, size = 18.dp)
-            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = if (emotionIndex >= 0) "Đã chọn" else "Chạm để đổi",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = EgDesign.textSecondary,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

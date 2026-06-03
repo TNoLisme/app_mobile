@@ -41,15 +41,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -72,7 +68,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -100,6 +95,7 @@ import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
+import com.example.appmobile.ui.components.GameScreenShell
 import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
@@ -1412,19 +1408,10 @@ fun CvTrainingGamePage(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(EgDesign.background)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+    Box(modifier = Modifier.fillMaxSize()) {
+        GameScreenShell(
+            onOpenAssistant = onOpenAssistant,
+            bottomSpacerHeight = 24.dp
         ) {
             CvTopBar(
                 title = displayCvTitle(title, gameId),
@@ -1670,8 +1657,7 @@ fun CvTrainingGamePage(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-        }
+            }
 
         EmotionLearningDialog(
             emotionId = learningEmotionId.value,
@@ -1729,7 +1715,7 @@ private fun CvTopBar(title: String, progressText: String? = null, onBack: () -> 
                 Spacer(modifier = Modifier.weight(1f))
                 Surface(
                     shape = RoundedCornerShape(999.dp),
-                    color = Color.White,
+                    color = EgDesign.card,
                     border = BorderStroke(1.dp, EgDesign.cardBorder),
                     shadowElevation = 1.dp
                 ) {
@@ -1989,16 +1975,16 @@ private fun CvRequestCameraPreviewBox(
                         .align(Alignment.TopEnd)
                         .padding(10.dp),
                     shape = RoundedCornerShape(999.dp),
-                    color = Color.White.copy(alpha = 0.94f),
+                    color = EgDesign.card.copy(alpha = 0.94f),
                     border = BorderStroke(
                         1.dp,
-                        if (timerActive && remainingSeconds <= 5) Color(0xFFFDA4AF) else EgDesign.cardBorder
+                        if (timerActive && remainingSeconds <= 5) EgDesign.danger.copy(alpha = 0.38f) else EgDesign.cardBorder
                     )
                 ) {
                     Text(
                         text = text,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        color = if (timerActive && remainingSeconds <= 5) Color(0xFFBE123C) else EgDesign.blue,
+                        color = if (timerActive && remainingSeconds <= 5) EgDesign.danger else EgDesign.blue,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
@@ -2063,9 +2049,9 @@ private fun FaceGuideOverlay(
     holdProgress: Float
 ) {
     val borderColor = when {
-        challengeState == CvChallengeState.Success || holdProgress >= 0.75f -> Color(0xFF22C55E)
+        challengeState == CvChallengeState.Success || holdProgress >= 0.75f -> EgDesign.success
         faceDetected -> Color(0xFF60A5FA)
-        challengeState == CvChallengeState.Timeout -> Color(0xFFF59E0B)
+        challengeState == CvChallengeState.Timeout -> EgDesign.warning
         else -> Color.White.copy(alpha = 0.72f)
     }
     val label = when {
@@ -2122,7 +2108,7 @@ private fun CountdownOverlay(value: Int) {
     Surface(
         modifier = Modifier.size(112.dp),
         shape = CircleShape,
-        color = Color.White.copy(alpha = 0.92f),
+        color = EgDesign.card.copy(alpha = 0.94f),
         border = BorderStroke(3.dp, EgDesign.primary)
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -2234,7 +2220,7 @@ private fun DetectionFeedbackCard(
                             .fillMaxWidth()
                             .height(8.dp)
                             .clip(RoundedCornerShape(999.dp)),
-                        color = if (holdProgress >= 0.75f) Color(0xFF22C55E) else EgDesign.primary,
+                        color = if (holdProgress >= 0.75f) EgDesign.success else EgDesign.primary,
                         trackColor = EgDesign.cardBorder
                     )
                 }
@@ -2329,7 +2315,7 @@ private fun ResultStat(label: String, value: String, modifier: Modifier = Modifi
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
-        color = Color.White.copy(alpha = 0.88f),
+        color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
         Column(
@@ -2408,7 +2394,7 @@ private fun ChallengeErrorCard(message: String, onRetry: () -> Unit, onBack: () 
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Không mở được camera", color = Color(0xFFBE123C), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Không mở được camera", color = EgDesign.danger, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
             Text(message, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
@@ -2441,7 +2427,7 @@ private fun ConfirmExitDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
         title = "Dừng thử thách?",
         message = "Tiến độ hiện tại sẽ không được lưu.",
         confirmText = "Dừng",
-        confirmColor = Color(0xFFEF4444),
+        confirmColor = EgDesign.danger,
         onDismiss = onDismiss,
         onConfirm = onConfirm
     )
@@ -2633,7 +2619,7 @@ private fun CvStoryStageIntroCard(
                     Surface(
                         modifier = Modifier.size(42.dp),
                         shape = CircleShape,
-                        color = Color.White,
+                        color = EgDesign.card,
                         border = BorderStroke(1.dp, EgDesign.cardBorder)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -2905,7 +2891,7 @@ private fun CvProgressTimer(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        color = Color.White,
+        color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = 1.dp
     ) {
@@ -2942,7 +2928,7 @@ private fun CvProgressTimer(
                     Text(
                         text = formatCvTime(remainingSeconds),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        color = if (timerActive && remainingSeconds <= 5) Color(0xFFBE123C) else EgDesign.blue,
+                        color = if (timerActive && remainingSeconds <= 5) EgDesign.danger else EgDesign.blue,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
@@ -2979,7 +2965,7 @@ private fun StoryScenarioInsideChallenge(title: String, text: String) {
             Surface(
                 modifier = Modifier.size(42.dp),
                 shape = CircleShape,
-                color = Color.White,
+                color = EgDesign.card,
                 border = BorderStroke(1.dp, EgDesign.cardBorder)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -3311,16 +3297,16 @@ private fun CvCameraFeedbackCard(
                                 .align(Alignment.TopEnd)
                                 .padding(10.dp),
                             shape = RoundedCornerShape(999.dp),
-                            color = Color.White.copy(alpha = 0.94f),
+                            color = EgDesign.card.copy(alpha = 0.94f),
                             border = BorderStroke(
                                 1.dp,
-                                if (timerActive && remainingSeconds <= 5) Color(0xFFFDA4AF) else EgDesign.cardBorder
+                                if (timerActive && remainingSeconds <= 5) EgDesign.danger.copy(alpha = 0.38f) else EgDesign.cardBorder
                             )
                         ) {
                             Text(
                                 text = text,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                color = if (timerActive && remainingSeconds <= 5) Color(0xFFBE123C) else EgDesign.blue,
+                                color = if (timerActive && remainingSeconds <= 5) EgDesign.danger else EgDesign.blue,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
@@ -3335,7 +3321,7 @@ private fun CvCameraFeedbackCard(
                             .align(Alignment.TopStart)
                             .padding(10.dp),
                         shape = RoundedCornerShape(999.dp),
-                        color = Color.White.copy(alpha = 0.92f),
+                        color = EgDesign.card.copy(alpha = 0.94f),
                         border = BorderStroke(1.dp, EgDesign.cardBorder)
                     ) {
                         Box(modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp)) {
@@ -3360,7 +3346,7 @@ private fun CvCameraFeedbackCard(
                         Text(
                             text = formatCvTime(remainingSeconds),
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                            color = if (timerActive && remainingSeconds <= 5) Color(0xFFBE123C) else EgDesign.blue,
+                            color = if (timerActive && remainingSeconds <= 5) EgDesign.danger else EgDesign.blue,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
@@ -3448,8 +3434,8 @@ private fun CvCameraFeedbackCard(
                         .height(8.dp)
                         .clip(RoundedCornerShape(999.dp)),
                     color = when {
-                        challengeState == CvChallengeState.Success -> Color(0xFF22C55E)
-                        holdProgress >= 0.5f -> Color(0xFFFACC15)
+                        challengeState == CvChallengeState.Success -> EgDesign.success
+                        holdProgress >= 0.5f -> EgDesign.warning
                         else -> EgDesign.primary
                     },
                     trackColor = EgDesign.cardBorder
@@ -4160,7 +4146,7 @@ private fun UnusedCvDetectionCard(
                     .fillMaxWidth()
                     .height(8.dp)
                     .clip(RoundedCornerShape(999.dp)),
-                color = if (confidence >= CvRequiredConfidence) Color(0xFF22C55E) else EgDesign.primary,
+                color = if (confidence >= CvRequiredConfidence) EgDesign.success else EgDesign.primary,
                 trackColor = EgDesign.cardBorder
             )
 
@@ -4172,7 +4158,7 @@ private fun UnusedCvDetectionCard(
 @Composable
 private fun CvStatusLamps(activeLamp: Int) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        listOf(Color(0xFFEF4444), Color(0xFFFACC15), Color(0xFF22C55E)).forEachIndexed { index, color ->
+        listOf(EgDesign.danger, EgDesign.warning, EgDesign.success).forEachIndexed { index, color ->
             Box(
                 modifier = Modifier
                     .size(if (index == activeLamp) 14.dp else 10.dp)
@@ -4246,10 +4232,10 @@ private fun cvChallengeStatusLabel(
 
 private fun cvChallengeStatusColor(state: CvChallengeState, faceDetected: Boolean): Color {
     return when (state) {
-        CvChallengeState.Success -> Color(0xFF16A34A)
-        CvChallengeState.Timeout -> Color(0xFFF59E0B)
+        CvChallengeState.Success -> EgDesign.success
+        CvChallengeState.Timeout -> EgDesign.warning
         CvChallengeState.Error,
-        CvChallengeState.PermissionDenied -> Color(0xFFEF4444)
+        CvChallengeState.PermissionDenied -> EgDesign.danger
         CvChallengeState.Detecting -> Color(0xFF0284C7)
         CvChallengeState.FaceDetected,
         CvChallengeState.Countdown -> Color(0xFF2563EB)
@@ -4285,10 +4271,10 @@ private fun cvChallengeStatusLabelV2(
 
 private fun cvChallengeStatusColorV2(state: CvChallengeState, faceDetected: Boolean): Color {
     return when (state) {
-        CvChallengeState.Success -> Color(0xFF16A34A)
-        CvChallengeState.Timeout -> Color(0xFFF59E0B)
+        CvChallengeState.Success -> EgDesign.success
+        CvChallengeState.Timeout -> EgDesign.warning
         CvChallengeState.Error,
-        CvChallengeState.PermissionDenied -> Color(0xFFEF4444)
+        CvChallengeState.PermissionDenied -> EgDesign.danger
         CvChallengeState.Detecting,
         CvChallengeState.Playing -> Color(0xFF0284C7)
         CvChallengeState.FaceDetected,

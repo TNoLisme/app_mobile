@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +50,7 @@ import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgTab
 import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
+import com.example.appmobile.ui.components.egTactileClick
 import com.example.appmobile.ui.components.egEmotionDisplayName
 import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
 import com.example.appmobile.ui.viewmodel.ReportSummary
@@ -163,7 +163,7 @@ private fun EmotionGardenCtaCard(summary: GardenHomeSummary?, onOpenGarden: () -
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(EgDesign.radiusLarge),
         colors = CardDefaults.cardColors(containerColor = HomeCard),
         border = BorderStroke(1.dp, HomeCardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -246,7 +246,7 @@ private fun MiniEmotionGarden(progress: Int) {
 private fun PhotoBoothCtaCard(onStart: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(EgDesign.radiusLarge),
         colors = CardDefaults.cardColors(containerColor = HomeCard),
         border = BorderStroke(1.dp, HomeCardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -340,7 +340,7 @@ private fun TodayLearningCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(EgDesign.radiusXLarge),
         colors = CardDefaults.cardColors(containerColor = HomeCardSoft),
         border = BorderStroke(1.dp, HomeCardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -391,7 +391,7 @@ private fun ReportCtaCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(EgDesign.radiusLarge),
         colors = CardDefaults.cardColors(containerColor = HomeCard),
         border = BorderStroke(1.dp, HomeCardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -457,7 +457,7 @@ private fun RecentGamesSection(
         if (games.isEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(EgDesign.radiusLarge),
                 colors = CardDefaults.cardColors(containerColor = HomeCard),
                 border = BorderStroke(1.dp, HomeCardBorder)
             ) {
@@ -488,8 +488,8 @@ private fun RecentGameRowCard(game: HomeRecentGameUi, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 82.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
+            .egTactileClick(onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.radiusLarge),
         colors = CardDefaults.cardColors(containerColor = HomeCard),
         border = BorderStroke(1.dp, HomeCardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -522,7 +522,7 @@ private fun RecentGameRowCard(game: HomeRecentGameUi, onClick: () -> Unit) {
                     fontSize = 12.sp
                 )
             }
-            Text(">", color = HomeTextSecondary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            EgVectorEmojiIcon("next", size = 20.dp, tint = HomeTextSecondary)
         }
     }
 }
@@ -537,7 +537,7 @@ private fun HomeActionPill(
     Surface(
         modifier = modifier
             .height(40.dp)
-            .clickable(onClick = onClick),
+            .egTactileClick(onClick = onClick),
         shape = RoundedCornerShape(999.dp),
         color = if (primary) HomeBlue else HomeCard,
         border = if (primary) null else BorderStroke(1.dp, HomeCardBorder),

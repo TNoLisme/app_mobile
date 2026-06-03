@@ -70,6 +70,7 @@ import com.example.appmobile.ui.components.egEmotionDisplayName
 import com.example.appmobile.ui.components.egEmotionKey
 import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.example.appmobile.ui.components.egLearningEmotionGridItems
+import com.example.appmobile.ui.components.egTactileClick
 import com.example.appmobile.ui.state.AppSettingsState
 import kotlinx.coroutines.delay
 
@@ -288,8 +289,8 @@ private fun EmotionGridItem(
     Surface(
         modifier = modifier
             .height(72.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
+            .egTactileClick(onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.radiusLarge),
         color = backgroundColor,
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
         shadowElevation = if (selected) 3.dp else 1.dp
@@ -317,7 +318,7 @@ private fun EmotionGridItem(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                EgEmotionVectorIcon(key, size = 24.dp)
+                EgEmotionVectorIcon(key, size = 34.dp)
                 Text(
                     text = egEmotionDisplayName(emotion),
                     color = EgDesign.textPrimary,
@@ -372,7 +373,7 @@ private fun LearnMediaCarousel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(EgDesign.radiusLarge))
                     .background(Color.Black),
                 contentAlignment = Alignment.Center
             ) {
@@ -474,7 +475,7 @@ private fun EmotionDetailButton(onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .height(32.dp)
-            .clickable(onClick = onClick),
+            .egTactileClick(onClick = onClick),
         shape = RoundedCornerShape(999.dp),
         color = EgDesign.cardSoft,
         border = BorderStroke(1.dp, EgDesign.cardBorder),

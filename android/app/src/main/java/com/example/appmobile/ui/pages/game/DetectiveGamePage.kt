@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -220,23 +221,17 @@ fun DetectiveGamePage(
                     )
                 }
             } else {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.extraLarge,
-                        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
-                        elevation = CardDefaults.cardElevation(2.dp)
+                    ClickGameInstructionCard(
+                        title = "Đọc tình huống và tìm cảm xúc",
+                        description = question.story,
+                        iconKey = "puzzle"
                     ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(120.dp),
+                                    .height(84.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Image(
@@ -245,14 +240,12 @@ fun DetectiveGamePage(
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
-                            Text(question.story, style = MaterialTheme.typography.titleMedium, color = EgDesign.textSecondary, textAlign = TextAlign.Center)
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         options.chunked(2).forEach { rowItems ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 rowItems.forEach { item ->
                                     val visualState = answerVisualState(
                                         optionId = item.id,
@@ -260,24 +253,15 @@ fun DetectiveGamePage(
                                         selectedEmotionId = selectedEmotionId.value,
                                         hasFeedback = feedback.value != null
                                     )
-                                    Card(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clickable(enabled = feedback.value == null) { selectedEmotionId.value = item.id },
-                                        shape = MaterialTheme.shapes.large,
-                                        border = BorderStroke(2.dp, visualState.borderColor),
-                                        colors = CardDefaults.cardColors(containerColor = visualState.containerColor)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(vertical = 14.dp, horizontal = 8.dp).fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
-                                        ) {
-                                            EgEmotionVectorIcon(item.id, size = 26.dp)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(item.name, color = EgDesign.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                                        }
-                                    }
+                                    ClickEmotionOptionCard(
+                                        emotionId = item.id,
+                                        emotionName = item.name,
+                                        visualState = visualState,
+                                        enabled = feedback.value == null,
+                                        compact = true,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { selectedEmotionId.value = item.id }
+                                    )
                                 }
                             }
                         }
@@ -285,52 +269,15 @@ fun DetectiveGamePage(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                val hintVisible = remember(currentIndex.intValue) { mutableStateOf(false) }
-                val usedHint = remember(currentIndex.intValue) { mutableStateOf(false) }
-
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    
-                    // Dòng 1: Nút Gợi ý hoặc Text Gợi ý (chiều cao cố định)
+
                     Box(
                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (!hintVisible.value) {
-                            Surface(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clickable {
-                                        hintVisible.value = true
-                                        usedHint.value = true
-                                    },
-                                shape = CircleShape,
-                                color = EgDesign.accentSoft,
-                                border = BorderStroke(1.dp, EgDesign.cardBorder)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    EgVectorEmojiIcon("bulb", size = 22.dp)
-                                }
-                            }
-                        } else {
-                            Text(
-                                text = question.explanation ?: "Gợi ý: Hãy suy nghĩ về cảm xúc phù hợp nhất với tình huống này!",
-                                color = EgDesign.textPrimary,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 4.dp)
-                            )
-                        }
-                    }
-
-                    // Dòng 2: Khung phản hồi đúng sai (chiều cao cố định)
-                    Box(
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (feedback.value != null) {
@@ -365,7 +312,7 @@ fun DetectiveGamePage(
                                         answer = selected,
                                         isCorrect = isCorrect,
                                         responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt(),
-                                        usedHint = usedHint.value
+                                        usedHint = false
                                     )
                                     results.value = updatedResults
                                     val targetName = GameUiCatalog.emotionById(question.correctEmotion)?.name
@@ -387,12 +334,12 @@ fun DetectiveGamePage(
                                     selectedEmotionId.value = null
                                     feedback.value = null
                                     questionStartMs.value = System.currentTimeMillis()
-                                    hintVisible.value = false
-                                    usedHint.value = false
                                 }
                             },
                             modifier = Modifier.fillMaxWidth().height(50.dp),
-                            enabled = selectedEmotionId.value != null && !isSubmitting.value && learningEmotionId.value == null
+                            enabled = selectedEmotionId.value != null && !isSubmitting.value && learningEmotionId.value == null,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(EgDesign.pillRadius),
+                            colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primary, contentColor = Color.White)
                         ) {
                             val learnTarget = pendingLearnEmotion.value?.let {
                                 GameUiCatalog.emotionById(it)?.name ?: it

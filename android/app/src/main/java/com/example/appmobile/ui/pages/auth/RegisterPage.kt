@@ -1,6 +1,7 @@
 package com.example.appmobile.ui.pages.auth
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,9 +11,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -77,8 +80,10 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(EgDesign.background)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .imePadding()
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         Column(
@@ -88,8 +93,11 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
             verticalArrangement = Arrangement.Center
         ) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(26.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 440.dp)
+                    .align(Alignment.CenterHorizontally),
+                shape = RoundedCornerShape(EgDesign.radiusXLarge),
                 color = EgDesign.card,
                 border = androidx.compose.foundation.BorderStroke(1.dp, EgDesign.cardBorder),
                 shadowElevation = 3.dp
@@ -203,7 +211,7 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
                     errorMessage?.let {
                         Text(
                             text = it,
-                            color = Color(0xFFFF8D8D),
+                            color = EgDesign.danger,
                             fontSize = 13.sp
                         )
                     }
@@ -321,7 +329,7 @@ private fun RegisterTextField(
         label = { Text(label) },
         placeholder = { Text(placeholder, color = EgDesign.textSecondary) },
         singleLine = true,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(EgDesign.controlRadius),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
         colors = OutlinedTextFieldDefaults.colors(

@@ -1,6 +1,7 @@
 package com.example.appmobile.ui.pages.auth
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,9 +11,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -73,8 +76,10 @@ fun LoginPage(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(EgDesign.background)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .imePadding()
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         Column(
@@ -84,8 +89,11 @@ fun LoginPage(
             verticalArrangement = Arrangement.Center
         ) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(26.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 440.dp)
+                    .align(Alignment.CenterHorizontally),
+                shape = RoundedCornerShape(EgDesign.radiusXLarge),
                 color = EgDesign.card,
                 border = androidx.compose.foundation.BorderStroke(1.dp, EgDesign.cardBorder),
                 shadowElevation = 3.dp
@@ -142,7 +150,7 @@ fun LoginPage(
                     errorMessage?.let {
                         Text(
                             text = it,
-                            color = Color(0xFFFF8D8D),
+                            color = EgDesign.danger,
                             fontSize = 13.sp
                         )
                     }
@@ -248,7 +256,7 @@ private fun AuthTextField(
         modifier = Modifier.fillMaxWidth(),
         label = { Text(label) },
         placeholder = { Text(placeholder, color = EgDesign.textSecondary) },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(EgDesign.controlRadius),
         singleLine = true,
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(
@@ -300,7 +308,7 @@ private fun ForgotPasswordDialog(
                     placeholder = { Text("example@email.com") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(EgDesign.controlRadius),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = EgDesign.primary,
                         unfocusedBorderColor = EgDesign.cardBorder,
@@ -316,7 +324,7 @@ private fun ForgotPasswordDialog(
                 message?.let {
                     Text(
                         text = it,
-                        color = Color(0xFFFF8D8D),
+                        color = EgDesign.danger,
                         style = MaterialTheme.typography.bodySmall
                     )
                 }

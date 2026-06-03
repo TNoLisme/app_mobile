@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -38,6 +39,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -48,6 +51,7 @@ import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
+import com.example.appmobile.ui.components.egTactileClick
 import com.example.appmobile.ui.state.AppSettingsState
 
 data class EmotionLearningInfo(
@@ -66,12 +70,18 @@ data class AnswerVisualState(
 
 @Composable
 fun GameStatChip(text: String) {
-    Surface(shape = MaterialTheme.shapes.large, color = EgDesign.cardSoft) {
+    Surface(
+        shape = RoundedCornerShape(EgDesign.pillRadius),
+        color = EgDesign.cardSoft,
+        border = BorderStroke(1.dp, EgDesign.cardBorder)
+    ) {
         Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            text = text.replace("Level", "Cấp"),
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
             color = EgDesign.blue,
-            fontWeight = FontWeight.SemiBold
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
         )
     }
 }
@@ -85,7 +95,13 @@ fun GameHeader(
     score: Int,
     onBack: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+    val titleSize = if (title.length > 18) 17.sp else 19.sp
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             com.example.appmobile.ui.components.AppBackButton(
                 onClick = onBack,
@@ -95,16 +111,20 @@ fun GameHeader(
                 text = title,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
+                    fontSize = titleSize,
                     color = EgDesign.textPrimary
                 ),
-                modifier = Modifier.align(Alignment.Center)
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(start = 52.dp, end = 18.dp),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        Spacer(modifier = Modifier.height(12.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
+            horizontalArrangement = Arrangement.Center
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 GameStatChip("Level $level")
@@ -118,16 +138,125 @@ fun GameHeader(
 @Composable
 fun GameFeedbackCard(message: String) {
     val isCorrect = message.startsWith("Đúng")
+        || message.startsWith("Phá án đúng")
+        || message.startsWith("Chính xác")
+    val color = if (isCorrect) EgDesign.success else EgDesign.warning
     Surface(
-        shape = MaterialTheme.shapes.large,
-        color = EgDesign.cardSoft
+        shape = RoundedCornerShape(EgDesign.radiusLarge),
+        color = color.copy(alpha = if (AppSettingsState.activeDarkTheme.value) 0.18f else 0.12f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.45f))
     ) {
-        Text(
-            text = message,
-            modifier = Modifier.padding(12.dp),
-            color = EgDesign.textPrimary,
-            fontWeight = FontWeight.SemiBold
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            EgVectorEmojiIcon(if (isCorrect) "check" else "bulb", size = 18.dp, tint = color)
+            Text(
+                text = message,
+                color = EgDesign.textPrimary,
+                fontSize = 14.sp,
+                lineHeight = 19.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+fun ClickGameInstructionCard(
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier,
+    iconKey: String = "bulb",
+    content: (@Composable ColumnScope.() -> Unit)? = null
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(EgDesign.radiusLarge),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        border = BorderStroke(1.dp, EgDesign.cardBorder),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(
+                    modifier = Modifier.size(30.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = EgDesign.accentSoft,
+                    border = BorderStroke(1.dp, EgDesign.cardBorder)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        EgVectorEmojiIcon(iconKey, size = 17.dp, tint = EgDesign.blue)
+                    }
+                }
+                Text(
+                    text = title,
+                    color = EgDesign.textPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            if (description.isNotBlank()) {
+                Text(
+                    text = description,
+                    color = EgDesign.textSecondary,
+                    fontSize = 14.sp,
+                    lineHeight = 19.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            if (content != null) content()
+        }
+    }
+}
+
+@Composable
+fun ClickEmotionOptionCard(
+    emotionId: String,
+    emotionName: String,
+    visualState: AnswerVisualState,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .egTactileClick(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.radiusMedium),
+        color = visualState.containerColor,
+        border = BorderStroke(
+            width = if (visualState.borderColor == EgDesign.cardBorder) 1.dp else 2.dp,
+            color = visualState.borderColor
+        ),
+        tonalElevation = 0.dp,
+        shadowElevation = if (visualState.borderColor == EgDesign.cardBorder) 0.dp else 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = if (compact) 9.dp else 12.dp,
+                    vertical = if (compact) 8.dp else 12.dp
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            EgEmotionVectorIcon(emotionId, size = if (compact) 22.dp else 30.dp)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                emotionName,
+                color = EgDesign.textPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = if (compact) 13.sp else 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -222,7 +351,7 @@ fun EmotionLearningDialog(emotionId: String?, onDismiss: () -> Unit) {
                     .fillMaxWidth(0.92f)
                     .clickable(enabled = false) {}
                     .padding(vertical = 16.dp),
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(EgDesign.radiusXLarge),
                 colors = CardDefaults.cardColors(containerColor = EgDesign.card),
                 elevation = CardDefaults.cardElevation(4.dp)
             ) {
@@ -473,15 +602,15 @@ fun answerVisualState(
     val isDark = AppSettingsState.activeDarkTheme.value
     return when {
         hasFeedback && isCorrect -> AnswerVisualState(
-            borderColor = Color(0xFF2E7D32),
-            containerColor = if (isDark) Color(0xFF153E2A) else Color(0xFFE8F5E9)
+            borderColor = EgDesign.success,
+            containerColor = EgDesign.success.copy(alpha = if (isDark) 0.18f else 0.12f)
         )
         hasFeedback && isSelected -> AnswerVisualState(
-            borderColor = Color(0xFFD32F2F),
-            containerColor = if (isDark) Color(0xFF51222B) else Color(0xFFFFEBEE)
+            borderColor = EgDesign.danger,
+            containerColor = EgDesign.danger.copy(alpha = if (isDark) 0.18f else 0.12f)
         )
         isSelected -> AnswerVisualState(
-            borderColor = Color(0xFF3B82F6),
+            borderColor = EgDesign.primary,
             containerColor = EgDesign.cardSoft
         )
         else -> AnswerVisualState(

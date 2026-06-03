@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -51,10 +52,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -227,7 +225,7 @@ fun EmotionMatchPage(
         contentMaxWidth = 800, onOpenAssistant = onOpenAssistant,
         scrollEnabled = false, bottomSpacerHeight = 0.dp
     ) {
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+        Column(modifier = Modifier.fillMaxSize()) {
             GameHeader(
                 title = "Cảm xúc đúng chỗ",
                 level = level,
@@ -249,56 +247,48 @@ fun EmotionMatchPage(
                 return@GameScreenShell
             }
 
-            // HINT CARD
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                border = BorderStroke(2.dp, EgDesign.primary),
-                colors = CardDefaults.cardColors(containerColor = EgDesign.card)
+            ClickGameInstructionCard(
+                title = "Kéo tên vào đúng ảnh",
+                description = "Đọc tình huống rồi đặt tên bạn nhỏ vào khung phù hợp.",
+                iconKey = "puzzle"
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier.size(28.dp).background(EgDesign.primary, shape = RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            EgVectorEmojiIcon("speaker", size = 14.dp, tint = Color.White)
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        EgVectorEmojiIcon("bulb", size = 18.dp)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Tình huống:", fontWeight = FontWeight.Bold, color = EgDesign.textPrimary, fontSize = 16.sp)
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
                     currentRound.forEachIndexed { index, question ->
-                        val annotatedText = buildAnnotatedString {
-                            append("${index + 1}. ")
-                            withStyle(SpanStyle(color = EgDesign.primary, fontWeight = FontWeight.Bold)) {
-                                append(question.correctName)
-                            }
-                            append(" đang cảm thấy \"")
-                            withStyle(SpanStyle(color = EgDesign.primary, fontWeight = FontWeight.Bold)) {
-                                append(question.emotionName.lowercase())
-                            }
-                            append("\". Kéo tên ")
-                            withStyle(SpanStyle(color = EgDesign.primary, fontWeight = FontWeight.Bold)) {
-                                append(question.correctName)
-                            }
-                            append(" vào đúng ảnh.")
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "${index + 1}",
+                                color = EgDesign.blue,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = question.correctName,
+                                color = EgDesign.textPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = question.emotionName,
+                                color = EgDesign.blue,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                        Text(annotatedText, fontSize = 14.sp, modifier = Modifier.padding(bottom = 4.dp))
                     }
-                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // FACES GRID (Drop Zones)
             // Đọc snapshot answers 1 lần cho toàn bộ grid
             val currentAnswers = answers
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 currentRound.forEach { question ->
                     key(question.questionId) {
@@ -310,9 +300,11 @@ fun EmotionMatchPage(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Card(
-                                shape = MaterialTheme.shapes.medium,
-                                elevation = CardDefaults.cardElevation(2.dp),
-                                modifier = Modifier.fillMaxWidth().height(140.dp)
+                                shape = RoundedCornerShape(EgDesign.radiusLarge),
+                                elevation = CardDefaults.cardElevation(1.dp),
+                                colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+                                border = BorderStroke(1.dp, EgDesign.cardBorder),
+                                modifier = Modifier.fillMaxWidth().height(142.dp)
                             ) {
                                 val cleanPath = question.imagePath.replace(Regex("^/fe/"), "/")
                                 val imgUrl = "file:///android_asset/fe$cleanPath"
@@ -334,9 +326,9 @@ fun EmotionMatchPage(
                                 else -> Color(0xFFF44336)
                             }
                             val bgColor = when {
-                                feedback.value == null -> if (droppedName != null) Color.White else Color.Gray.copy(alpha = 0.05f)
-                                isCorrect == true -> Color(0xFFE8F5E9)
-                                else -> Color(0xFFFFEBEE)
+                                feedback.value == null -> if (droppedName != null) EgDesign.card else EgDesign.cardSoft
+                                isCorrect == true -> EgDesign.success.copy(alpha = 0.12f)
+                                else -> EgDesign.danger.copy(alpha = 0.12f)
                             }
 
                             Box(
@@ -346,11 +338,11 @@ fun EmotionMatchPage(
                                     .onGloballyPositioned { coordinates ->
                                         dragDropState.registerDropZone(question.questionId, coordinates.boundsInRoot())
                                     }
-                                    .background(color = bgColor, shape = RoundedCornerShape(28.dp))
+                                    .background(color = bgColor, shape = RoundedCornerShape(EgDesign.radiusMedium))
                                     .border(
                                         width = if (droppedName != null) 2.dp else 1.dp,
                                         color = borderColor,
-                                        shape = RoundedCornerShape(28.dp)
+                                        shape = RoundedCornerShape(EgDesign.radiusMedium)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -363,7 +355,7 @@ fun EmotionMatchPage(
                                             droppedName,
                                             fontWeight = FontWeight.Bold,
                                             color = if (feedback.value == null) EgDesign.textPrimary else borderColor,
-                                            fontSize = 16.sp
+                                            fontSize = 15.sp
                                         )
                                         if (feedback.value == null) {
                                             Spacer(modifier = Modifier.width(8.dp))
@@ -379,7 +371,7 @@ fun EmotionMatchPage(
                                         }
                                     }
                                 } else {
-                                    Text("Thả tên vào đây", color = Color.Gray.copy(alpha = 0.6f), fontSize = 13.sp)
+                                    Text("Thả tên vào đây", color = EgDesign.textSecondary, fontSize = 13.sp)
                                 }
                             }
                         }
@@ -387,7 +379,7 @@ fun EmotionMatchPage(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // CHIPS ROW HOẶC FEEDBACK
             Box(
@@ -401,7 +393,7 @@ fun EmotionMatchPage(
                     // Lọc ra các tên chưa được đặt vào ô nào
                     val availableNames = allNamesInRound.filter { it !in currentAnswers.values }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         availableNames.forEach { name ->
                             key(name) {
                                 DraggableNameChip(
@@ -459,8 +451,10 @@ fun EmotionMatchPage(
                         questionStartMs.value = System.currentTimeMillis()
                     }
                 },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = (allFilled || feedback.value != null) && !isSubmitting.value && learningEmotionId.value == null
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                enabled = (allFilled || feedback.value != null) && !isSubmitting.value && learningEmotionId.value == null,
+                shape = RoundedCornerShape(EgDesign.pillRadius),
+                colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primary, contentColor = Color.White)
             ) {
                 Text(
                     when {
@@ -469,7 +463,7 @@ fun EmotionMatchPage(
                         currentRoundIndex.intValue >= rounds.lastIndex -> "Hoàn thành"
                         else -> "Câu tiếp theo"
                     },
-                    fontSize = 18.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -511,10 +505,10 @@ fun DraggableNameChip(
     val currentDragDropState by rememberUpdatedState(dragDropState)
 
     Card(
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(if (isDragging) 8.dp else 4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, EgDesign.primary.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(EgDesign.pillRadius),
+        elevation = CardDefaults.cardElevation(if (isDragging) 6.dp else 1.dp),
+        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
+        border = BorderStroke(1.dp, if (isDragging) EgDesign.primary else EgDesign.cardBorder),
         modifier = Modifier
             .onGloballyPositioned {
                 globalPosition = it.positionInRoot()
@@ -558,8 +552,8 @@ fun DraggableNameChip(
                 )
             }
     ) {
-        Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
-            Text(name, fontWeight = FontWeight.Bold, color = EgDesign.textPrimary, fontSize = 16.sp)
+        Box(modifier = Modifier.padding(horizontal = 22.dp, vertical = 11.dp)) {
+            Text(name, fontWeight = FontWeight.Bold, color = EgDesign.textPrimary, fontSize = 15.sp)
         }
     }
 }

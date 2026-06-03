@@ -3,7 +3,6 @@ package com.example.appmobile.ui.pages.select
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +48,7 @@ import com.example.appmobile.ui.components.EgGradientPill
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgTab
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
+import com.example.appmobile.ui.components.egTactileClick
 
 private data class GameCategoryUi(
     val title: String,
@@ -181,8 +181,8 @@ private fun GameBlock(
     Card(
         modifier = modifier
             .height(248.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
+            .egTactileClick(onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.radiusLarge),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -197,7 +197,7 @@ private fun GameBlock(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(116.dp)
-                    .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)),
+                    .clip(RoundedCornerShape(topStart = EgDesign.radiusLarge, topEnd = EgDesign.radiusLarge)),
                 contentScale = ContentScale.Crop
             )
             Column(
