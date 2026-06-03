@@ -138,7 +138,7 @@ object AppFeatureRegistry {
         AppFeature(
             id = "settings",
             name = "Cài đặt",
-            descriptionForChild = "Nơi chỉnh âm thanh, trợ lý, video và các lựa chọn trong app.",
+            descriptionForChild = "Nơi chỉnh âm thanh, Mầm Mầm, video và các lựa chọn trong app.",
             descriptionForParent = "Nơi quản lý tài khoản, email phụ huynh, quyền riêng tư và dữ liệu học tập.",
             route = "settings",
             exampleQuestions = listOf("Thêm email phụ huynh thế nào?", "Bật/tắt camera ở đâu?"),
@@ -283,7 +283,7 @@ object AssistantKnowledge {
             "garden" -> "Mình có thể giải thích cách nhận nước, ánh nắng và chăm các loài thực vật cảm xúc."
             "settings", "parent_area" -> "Mình có thể giúp phụ huynh tìm cài đặt email, camera và quyền riêng tư."
             "profile" -> "Mình có thể giải thích huy hiệu, thống kê chơi game và thông tin hồ sơ của con."
-            else -> "Chào con! Mình là trợ lý EmoGarden. Con có thể hỏi mình về học cảm xúc, chơi game, báo cáo, Photobooth hoặc Vườn cảm xúc nhé."
+            else -> "Chào con! Mình là Mầm Mầm. Con có thể hỏi mình về học cảm xúc, chơi game, báo cáo, Photobooth hoặc Vườn cảm xúc nhé."
         }
     }
 
@@ -517,7 +517,7 @@ object AssistantKnowledge {
         val text = if (context.audience == ChatAudience.PARENT || context.isParentArea) {
             "Trong Khu vực phụ huynh, phụ huynh có thể quản lý email nhận báo cáo, tài khoản, quyền camera và dữ liệu học tập. Những thao tác nhạy cảm như đổi email, gửi báo cáo hay xóa dữ liệu cần xác nhận."
         } else {
-            "Cài đặt là nơi chỉnh âm thanh, bong bóng trợ lý, camera và quyền riêng tư. Nếu cần thêm email bố mẹ, con nhờ phụ huynh mở Khu vực phụ huynh nhé."
+            "Cài đặt là nơi chỉnh âm thanh, bong bóng Mầm Mầm, camera và quyền riêng tư. Nếu cần thêm email bố mẹ, con nhờ phụ huynh mở Khu vực phụ huynh nhé."
         }
         return AssistantReply(
             text = text,

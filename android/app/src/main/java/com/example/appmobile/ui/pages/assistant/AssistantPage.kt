@@ -76,6 +76,7 @@ import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgAssistantMascot
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
+import com.example.appmobile.ui.components.egTactileClick
 import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -212,7 +213,7 @@ fun AssistantPage(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "vi-VN")
             putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, "vi-VN")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Nói câu hỏi cho trợ lý EmoGarden")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Nói câu hỏi cho Mầm Mầm")
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
     }
@@ -272,7 +273,7 @@ fun AssistantPage(
         if (granted) {
             startVoiceRecognition()
         } else {
-            addAssistantSystemMessage("Con cần cấp quyền micro để hỏi trợ lý bằng giọng nói.")
+            addAssistantSystemMessage("Con cần cấp quyền micro để hỏi Mầm Mầm bằng giọng nói.")
         }
     }
 
@@ -414,7 +415,7 @@ private fun AssistantHeader(onBack: () -> Unit, onClear: () -> Unit) {
         AppBackButton(onClick = onBack, text = "← Quay lại")
         Spacer(modifier = Modifier.weight(1f))
         Text(
-            "Trợ lý EmoGarden",
+            "Mầm Mầm",
             color = EgDesign.textPrimary,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 22.sp
@@ -471,18 +472,14 @@ private fun ClearChatConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit)
 private fun AssistantIntroCard(chatContext: AppChatContext) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(EgDesign.radiusXLarge),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Row(
             modifier = Modifier
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(EgDesign.cardSoft, EgDesign.card)
-                    )
-                )
+                .background(EgDesign.cardSoft)
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -492,18 +489,14 @@ private fun AssistantIntroCard(chatContext: AppChatContext) {
                     .height(64.dp)
                     .widthIn(min = 64.dp)
                     .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(Color.White, Color(0xFFFFF0B8), EgDesign.accentSoft)
-                        )
-                    ),
+                    .background(EgDesign.accentSoft),
                 contentAlignment = Alignment.Center
             ) {
                 EgAssistantMascot(size = 58.dp)
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    "Trợ lý EmoGarden",
+                    "Mầm Mầm",
                     color = EgDesign.textPrimary,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 17.sp
@@ -540,7 +533,7 @@ private fun SuggestionRow(
                 modifier = Modifier
                     .height(42.dp)
                     .widthIn(min = 116.dp)
-                    .clickable(enabled = enabled) { onSuggestionClick(suggestion) },
+                    .egTactileClick(enabled = enabled) { onSuggestionClick(suggestion) },
                 shape = RoundedCornerShape(EgDesign.pillRadius),
                 color = EgDesign.cardSoft,
                 border = BorderStroke(1.dp, EgDesign.cardBorder)
@@ -606,7 +599,7 @@ private fun AssistantBubble(
                                         modifier = Modifier
                                             .weight(1f)
                                             .height(34.dp)
-                                            .clickable { onActionClick(action) },
+                                            .egTactileClick { onActionClick(action) },
                                         shape = RoundedCornerShape(EgDesign.pillRadius),
                                         color = EgDesign.cardSoft,
                                         border = BorderStroke(1.dp, EgDesign.cardBorder)
@@ -706,7 +699,7 @@ private fun AssistantInputRow(
             modifier = Modifier.weight(1f),
             placeholder = {
                 Text(
-                    "Hỏi trợ lý về cảm xúc hoặc cách chơi...",
+                    "Hỏi Mầm Mầm về cảm xúc hoặc cách chơi...",
                     color = EgDesign.textSecondary
                 )
             },
