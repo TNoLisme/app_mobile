@@ -2,48 +2,86 @@ package com.example.appmobile.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.googlefonts.Font
-import androidx.compose.ui.text.googlefonts.GoogleFont
 import androidx.compose.ui.unit.sp
-import com.example.appmobile.R
 
-// Set of Material typography styles to start with
-val Typography = Typography(
+val AppTypography = Typography(
+    displaySmall = TextStyle(
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 32.sp,
+        lineHeight = 38.sp,
+        letterSpacing = 0.sp
+    ),
+    headlineLarge = TextStyle(
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
+        letterSpacing = 0.sp
+    ),
+    headlineMedium = TextStyle(
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 24.sp,
+        lineHeight = 30.sp,
+        letterSpacing = 0.sp
+    ),
+    headlineSmall = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 21.sp,
+        lineHeight = 27.sp,
+        letterSpacing = 0.sp
+    ),
+    titleLarge = TextStyle(
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
+        letterSpacing = 0.sp
+    ),
+    titleMedium = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
+        letterSpacing = 0.sp
+    ),
+    titleSmall = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.sp
+    ),
     bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    )
-    /* Other default text styles to override
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        letterSpacing = 0.sp
+    ),
+    bodyMedium = TextStyle(
         fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.sp
+    ),
+    bodySmall = TextStyle(
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 17.sp,
+        letterSpacing = 0.sp
+    ),
+    labelLarge = TextStyle(
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 14.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.sp
+    ),
+    labelMedium = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
         letterSpacing = 0.sp
     ),
     labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Bold,
         fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    )
-    */
-)
-val provider = GoogleFont.Provider(
-    providerAuthority = "com.google.android.gms.fonts",
-    providerPackage = "com.google.android.gms",
-    certificates = R.array.com_google_android_gms_fonts_certs
-)
-val NunitoFont = GoogleFont("Nunito")
-val AppTypography = Typography(
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily(Font(NunitoFont, provider)),
-        fontSize = 18.sp // Chữ to hơn mức bình thường cho trẻ dễ đọc
+        lineHeight = 14.sp,
+        letterSpacing = 0.sp
     )
 )
