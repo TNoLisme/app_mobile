@@ -20,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -38,6 +39,7 @@ fun GameScreenShell(
             .background(EgDesign.background)
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            val compactScreen = maxWidth < 600.dp
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -45,10 +47,10 @@ fun GameScreenShell(
                     .widthIn(max = contentMaxWidth.dp)
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .padding(12.dp),
-                shape = MaterialTheme.shapes.extraLarge,
-                tonalElevation = 2.dp,
-                shadowElevation = 1.dp,
+                    .padding(if (compactScreen) 0.dp else 12.dp),
+                shape = if (compactScreen) RectangleShape else MaterialTheme.shapes.extraLarge,
+                tonalElevation = if (compactScreen) 0.dp else 2.dp,
+                shadowElevation = if (compactScreen) 0.dp else 1.dp,
                 color = EgDesign.card
             ) {
                 Column(
@@ -61,7 +63,7 @@ fun GameScreenShell(
                                 Modifier
                             }
                         )
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp, vertical = if (compactScreen) 12.dp else 16.dp)
                 ) {
                     content()
                     if (bottomSpacerHeight > 0.dp) {

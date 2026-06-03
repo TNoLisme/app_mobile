@@ -3,10 +3,12 @@ package com.example.appmobile.ui.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -44,14 +46,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.ContentScale
@@ -91,9 +88,42 @@ object EgDesign {
     val textSecondary: Color get() = if (isDark) Color(0xFFC2CBD7) else Color(0xFF6B7280)
     val blue: Color get() = if (isDark) Color(0xFF9DD4FF) else Color(0xFF0B5DAE)
     val accentSoft: Color get() = if (isDark) Color(0xFF1E344D) else Color(0xFFEAF2FF)
-    val cardRadius = 16.dp
+    val success: Color get() = if (isDark) Color(0xFF8FD29D) else Color(0xFF278746)
+    val warning: Color get() = if (isDark) Color(0xFFFFD66B) else Color(0xFFD97706)
+    val danger: Color get() = if (isDark) Color(0xFFFF9BAA) else Color(0xFFDC4C64)
+    val radiusSmall = 10.dp
+    val radiusMedium = 14.dp
+    val radiusLarge = 18.dp
+    val radiusXLarge = 22.dp
+    val cardRadius = radiusLarge
+    val controlRadius = radiusMedium
     val pillRadius = 999.dp
     val screenPadding = 16.dp
+    val contentSpacing = 12.dp
+    val sectionSpacing = 16.dp
+}
+
+@Composable
+fun Modifier.egTactileClick(
+    enabled: Boolean = true,
+    onClick: () -> Unit
+): Modifier {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && enabled) 0.97f else 1f,
+        animationSpec = tween(durationMillis = 110),
+        label = "eg_press_scale"
+    )
+    return graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }.clickable(
+        interactionSource = interactionSource,
+        indication = LocalIndication.current,
+        enabled = enabled,
+        onClick = onClick
+    )
 }
 
 @Composable
@@ -271,7 +301,7 @@ private fun EgMainBottomNavSurface(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        shape = RoundedCornerShape(topStart = EgDesign.radiusXLarge, topEnd = EgDesign.radiusXLarge),
         color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = 3.dp
@@ -436,7 +466,7 @@ fun EgGradientPill(
     Surface(
         modifier = modifier
             .height(height)
-            .clickable(enabled = enabled, onClick = onClick),
+            .egTactileClick(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(EgDesign.pillRadius),
         color = Color.Transparent,
         shadowElevation = 1.dp
@@ -468,7 +498,7 @@ fun AppBackButton(
     Surface(
         modifier = modifier
             .size(42.dp)
-            .clickable(onClick = onClick),
+            .egTactileClick(onClick = onClick),
         shape = CircleShape,
         color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder),
@@ -485,7 +515,7 @@ private fun EgProfileAvatarButton(avatarUri: String?, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .size(42.dp)
-            .clickable(onClick = onClick),
+            .egTactileClick(onClick = onClick),
         shape = CircleShape,
         color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder),
@@ -514,7 +544,7 @@ private fun EgIconButton(icon: String, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .size(42.dp)
-            .clickable(onClick = onClick),
+            .egTactileClick(onClick = onClick),
         shape = CircleShape,
         color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder),
@@ -537,7 +567,7 @@ private fun EgTabButton(
     Column(
         modifier = modifier
             .height(54.dp)
-            .clickable(onClick = onClick),
+            .egTactileClick(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -554,138 +584,12 @@ private fun EgTabButton(
 
 @Composable
 private fun EgMainTabIcon(tab: EgTab, color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val stroke = Stroke(
-            width = (w * 0.09f).coerceAtLeast(2.2f),
-            cap = StrokeCap.Round,
-            join = StrokeJoin.Round
-        )
-        when (tab) {
-            EgTab.Home -> {
-                val roof = Path().apply {
-                    moveTo(w * 0.16f, h * 0.48f)
-                    lineTo(w * 0.50f, h * 0.18f)
-                    lineTo(w * 0.84f, h * 0.48f)
-                }
-                drawPath(roof, color = color, style = stroke)
-                drawRoundRect(
-                    color = color,
-                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.25f, h * 0.44f),
-                    size = androidx.compose.ui.geometry.Size(w * 0.50f, h * 0.38f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f),
-                    style = stroke
-                )
-                drawLine(
-                    color = color,
-                    start = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.82f),
-                    end = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.64f),
-                    strokeWidth = stroke.width,
-                    cap = StrokeCap.Round
-                )
-            }
-            EgTab.Learn -> {
-                drawRoundRect(
-                    color = color,
-                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.16f, h * 0.22f),
-                    size = androidx.compose.ui.geometry.Size(w * 0.68f, h * 0.58f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f),
-                    style = stroke
-                )
-                drawLine(
-                    color = color,
-                    start = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.25f),
-                    end = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.78f),
-                    strokeWidth = stroke.width,
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = color,
-                    start = androidx.compose.ui.geometry.Offset(w * 0.25f, h * 0.38f),
-                    end = androidx.compose.ui.geometry.Offset(w * 0.42f, h * 0.38f),
-                    strokeWidth = stroke.width * 0.72f,
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = color,
-                    start = androidx.compose.ui.geometry.Offset(w * 0.58f, h * 0.38f),
-                    end = androidx.compose.ui.geometry.Offset(w * 0.75f, h * 0.38f),
-                    strokeWidth = stroke.width * 0.72f,
-                    cap = StrokeCap.Round
-                )
-            }
-            EgTab.Games -> {
-                drawRoundRect(
-                    color = color,
-                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.14f, h * 0.34f),
-                    size = androidx.compose.ui.geometry.Size(w * 0.72f, h * 0.34f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.16f, w * 0.16f),
-                    style = stroke
-                )
-                drawCircle(
-                    color = color,
-                    radius = w * 0.045f,
-                    center = androidx.compose.ui.geometry.Offset(w * 0.62f, h * 0.48f)
-                )
-                drawCircle(
-                    color = color,
-                    radius = w * 0.045f,
-                    center = androidx.compose.ui.geometry.Offset(w * 0.74f, h * 0.54f)
-                )
-                drawLine(
-                    color = color,
-                    start = androidx.compose.ui.geometry.Offset(w * 0.28f, h * 0.51f),
-                    end = androidx.compose.ui.geometry.Offset(w * 0.42f, h * 0.51f),
-                    strokeWidth = stroke.width,
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = color,
-                    start = androidx.compose.ui.geometry.Offset(w * 0.35f, h * 0.44f),
-                    end = androidx.compose.ui.geometry.Offset(w * 0.35f, h * 0.58f),
-                    strokeWidth = stroke.width,
-                    cap = StrokeCap.Round
-                )
-            }
-            EgTab.Profile -> {
-                drawCircle(
-                    color = color,
-                    center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.35f),
-                    radius = w * 0.16f,
-                    style = stroke
-                )
-                val body = Path().apply {
-                    moveTo(w * 0.2f, h * 0.85f)
-                    quadraticBezierTo(w * 0.2f, h * 0.65f, w * 0.5f, h * 0.65f)
-                    quadraticBezierTo(w * 0.8f, h * 0.65f, w * 0.8f, h * 0.85f)
-                }
-                drawPath(body, color = color, style = stroke)
-            }
-            EgTab.Settings -> {
-                drawCircle(
-                    color = color,
-                    center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
-                    radius = w * 0.16f,
-                    style = stroke
-                )
-                for (i in 0 until 6) {
-                    val angle = i * Math.PI / 3
-                    drawLine(
-                        color = color,
-                        start = androidx.compose.ui.geometry.Offset(
-                            (w * 0.5f + Math.cos(angle) * w * 0.16f).toFloat(),
-                            (h * 0.5f + Math.sin(angle) * w * 0.16f).toFloat()
-                        ),
-                        end = androidx.compose.ui.geometry.Offset(
-                            (w * 0.5f + Math.cos(angle) * w * 0.32f).toFloat(),
-                            (h * 0.5f + Math.sin(angle) * w * 0.32f).toFloat()
-                        ),
-                        strokeWidth = stroke.width,
-                        cap = StrokeCap.Round
-                    )
-                }
-            }
-        }
+    val icon = when (tab) {
+        EgTab.Home -> "home"
+        EgTab.Learn -> "book"
+        EgTab.Games -> "gamepad"
+        EgTab.Profile -> "user"
+        EgTab.Settings -> "settings"
     }
+    EgVectorEmojiIcon(value = icon, modifier = modifier, tint = color)
 }

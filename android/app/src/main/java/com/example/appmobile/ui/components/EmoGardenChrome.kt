@@ -115,7 +115,7 @@ fun DraggableAssistantBubble(onClick: () -> Unit, modifier: Modifier = Modifier)
                 .clickable(enabled = !isDragging, onClick = onClick),
             shape = CircleShape,
             color = Color.Transparent,
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.75f)),
+            border = BorderStroke(1.dp, EgDesign.primary.copy(alpha = 0.40f)),
             shadowElevation = if (isDragging) 8.dp else 4.dp
         ) {
             Box(
@@ -123,14 +123,14 @@ fun DraggableAssistantBubble(onClick: () -> Unit, modifier: Modifier = Modifier)
                     .fillMaxSize()
                     .background(
                         Brush.radialGradient(
-                            colors = listOf(Color.White.copy(alpha = 0.96f), Color(0xFFFFE38E), EgDesign.primary),
+                            colors = listOf(Color.White, Color(0xFFEAF7FF), Color(0xFFBEE7FF)),
                         ),
                         CircleShape
                     )
-                    .padding(5.dp),
+                    .padding(6.dp),
                 contentAlignment = Alignment.Center
             ) {
-                EgAssistantMascot(size = 46.dp, speaking = isDragging)
+                EgAssistantMascot(size = 44.dp, speaking = isDragging)
             }
         }
     }

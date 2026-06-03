@@ -40,28 +40,44 @@ private fun DrawScope.drawAssistantMascot(speaking: Boolean) {
     drawLeaf(center = Offset(center.x - s * 0.03f, center.y - s * 0.30f), size = s, left = true)
     drawLeaf(center = Offset(center.x + s * 0.03f, center.y - s * 0.30f), size = s, left = false)
 
-    drawCircle(Color(0xFFFFD45C), radius = s * 0.36f, center = center)
-    drawCircle(Color(0xFFFFE897), radius = s * 0.15f, center = Offset(center.x - s * 0.12f, center.y - s * 0.12f))
-    drawCircle(Color(0xFFB87912).copy(alpha = 0.20f), radius = s * 0.36f, center = center, style = Stroke(s * 0.025f))
+    drawOval(
+        color = Color(0xFF62B8F6),
+        topLeft = Offset(center.x - s * 0.24f, center.y + s * 0.16f),
+        size = Size(s * 0.48f, s * 0.18f)
+    )
+    drawRect(
+        color = Color(0xFF74C7FF),
+        topLeft = Offset(center.x - s * 0.20f, center.y + s * 0.20f),
+        size = Size(s * 0.40f, s * 0.16f)
+    )
+    drawOval(
+        color = Color(0xFF1E73BE).copy(alpha = 0.18f),
+        topLeft = Offset(center.x - s * 0.20f, center.y + s * 0.26f),
+        size = Size(s * 0.40f, s * 0.12f)
+    )
+
+    drawCircle(Color(0xFFFDFEFF), radius = s * 0.33f, center = Offset(center.x, center.y - s * 0.02f))
+    drawCircle(Color(0xFF0F4C8A).copy(alpha = 0.88f), radius = s * 0.33f, center = Offset(center.x, center.y - s * 0.02f), style = Stroke(s * 0.022f))
+    drawCircle(Color.White, radius = s * 0.12f, center = Offset(center.x - s * 0.13f, center.y - s * 0.15f))
 
     val faceColor = Color(0xFF273044)
-    drawCircle(faceColor, radius = s * 0.045f, center = Offset(center.x - s * 0.13f, center.y - s * 0.03f))
-    drawCircle(faceColor, radius = s * 0.045f, center = Offset(center.x + s * 0.13f, center.y - s * 0.03f))
-    drawCircle(Color.White, radius = s * 0.014f, center = Offset(center.x - s * 0.145f, center.y - s * 0.045f))
-    drawCircle(Color.White, radius = s * 0.014f, center = Offset(center.x + s * 0.115f, center.y - s * 0.045f))
+    drawCircle(Color(0xFF143B68), radius = s * 0.052f, center = Offset(center.x - s * 0.12f, center.y - s * 0.05f))
+    drawCircle(Color(0xFF143B68), radius = s * 0.052f, center = Offset(center.x + s * 0.12f, center.y - s * 0.05f))
+    drawCircle(Color.White, radius = s * 0.018f, center = Offset(center.x - s * 0.137f, center.y - s * 0.067f))
+    drawCircle(Color.White, radius = s * 0.018f, center = Offset(center.x + s * 0.103f, center.y - s * 0.067f))
 
-    drawCircle(Color(0xFFFF9DB6).copy(alpha = 0.28f), radius = s * 0.055f, center = Offset(center.x - s * 0.22f, center.y + s * 0.08f))
-    drawCircle(Color(0xFFFF9DB6).copy(alpha = 0.28f), radius = s * 0.055f, center = Offset(center.x + s * 0.22f, center.y + s * 0.08f))
+    drawCircle(Color(0xFFFF9DB6).copy(alpha = 0.32f), radius = s * 0.052f, center = Offset(center.x - s * 0.21f, center.y + s * 0.06f))
+    drawCircle(Color(0xFFFF9DB6).copy(alpha = 0.32f), radius = s * 0.052f, center = Offset(center.x + s * 0.21f, center.y + s * 0.06f))
 
     if (speaking) {
-        drawCircle(faceColor, radius = s * 0.055f, center = Offset(center.x, center.y + s * 0.13f))
+        drawCircle(faceColor, radius = s * 0.050f, center = Offset(center.x, center.y + s * 0.10f))
     } else {
         drawArc(
             color = faceColor,
             startAngle = 24f,
             sweepAngle = 132f,
             useCenter = false,
-            topLeft = Offset(center.x - s * 0.14f, center.y + s * 0.04f),
+            topLeft = Offset(center.x - s * 0.14f, center.y + s * 0.02f),
             size = Size(s * 0.28f, s * 0.18f),
             style = Stroke(width = s * 0.04f, cap = StrokeCap.Round)
         )

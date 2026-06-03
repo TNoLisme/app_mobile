@@ -1,10 +1,59 @@
 package com.example.appmobile.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Cake
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.CardGiftcard
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.EmojiEmotions
+import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.GpsFixed
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.MailOutline
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.NotificationsNone
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.PhotoAlbum
+import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.SportsEsports
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.Yard
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -14,11 +63,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlin.math.cos
+import com.example.appmobile.R
 import kotlin.math.min
-import kotlin.math.sin
 
 @Composable
 fun EgEmotionVectorIcon(
@@ -37,34 +88,36 @@ fun EgVectorEmojiIcon(
     tint: Color? = null
 ) {
     val key = egVectorEmojiKey(value)
-    val iconSize = size
-    Canvas(modifier = modifier.size(iconSize)) {
-        val shouldUseTint = tint != null && (
-            tint == Color.White ||
-                key in MonoPreferredKeys
-            )
-        when {
-            key in EgEmotionDisplayOrder || key == "neutral" -> drawEmotionFace(key)
-            shouldUseTint -> drawMonoGlyph(key, tint ?: EgDesign.blue)
-            else -> drawColorGlyph(key)
+    if (key in EgEmotionDisplayOrder) {
+        Image(
+            painter = painterResource(id = notoEmotionDrawable(key)),
+            contentDescription = null,
+            modifier = modifier.size(size),
+            contentScale = ContentScale.Fit
+        )
+    } else if (key == "neutral") {
+        Canvas(modifier = modifier.size(size)) {
+            drawEmotionFace(key)
         }
+    } else {
+        Icon(
+            imageVector = egMaterialIcon(key),
+            contentDescription = null,
+            modifier = modifier.size(size),
+            tint = tint ?: egFunctionalIconColor(key)
+        )
     }
 }
 
-private val MonoPreferredKeys = setOf(
-    "home",
-    "close",
-    "check",
-    "edit",
-    "refresh",
-    "play",
-    "next",
-    "download",
-    "fullscreen",
-    "trash",
-    "lock",
-    "back"
-)
+private fun notoEmotionDrawable(key: String): Int = when (key) {
+    "happy" -> R.drawable.noto_emoji_happy
+    "sad" -> R.drawable.noto_emoji_sad
+    "angry" -> R.drawable.noto_emoji_angry
+    "fear" -> R.drawable.noto_emoji_fear
+    "surprise" -> R.drawable.noto_emoji_surprise
+    "disgust" -> R.drawable.noto_emoji_disgust
+    else -> R.drawable.noto_emoji_happy
+}
 
 fun egVectorEmojiKey(value: String): String {
     val raw = value.trim()
@@ -108,785 +161,264 @@ fun egVectorEmojiKey(value: String): String {
         raw == "\uD83D\uDCD6" || raw == "\uD83D\uDCDA" -> "book"
         raw == "\uD83C\uDF81" -> "gift"
         raw == "\uD83D\uDDD1\uFE0F" || raw == "\uD83D\uDDD1" -> "trash"
+        raw == "\uD83D\uDCA7" -> "water"
+        raw == "\u2600\uFE0F" || raw == "\u2600" -> "sunlight"
         "back" in lower || "undo" in lower -> "back"
         else -> lower
     }
 }
 
-private fun DrawScope.drawColorGlyph(key: String) {
-    when (key) {
-        "user", "child" -> drawUserBadge()
-        "settings" -> drawSettingsBadge()
-        "report", "document" -> drawReportBadge()
-        "sparkle", "star" -> drawSparkleBadge()
-        "bulb" -> drawBulbBadge()
-        "warning" -> drawWarningBadge()
-        "lock" -> drawLockBadge()
-        "camera" -> drawCameraBadge()
-        "gamepad" -> drawGamepadBadge()
-        "chat" -> drawChatBadge()
-        "phone" -> drawPhoneBadge()
-        "mail" -> drawMailBadge()
-        "calendar" -> drawCalendarBadge()
-        "cake" -> drawCakeBadge()
-        "trophy" -> drawTrophyBadge()
-        "eye" -> drawEyeBadge()
-        "target" -> drawTargetBadge()
-        "puzzle" -> drawPuzzleBadge()
-        "palette" -> drawPaletteBadge()
-        "speaker" -> drawSpeakerBadge()
-        "bell" -> drawBellBadge()
-        "clock" -> drawClockBadge()
-        "save" -> drawSaveBadge()
-        "exit" -> drawExitBadge()
-        "book" -> drawBookBadge()
-        "gift" -> drawGiftBadge()
-        "trash" -> drawTrashBadge()
-        "microphone" -> drawMicBadge()
-        "info" -> drawInfoBadge()
-        "refresh" -> drawRefreshBadge()
-        "edit" -> drawEditBadge()
-        "back" -> drawBackArrowBadge()
-        "home" -> drawMonoGlyph("home", EgDesign.blue)
-        "play", "next" -> drawMonoGlyph("play", EgDesign.blue)
-        "download" -> drawMonoGlyph("download", EgDesign.blue)
-        "fullscreen" -> drawMonoGlyph("fullscreen", EgDesign.blue)
-        else -> drawSparkleBadge()
-    }
+private fun egMaterialIcon(key: String): ImageVector = when (key) {
+    "home" -> Icons.Rounded.Home
+    "back" -> Icons.AutoMirrored.Rounded.ArrowBack
+    "close" -> Icons.Rounded.Close
+    "check" -> Icons.Rounded.Check
+    "edit" -> Icons.Rounded.Edit
+    "expand" -> Icons.Rounded.ExpandMore
+    "refresh" -> Icons.Rounded.Refresh
+    "play" -> Icons.Rounded.PlayArrow
+    "pause" -> Icons.Rounded.Pause
+    "next" -> Icons.Rounded.ChevronRight
+    "download" -> Icons.Rounded.FileDownload
+    "fullscreen" -> Icons.Rounded.Fullscreen
+    "trash" -> Icons.Rounded.DeleteOutline
+    "lock" -> Icons.Rounded.Lock
+    "user", "child" -> Icons.Rounded.Person
+    "settings" -> Icons.Rounded.Settings
+    "report", "document" -> Icons.Rounded.Description
+    "sparkle", "star" -> Icons.Rounded.AutoAwesome
+    "bulb" -> Icons.Rounded.Lightbulb
+    "warning" -> Icons.Rounded.WarningAmber
+    "camera" -> Icons.Rounded.PhotoCamera
+    "gamepad" -> Icons.Rounded.SportsEsports
+    "chat" -> Icons.Rounded.ChatBubbleOutline
+    "phone" -> Icons.Rounded.Phone
+    "mail" -> Icons.Rounded.MailOutline
+    "calendar" -> Icons.Rounded.CalendarMonth
+    "cake" -> Icons.Rounded.Cake
+    "trophy" -> Icons.Rounded.EmojiEvents
+    "microphone" -> Icons.Rounded.Mic
+    "eye" -> Icons.Rounded.Visibility
+    "target" -> Icons.Rounded.GpsFixed
+    "puzzle" -> Icons.Rounded.Extension
+    "palette" -> Icons.Rounded.Palette
+    "speaker" -> Icons.AutoMirrored.Rounded.VolumeUp
+    "bell" -> Icons.Rounded.NotificationsNone
+    "clock" -> Icons.Rounded.Schedule
+    "save" -> Icons.Rounded.Save
+    "exit" -> Icons.AutoMirrored.Rounded.Logout
+    "book" -> Icons.AutoMirrored.Rounded.MenuBook
+    "gift" -> Icons.Rounded.CardGiftcard
+    "info" -> Icons.Rounded.Info
+    "mouth" -> Icons.Rounded.EmojiEmotions
+    "album" -> Icons.Rounded.PhotoAlbum
+    "privacy", "shield" -> Icons.Rounded.Shield
+    "water" -> Icons.Rounded.WaterDrop
+    "sun", "sunlight" -> Icons.Rounded.WbSunny
+    "garden", "plant" -> Icons.Rounded.Yard
+    else -> Icons.Rounded.AutoAwesome
 }
 
-private fun DrawScope.drawBadgeBase(
-    fill: Color,
-    shadow: Color = Color(0xFF44546A).copy(alpha = 0.14f),
-    border: Color = Color.White.copy(alpha = 0.72f)
-) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawCircle(shadow, radius = s * 0.46f, center = Offset(c.x, c.y + s * 0.035f))
-    drawCircle(
-        brush = Brush.radialGradient(
-            listOf(Color.White.copy(alpha = 0.55f), fill, fill.copy(alpha = 0.96f)),
-            center = Offset(c.x - s * 0.18f, c.y - s * 0.22f),
-            radius = s * 0.70f
-        ),
-        radius = s * 0.43f,
-        center = c
+private fun egFunctionalIconColor(key: String): Color = when (key) {
+    "sparkle", "star", "bulb", "trophy", "sun", "sunlight" -> Color(0xFFF4B400)
+    "warning" -> Color(0xFFF59E0B)
+    "trash", "exit" -> Color(0xFFE55353)
+    "check", "garden", "plant" -> Color(0xFF38A169)
+    "gift" -> Color(0xFFF59E0B)
+    "water" -> Color(0xFF4BA7F5)
+    else -> EgDesign.blue
+}
+
+private data class EmotionIconPalette(
+    val top: Color,
+    val bottom: Color,
+    val outline: Color,
+    val halo: Color,
+    val cheek: Color,
+    val accent: Color
+)
+
+private fun emotionIconPalette(key: String): EmotionIconPalette = when (key) {
+    "happy" -> EmotionIconPalette(
+        top = Color(0xFFFFF5A8),
+        bottom = Color(0xFFFFC94A),
+        outline = Color(0xFFE5A91F),
+        halo = Color(0xFFFFEEC2),
+        cheek = Color(0xFFFF8EA3),
+        accent = Color(0xFFFFB92E)
     )
-    drawCircle(border, radius = s * 0.43f, center = c, style = Stroke(s * 0.035f))
+    "sad" -> EmotionIconPalette(
+        top = Color(0xFFFFF0B7),
+        bottom = Color(0xFFFFC45F),
+        outline = Color(0xFFD8952B),
+        halo = Color(0xFFDFF1FF),
+        cheek = Color(0xFFFFA5A5),
+        accent = Color(0xFF4DB6E8)
+    )
+    "angry" -> EmotionIconPalette(
+        top = Color(0xFFFFC08A),
+        bottom = Color(0xFFFF735C),
+        outline = Color(0xFFD64A34),
+        halo = Color(0xFFFFE2D7),
+        cheek = Color(0xFFFF785D),
+        accent = Color(0xFFE3362D)
+    )
+    "fear" -> EmotionIconPalette(
+        top = Color(0xFFCFE7FF),
+        bottom = Color(0xFF83A7F5),
+        outline = Color(0xFF5E7ED8),
+        halo = Color(0xFFE8F1FF),
+        cheek = Color(0xFFA9C5FF),
+        accent = Color(0xFF5EA8FF)
+    )
+    "surprise" -> EmotionIconPalette(
+        top = Color(0xFFFFE8A4),
+        bottom = Color(0xFFFFB84D),
+        outline = Color(0xFFE39A2E),
+        halo = Color(0xFFFFF3CF),
+        cheek = Color(0xFFFFA082),
+        accent = Color(0xFF7C6EF2)
+    )
+    "disgust" -> EmotionIconPalette(
+        top = Color(0xFFD9F5A7),
+        bottom = Color(0xFF7DCC65),
+        outline = Color(0xFF57A152),
+        halo = Color(0xFFEAF8DF),
+        cheek = Color(0xFFB9E892),
+        accent = Color(0xFF4FA36B)
+    )
+    else -> emotionIconPalette("happy")
 }
 
 private fun DrawScope.drawEmotionFace(key: String) {
     val s = min(size.width, size.height)
-    val c = center()
-    val face = when (key) {
-        "angry" -> Color(0xFFFF8A35)
-        "fear" -> Color(0xFF86B6FF)
-        "disgust" -> Color(0xFFA8D96B)
-        "sad" -> Color(0xFFFFD968)
-        "surprise" -> Color(0xFFFFD15B)
-        else -> Color(0xFFFFD64D)
-    }
-    drawCircle(Color(0xFF53657A).copy(alpha = 0.16f), s * 0.46f, Offset(c.x, c.y + s * 0.035f))
+    val c = center
+    val palette = emotionIconPalette(key)
+    val ink = Color(0xFF17324A)
+    val softInk = Color(0xFF274763)
+    val stroke = Stroke(s * 0.048f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+
+    drawOval(
+        Color(0xFF0B2744).copy(alpha = 0.13f),
+        topLeft = Offset(c.x - s * 0.34f, c.y + s * 0.31f),
+        size = Size(s * 0.68f, s * 0.15f)
+    )
+    drawCircle(palette.halo.copy(alpha = 0.92f), s * 0.48f, Offset(c.x, c.y + s * 0.01f))
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(Color.White.copy(alpha = 0.72f), face, face.copy(alpha = 0.92f)),
-            center = Offset(c.x - s * 0.17f, c.y - s * 0.22f),
-            radius = s * 0.68f
+            colors = listOf(
+                Color.White.copy(alpha = 0.96f),
+                palette.top,
+                palette.bottom
+            ),
+            center = Offset(c.x - s * 0.16f, c.y - s * 0.22f),
+            radius = s * 0.62f
         ),
-        radius = s * 0.43f,
+        radius = s * 0.39f,
         center = c
     )
-    if (key == "fear") {
-        drawArc(
-            color = Color.White.copy(alpha = 0.56f),
-            startAngle = 198f,
-            sweepAngle = 144f,
-            useCenter = false,
-            topLeft = Offset(c.x - s * 0.27f, c.y - s * 0.39f),
-            size = Size(s * 0.54f, s * 0.22f),
-            style = Stroke(s * 0.045f, cap = StrokeCap.Round)
-        )
-    }
-    drawCircle(Color(0xFF7A5200).copy(alpha = 0.16f), s * 0.43f, c, style = Stroke(s * 0.024f))
-    drawCircle(Color.White.copy(alpha = 0.42f), s * 0.105f, Offset(c.x - s * 0.16f, c.y - s * 0.19f))
+    drawCircle(palette.outline.copy(alpha = 0.44f), s * 0.39f, c, style = Stroke(s * 0.025f))
+    drawCircle(Color.White.copy(alpha = 0.62f), s * 0.105f, Offset(c.x - s * 0.14f, c.y - s * 0.19f))
 
-    val dark = Color(0xFF273044)
-    val stroke = Stroke(s * 0.055f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-    val eyeY = c.y - s * 0.09f
-    val le = Offset(c.x - s * 0.15f, eyeY)
-    val re = Offset(c.x + s * 0.15f, eyeY)
+    val eyeY = c.y - s * 0.075f
+    val leftEye = Offset(c.x - s * 0.145f, eyeY)
+    val rightEye = Offset(c.x + s * 0.145f, eyeY)
+    val mouthTop = c.y + s * 0.09f
 
     when (key) {
         "happy" -> {
-            drawCircle(Color(0xFFFF8FB8).copy(alpha = 0.24f), s * 0.065f, Offset(c.x - s * 0.24f, c.y + s * 0.045f))
-            drawCircle(Color(0xFFFF8FB8).copy(alpha = 0.24f), s * 0.065f, Offset(c.x + s * 0.24f, c.y + s * 0.045f))
-            drawArc(dark, 200f, 140f, false, Offset(le.x - s * 0.075f, le.y - s * 0.035f), Size(s * 0.15f, s * 0.12f), style = stroke)
-            drawArc(dark, 200f, 140f, false, Offset(re.x - s * 0.075f, re.y - s * 0.035f), Size(s * 0.15f, s * 0.12f), style = stroke)
-            drawArc(dark, 18f, 144f, false, Offset(c.x - s * 0.23f, c.y - s * 0.02f), Size(s * 0.46f, s * 0.31f), style = stroke)
+            drawBlush(c, s, palette.cheek)
+            drawArc(ink, 205f, 130f, false, Offset(leftEye.x - s * 0.068f, leftEye.y - s * 0.035f), Size(s * 0.136f, s * 0.115f), style = stroke)
+            drawArc(ink, 205f, 130f, false, Offset(rightEye.x - s * 0.068f, rightEye.y - s * 0.035f), Size(s * 0.136f, s * 0.115f), style = stroke)
+            drawArc(ink, 18f, 144f, false, Offset(c.x - s * 0.21f, mouthTop - s * 0.10f), Size(s * 0.42f, s * 0.29f), style = stroke)
+            drawSmallSparkle(Offset(c.x + s * 0.29f, c.y - s * 0.24f), s * 0.055f, Color.White.copy(alpha = 0.86f))
         }
         "sad" -> {
-            drawArc(dark, 208f, 120f, false, Offset(le.x - s * 0.10f, le.y - s * 0.12f), Size(s * 0.20f, s * 0.11f), style = Stroke(s * 0.035f, cap = StrokeCap.Round))
-            drawArc(dark, 212f, 120f, false, Offset(re.x - s * 0.10f, re.y - s * 0.12f), Size(s * 0.20f, s * 0.11f), style = Stroke(s * 0.035f, cap = StrokeCap.Round))
-            drawCircle(dark, s * 0.038f, le)
-            drawCircle(dark, s * 0.038f, re)
-            drawPath(Path().apply {
-                moveTo(re.x + s * 0.07f, re.y + s * 0.05f)
-                cubicTo(re.x + s * 0.17f, re.y + s * 0.13f, re.x + s * 0.10f, re.y + s * 0.24f, re.x + s * 0.04f, re.y + s * 0.25f)
-            }, Color(0xFF46BFF4), style = Stroke(s * 0.047f, cap = StrokeCap.Round))
-            drawArc(dark, 205f, 130f, false, Offset(c.x - s * 0.18f, c.y + s * 0.13f), Size(s * 0.36f, s * 0.24f), style = stroke)
+            drawLine(softInk, Offset(leftEye.x - s * 0.070f, leftEye.y - s * 0.080f), Offset(leftEye.x + s * 0.060f, leftEye.y - s * 0.035f), s * 0.040f, StrokeCap.Round)
+            drawLine(softInk, Offset(rightEye.x + s * 0.070f, rightEye.y - s * 0.080f), Offset(rightEye.x - s * 0.060f, rightEye.y - s * 0.035f), s * 0.040f, StrokeCap.Round)
+            drawGlossEye(leftEye, s * 0.041f, ink)
+            drawGlossEye(rightEye, s * 0.041f, ink)
+            drawTeardrop(Offset(rightEye.x + s * 0.086f, rightEye.y + s * 0.145f), s * 0.080f, palette.accent)
+            drawArc(ink, 205f, 130f, false, Offset(c.x - s * 0.18f, mouthTop + s * 0.045f), Size(s * 0.36f, s * 0.22f), style = stroke)
         }
         "angry" -> {
-            drawLine(dark, Offset(le.x - s * 0.09f, le.y - s * 0.10f), Offset(le.x + s * 0.08f, le.y - s * 0.02f), s * 0.055f, StrokeCap.Round)
-            drawLine(dark, Offset(re.x + s * 0.09f, re.y - s * 0.10f), Offset(re.x - s * 0.08f, re.y - s * 0.02f), s * 0.055f, StrokeCap.Round)
-            drawCircle(dark, s * 0.036f, le)
-            drawCircle(dark, s * 0.036f, re)
-            drawArc(dark, 205f, 130f, false, Offset(c.x - s * 0.18f, c.y + s * 0.12f), Size(s * 0.36f, s * 0.20f), style = stroke)
+            drawCircle(palette.accent.copy(alpha = 0.18f), s * 0.43f, c)
+            drawLine(ink, Offset(leftEye.x - s * 0.100f, leftEye.y - s * 0.105f), Offset(leftEye.x + s * 0.085f, leftEye.y - s * 0.020f), s * 0.052f, StrokeCap.Round)
+            drawLine(ink, Offset(rightEye.x + s * 0.100f, rightEye.y - s * 0.105f), Offset(rightEye.x - s * 0.085f, rightEye.y - s * 0.020f), s * 0.052f, StrokeCap.Round)
+            drawCircle(ink, s * 0.034f, leftEye)
+            drawCircle(ink, s * 0.034f, rightEye)
+            drawArc(ink, 205f, 130f, false, Offset(c.x - s * 0.18f, mouthTop + s * 0.045f), Size(s * 0.36f, s * 0.20f), style = stroke)
+            drawLine(palette.accent, Offset(c.x - s * 0.29f, c.y - s * 0.30f), Offset(c.x - s * 0.23f, c.y - s * 0.42f), s * 0.030f, StrokeCap.Round)
+            drawLine(palette.accent, Offset(c.x + s * 0.29f, c.y - s * 0.30f), Offset(c.x + s * 0.23f, c.y - s * 0.42f), s * 0.030f, StrokeCap.Round)
         }
         "fear" -> {
-            drawCircle(dark, s * 0.054f, le)
-            drawCircle(dark, s * 0.054f, re)
-            drawOval(dark, Offset(c.x - s * 0.085f, c.y + s * 0.09f), Size(s * 0.17f, s * 0.22f))
-            drawCircle(Color.White.copy(alpha = 0.40f), s * 0.06f, Offset(c.x - s * 0.25f, c.y + s * 0.06f))
-            drawCircle(Color.White.copy(alpha = 0.40f), s * 0.06f, Offset(c.x + s * 0.25f, c.y + s * 0.06f))
+            drawArc(Color.White.copy(alpha = 0.62f), 198f, 144f, false, Offset(c.x - s * 0.25f, c.y - s * 0.35f), Size(s * 0.50f, s * 0.18f), style = Stroke(s * 0.040f, cap = StrokeCap.Round))
+            drawLine(softInk, Offset(leftEye.x - s * 0.085f, leftEye.y - s * 0.095f), Offset(leftEye.x + s * 0.060f, leftEye.y - s * 0.040f), s * 0.041f, StrokeCap.Round)
+            drawLine(softInk, Offset(rightEye.x + s * 0.085f, rightEye.y - s * 0.095f), Offset(rightEye.x - s * 0.060f, rightEye.y - s * 0.040f), s * 0.041f, StrokeCap.Round)
+            drawGlossEye(leftEye, s * 0.050f, ink)
+            drawGlossEye(rightEye, s * 0.050f, ink)
+            drawOval(ink, Offset(c.x - s * 0.083f, mouthTop - s * 0.005f), Size(s * 0.166f, s * 0.205f))
+            drawTeardrop(Offset(c.x + s * 0.265f, c.y - s * 0.205f), s * 0.073f, palette.accent)
         }
         "surprise" -> {
-            drawArc(dark, 202f, 136f, false, Offset(le.x - s * 0.09f, le.y - s * 0.13f), Size(s * 0.18f, s * 0.08f), style = Stroke(s * 0.033f, cap = StrokeCap.Round))
-            drawArc(dark, 202f, 136f, false, Offset(re.x - s * 0.09f, re.y - s * 0.13f), Size(s * 0.18f, s * 0.08f), style = Stroke(s * 0.033f, cap = StrokeCap.Round))
-            drawCircle(dark, s * 0.048f, le)
-            drawCircle(dark, s * 0.048f, re)
-            drawOval(dark, Offset(c.x - s * 0.10f, c.y + s * 0.08f), Size(s * 0.20f, s * 0.23f))
+            drawSmallSparkle(Offset(c.x - s * 0.28f, c.y - s * 0.25f), s * 0.052f, Color.White.copy(alpha = 0.88f))
+            drawGlossEye(leftEye, s * 0.054f, ink)
+            drawGlossEye(rightEye, s * 0.054f, ink)
+            drawOval(ink, Offset(c.x - s * 0.087f, mouthTop - s * 0.005f), Size(s * 0.174f, s * 0.225f))
+            drawCircle(Color.White.copy(alpha = 0.20f), s * 0.050f, Offset(c.x, mouthTop + s * 0.065f))
         }
         "disgust" -> {
-            drawLine(dark, Offset(le.x - s * 0.07f, le.y - s * 0.02f), Offset(le.x + s * 0.07f, le.y + s * 0.02f), s * 0.052f, StrokeCap.Round)
-            drawLine(dark, Offset(re.x - s * 0.07f, re.y + s * 0.02f), Offset(re.x + s * 0.07f, re.y - s * 0.02f), s * 0.052f, StrokeCap.Round)
-            drawPath(Path().apply {
-                moveTo(c.x - s * 0.06f, c.y + s * 0.03f)
-                quadraticBezierTo(c.x, c.y + s * 0.10f, c.x + s * 0.06f, c.y + s * 0.03f)
-            }, dark, style = stroke)
-            drawArc(dark, 198f, 144f, false, Offset(c.x - s * 0.18f, c.y + s * 0.13f), Size(s * 0.36f, s * 0.22f), style = stroke)
+            drawLine(ink, Offset(leftEye.x - s * 0.070f, leftEye.y - s * 0.010f), Offset(leftEye.x + s * 0.065f, leftEye.y + s * 0.020f), s * 0.050f, StrokeCap.Round)
+            drawLine(ink, Offset(rightEye.x - s * 0.065f, rightEye.y + s * 0.020f), Offset(rightEye.x + s * 0.070f, rightEye.y - s * 0.010f), s * 0.050f, StrokeCap.Round)
+            drawLine(softInk.copy(alpha = 0.68f), Offset(c.x + s * 0.015f, c.y - s * 0.010f), Offset(c.x - s * 0.045f, c.y + s * 0.055f), s * 0.029f, StrokeCap.Round)
+            drawArc(ink, 198f, 144f, false, Offset(c.x - s * 0.18f, mouthTop + s * 0.045f), Size(s * 0.36f, s * 0.21f), style = stroke)
+            drawLine(palette.accent, Offset(c.x - s * 0.24f, c.y - s * 0.24f), Offset(c.x - s * 0.16f, c.y - s * 0.31f), s * 0.024f, StrokeCap.Round)
+            drawLine(palette.accent, Offset(c.x + s * 0.24f, c.y - s * 0.24f), Offset(c.x + s * 0.16f, c.y - s * 0.31f), s * 0.024f, StrokeCap.Round)
         }
         else -> {
-            drawCircle(dark, s * 0.04f, le)
-            drawCircle(dark, s * 0.04f, re)
-            drawLine(dark, Offset(c.x - s * 0.13f, c.y + s * 0.17f), Offset(c.x + s * 0.13f, c.y + s * 0.17f), s * 0.052f, StrokeCap.Round)
+            drawGlossEye(leftEye, s * 0.042f, ink)
+            drawGlossEye(rightEye, s * 0.042f, ink)
+            drawLine(ink, Offset(c.x - s * 0.13f, mouthTop + s * 0.06f), Offset(c.x + s * 0.13f, mouthTop + s * 0.06f), s * 0.050f, StrokeCap.Round)
         }
     }
 }
 
-private fun DrawScope.drawUserBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFFFED9D), border = Color.White.copy(alpha = 0.85f))
-    drawCircle(Color(0xFF0B7DE3), s * 0.105f, Offset(c.x, c.y - s * 0.10f))
-    drawRoundRect(
-        Color(0xFF0B7DE3),
-        Offset(c.x - s * 0.22f, c.y + s * 0.04f),
-        Size(s * 0.44f, s * 0.22f),
-        CornerRadius(s * 0.12f, s * 0.12f)
-    )
+private fun DrawScope.drawBlush(center: Offset, size: Float, color: Color) {
+    drawCircle(color.copy(alpha = 0.34f), size * 0.058f, Offset(center.x - size * 0.225f, center.y + size * 0.055f))
+    drawCircle(color.copy(alpha = 0.34f), size * 0.058f, Offset(center.x + size * 0.225f, center.y + size * 0.055f))
 }
 
-private fun DrawScope.drawSettingsBadge() {
-    drawBadgeBase(Color(0xFFE7F4FF))
-    drawGear(EgDesign.blue, fillCenter = true)
+private fun DrawScope.drawGlossEye(center: Offset, radius: Float, color: Color) {
+    drawCircle(color, radius, center)
+    drawCircle(Color.White.copy(alpha = 0.88f), radius * 0.30f, Offset(center.x - radius * 0.30f, center.y - radius * 0.32f))
 }
 
-private fun DrawScope.drawReportBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color(0xFFE9F5FF), Offset(c.x - s * 0.30f, c.y - s * 0.34f), Size(s * 0.60f, s * 0.68f), CornerRadius(s * 0.08f, s * 0.08f))
-    drawRoundRect(Color.White, Offset(c.x - s * 0.22f, c.y - s * 0.24f), Size(s * 0.44f, s * 0.52f), CornerRadius(s * 0.05f, s * 0.05f))
-    drawRoundRect(Color(0xFFFFA83D), Offset(c.x - s * 0.13f, c.y - s * 0.34f), Size(s * 0.26f, s * 0.12f), CornerRadius(s * 0.04f, s * 0.04f))
-    repeat(3) { i ->
-        val y = c.y - s * 0.11f + i * s * 0.13f
-        drawLine(EgDesign.blue, Offset(c.x - s * 0.13f, y), Offset(c.x + s * 0.14f, y), s * 0.035f, StrokeCap.Round)
-    }
+private fun DrawScope.drawSmallSparkle(center: Offset, radius: Float, color: Color) {
+    drawLine(color, Offset(center.x, center.y - radius), Offset(center.x, center.y + radius), radius * 0.30f, StrokeCap.Round)
+    drawLine(color, Offset(center.x - radius, center.y), Offset(center.x + radius, center.y), radius * 0.30f, StrokeCap.Round)
 }
 
-private fun DrawScope.drawSparkleBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawStar(Offset(c.x, c.y), s * 0.36f, s * 0.16f, Color(0xFFFFC928))
-    drawStar(Offset(c.x - s * 0.29f, c.y - s * 0.19f), s * 0.12f, s * 0.05f, Color(0xFFFFE584))
-    drawStar(Offset(c.x + s * 0.29f, c.y + s * 0.20f), s * 0.10f, s * 0.04f, Color(0xFFFFE584))
-}
-
-private fun DrawScope.drawBulbBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFFFF2B8), border = Color.White.copy(alpha = 0.8f))
-    drawCircle(Color(0xFFFFC928), s * 0.20f, Offset(c.x, c.y - s * 0.08f))
-    drawLine(Color(0xFFB7791F), Offset(c.x - s * 0.12f, c.y + s * 0.14f), Offset(c.x + s * 0.12f, c.y + s * 0.14f), s * 0.055f, StrokeCap.Round)
-    drawLine(Color(0xFFB7791F), Offset(c.x - s * 0.08f, c.y + s * 0.25f), Offset(c.x + s * 0.08f, c.y + s * 0.25f), s * 0.045f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawWarningBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFFFE2A7))
-    val p = Path().apply {
-        moveTo(c.x, c.y - s * 0.30f)
-        lineTo(c.x + s * 0.34f, c.y + s * 0.28f)
-        lineTo(c.x - s * 0.34f, c.y + s * 0.28f)
-        close()
-    }
-    drawPath(p, Color(0xFFFFB020))
-    drawLine(Color.White, Offset(c.x, c.y - s * 0.08f), Offset(c.x, c.y + s * 0.10f), s * 0.05f, StrokeCap.Round)
-    drawCircle(Color.White, s * 0.032f, Offset(c.x, c.y + s * 0.22f))
-}
-
-private fun DrawScope.drawLockBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFE9F5FF))
-    drawArc(EgDesign.blue, 205f, 130f, false, Offset(c.x - s * 0.18f, c.y - s * 0.31f), Size(s * 0.36f, s * 0.36f), style = Stroke(s * 0.065f, cap = StrokeCap.Round))
-    drawRoundRect(EgDesign.blue, Offset(c.x - s * 0.24f, c.y - s * 0.03f), Size(s * 0.48f, s * 0.34f), CornerRadius(s * 0.06f, s * 0.06f))
-}
-
-private fun DrawScope.drawCameraBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFE8F3FF))
-    drawRoundRect(Color(0xFF3A4658), Offset(c.x - s * 0.33f, c.y - s * 0.18f), Size(s * 0.66f, s * 0.45f), CornerRadius(s * 0.08f, s * 0.08f))
-    drawRoundRect(Color(0xFF9CA3AF), Offset(c.x - s * 0.20f, c.y - s * 0.30f), Size(s * 0.22f, s * 0.12f), CornerRadius(s * 0.03f, s * 0.03f))
-    drawCircle(Color(0xFF81D4FA), s * 0.14f, c)
-    drawCircle(Color(0xFF0F172A), s * 0.09f, c)
-    drawCircle(Color.White.copy(alpha = 0.75f), s * 0.03f, Offset(c.x - s * 0.03f, c.y - s * 0.04f))
-}
-
-private fun DrawScope.drawGamepadBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color(0xFF596579), Offset(c.x - s * 0.40f, c.y - s * 0.19f), Size(s * 0.80f, s * 0.40f), CornerRadius(s * 0.18f, s * 0.18f))
-    drawLine(Color.White, Offset(c.x - s * 0.27f, c.y), Offset(c.x - s * 0.12f, c.y), s * 0.045f, StrokeCap.Round)
-    drawLine(Color.White, Offset(c.x - s * 0.195f, c.y - s * 0.075f), Offset(c.x - s * 0.195f, c.y + s * 0.075f), s * 0.045f, StrokeCap.Round)
-    drawCircle(Color(0xFF69C7FF), s * 0.045f, Offset(c.x + s * 0.16f, c.y - s * 0.03f))
-    drawCircle(Color(0xFFFFD54F), s * 0.045f, Offset(c.x + s * 0.28f, c.y + s * 0.05f))
-}
-
-private fun DrawScope.drawChatBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(EgDesign.blue, Offset(c.x - s * 0.35f, c.y - s * 0.25f), Size(s * 0.70f, s * 0.47f), CornerRadius(s * 0.15f, s * 0.15f))
-    drawPath(Path().apply {
-        moveTo(c.x - s * 0.08f, c.y + s * 0.20f)
-        lineTo(c.x - s * 0.22f, c.y + s * 0.35f)
-        lineTo(c.x - s * 0.01f, c.y + s * 0.24f)
-        close()
-    }, EgDesign.blue)
-    repeat(3) { i ->
-        drawCircle(Color.White, s * 0.035f, Offset(c.x - s * 0.13f + i * s * 0.13f, c.y - s * 0.02f))
-    }
-}
-
-private fun DrawScope.drawPhoneBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color(0xFF56B6F7), Offset(c.x - s * 0.20f, c.y - s * 0.34f), Size(s * 0.40f, s * 0.68f), CornerRadius(s * 0.08f, s * 0.08f))
-    drawRoundRect(Color.White, Offset(c.x - s * 0.15f, c.y - s * 0.25f), Size(s * 0.30f, s * 0.47f), CornerRadius(s * 0.04f, s * 0.04f))
-    drawCircle(Color(0xFF56B6F7), s * 0.018f, Offset(c.x, c.y + s * 0.27f))
-}
-
-private fun DrawScope.drawMailBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color(0xFFEFF7FF), Offset(c.x - s * 0.36f, c.y - s * 0.24f), Size(s * 0.72f, s * 0.48f), CornerRadius(s * 0.07f, s * 0.07f))
-    drawRoundRect(EgDesign.blue, Offset(c.x - s * 0.36f, c.y - s * 0.24f), Size(s * 0.72f, s * 0.48f), CornerRadius(s * 0.07f, s * 0.07f), style = Stroke(s * 0.04f))
-    drawLine(EgDesign.blue, Offset(c.x - s * 0.31f, c.y - s * 0.17f), Offset(c.x, c.y + s * 0.06f), s * 0.035f, StrokeCap.Round)
-    drawLine(EgDesign.blue, Offset(c.x + s * 0.31f, c.y - s * 0.17f), Offset(c.x, c.y + s * 0.06f), s * 0.035f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawCalendarBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color.White, Offset(c.x - s * 0.33f, c.y - s * 0.31f), Size(s * 0.66f, s * 0.64f), CornerRadius(s * 0.07f, s * 0.07f))
-    drawRoundRect(EgDesign.blue, Offset(c.x - s * 0.33f, c.y - s * 0.31f), Size(s * 0.66f, s * 0.64f), CornerRadius(s * 0.07f, s * 0.07f), style = Stroke(s * 0.04f))
-    drawRoundRect(Color(0xFFFF7A59), Offset(c.x - s * 0.33f, c.y - s * 0.31f), Size(s * 0.66f, s * 0.18f), CornerRadius(s * 0.07f, s * 0.07f))
-    drawCircle(EgDesign.blue, s * 0.035f, Offset(c.x - s * 0.14f, c.y + s * 0.03f))
-    drawCircle(EgDesign.blue, s * 0.035f, Offset(c.x + s * 0.14f, c.y + s * 0.03f))
-}
-
-private fun DrawScope.drawCakeBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color(0xFFFFB7C5), Offset(c.x - s * 0.30f, c.y - s * 0.02f), Size(s * 0.60f, s * 0.26f), CornerRadius(s * 0.06f, s * 0.06f))
-    drawRoundRect(Color(0xFFFFE2A8), Offset(c.x - s * 0.30f, c.y + s * 0.15f), Size(s * 0.60f, s * 0.18f), CornerRadius(s * 0.04f, s * 0.04f))
-    drawLine(EgDesign.blue, Offset(c.x, c.y - s * 0.28f), Offset(c.x, c.y - s * 0.05f), s * 0.04f, StrokeCap.Round)
-    drawOval(Color(0xFFFFC928), Offset(c.x - s * 0.05f, c.y - s * 0.39f), Size(s * 0.10f, s * 0.12f))
-}
-
-private fun DrawScope.drawTrophyBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFFFF0AD))
-    drawRoundRect(Color(0xFFFFC928), Offset(c.x - s * 0.19f, c.y - s * 0.28f), Size(s * 0.38f, s * 0.34f), CornerRadius(s * 0.06f, s * 0.06f))
-    drawArc(Color(0xFFFFC928), 90f, 120f, false, Offset(c.x - s * 0.44f, c.y - s * 0.25f), Size(s * 0.30f, s * 0.25f), style = Stroke(s * 0.06f, cap = StrokeCap.Round))
-    drawArc(Color(0xFFFFC928), -30f, 120f, false, Offset(c.x + s * 0.14f, c.y - s * 0.25f), Size(s * 0.30f, s * 0.25f), style = Stroke(s * 0.06f, cap = StrokeCap.Round))
-    drawRoundRect(Color(0xFFEAB308), Offset(c.x - s * 0.05f, c.y + s * 0.07f), Size(s * 0.10f, s * 0.19f), CornerRadius(s * 0.04f, s * 0.04f))
-    drawRoundRect(Color(0xFFEAB308), Offset(c.x - s * 0.20f, c.y + s * 0.25f), Size(s * 0.40f, s * 0.08f), CornerRadius(s * 0.04f, s * 0.04f))
-}
-
-private fun DrawScope.drawEyeBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFEFF6FF))
-    drawOval(Color.White, Offset(c.x - s * 0.36f, c.y - s * 0.18f), Size(s * 0.72f, s * 0.36f))
-    drawOval(EgDesign.blue, Offset(c.x - s * 0.36f, c.y - s * 0.18f), Size(s * 0.72f, s * 0.36f), style = Stroke(s * 0.04f))
-    drawCircle(Color(0xFF5EC4FF), s * 0.13f, c)
-    drawCircle(Color(0xFF142033), s * 0.07f, c)
-}
-
-private fun DrawScope.drawTargetBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFFFEEF1))
-    drawCircle(Color(0xFFFF6B6B), s * 0.30f, c)
-    drawCircle(Color.White, s * 0.20f, c)
-    drawCircle(Color(0xFFFF6B6B), s * 0.10f, c)
-    drawLine(EgDesign.blue, Offset(c.x + s * 0.18f, c.y - s * 0.20f), Offset(c.x + s * 0.36f, c.y - s * 0.36f), s * 0.035f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawPuzzleBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFEFFAF2))
-    val p = Path().apply {
-        moveTo(c.x - s * 0.26f, c.y - s * 0.22f)
-        lineTo(c.x + s * 0.03f, c.y - s * 0.22f)
-        quadraticBezierTo(c.x + s * 0.05f, c.y - s * 0.37f, c.x + s * 0.17f, c.y - s * 0.31f)
-        quadraticBezierTo(c.x + s * 0.27f, c.y - s * 0.24f, c.x + s * 0.17f, c.y - s * 0.15f)
-        lineTo(c.x + s * 0.31f, c.y - s * 0.15f)
-        lineTo(c.x + s * 0.31f, c.y + s * 0.25f)
-        lineTo(c.x - s * 0.26f, c.y + s * 0.25f)
-        close()
-    }
-    drawPath(p, Color(0xFF6DD47E))
-}
-
-private fun DrawScope.drawPaletteBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFFFF3E3))
-    drawOval(Color(0xFFFFD18A), Offset(c.x - s * 0.33f, c.y - s * 0.25f), Size(s * 0.66f, s * 0.52f))
-    drawCircle(Color(0xFFE74C3C), s * 0.045f, Offset(c.x - s * 0.15f, c.y - s * 0.07f))
-    drawCircle(Color(0xFF2E86DE), s * 0.045f, Offset(c.x + s * 0.03f, c.y - s * 0.12f))
-    drawCircle(Color(0xFF2ECC71), s * 0.045f, Offset(c.x - s * 0.03f, c.y + s * 0.07f))
-    drawCircle(Color.White, s * 0.08f, Offset(c.x + s * 0.20f, c.y + s * 0.10f))
-}
-
-private fun DrawScope.drawSpeakerBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawPath(Path().apply {
-        moveTo(c.x - s * 0.33f, c.y - s * 0.10f)
-        lineTo(c.x - s * 0.17f, c.y - s * 0.10f)
-        lineTo(c.x + s * 0.02f, c.y - s * 0.26f)
-        lineTo(c.x + s * 0.02f, c.y + s * 0.26f)
-        lineTo(c.x - s * 0.17f, c.y + s * 0.10f)
-        lineTo(c.x - s * 0.33f, c.y + s * 0.10f)
-        close()
-    }, Color(0xFF58B6F6))
-    drawArc(Color(0xFF58B6F6), -45f, 90f, false, Offset(c.x - s * 0.05f, c.y - s * 0.23f), Size(s * 0.38f, s * 0.46f), style = Stroke(s * 0.045f, cap = StrokeCap.Round))
-}
-
-private fun DrawScope.drawBellBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color(0xFFFFCA55), Offset(c.x - s * 0.20f, c.y - s * 0.25f), Size(s * 0.40f, s * 0.46f), CornerRadius(s * 0.18f, s * 0.18f))
-    drawLine(Color(0xFFC27A00), Offset(c.x - s * 0.25f, c.y + s * 0.22f), Offset(c.x + s * 0.25f, c.y + s * 0.22f), s * 0.045f, StrokeCap.Round)
-    drawCircle(Color(0xFFC27A00), s * 0.045f, Offset(c.x, c.y + s * 0.29f))
-}
-
-private fun DrawScope.drawClockBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawCircle(Color(0xFFEFF7FF), s * 0.36f, c)
-    drawCircle(EgDesign.blue, s * 0.36f, c, style = Stroke(s * 0.045f))
-    drawLine(EgDesign.blue, Offset(c.x, c.y), Offset(c.x, c.y - s * 0.18f), s * 0.045f, StrokeCap.Round)
-    drawLine(EgDesign.blue, Offset(c.x, c.y), Offset(c.x + s * 0.16f, c.y + s * 0.08f), s * 0.045f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawSaveBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color(0xFF58B6F6), Offset(c.x - s * 0.31f, c.y - s * 0.31f), Size(s * 0.62f, s * 0.62f), CornerRadius(s * 0.06f, s * 0.06f))
-    drawRoundRect(Color.White, Offset(c.x - s * 0.19f, c.y - s * 0.23f), Size(s * 0.31f, s * 0.16f), CornerRadius(s * 0.03f, s * 0.03f))
-    drawRoundRect(Color(0xFFBFE5FF), Offset(c.x - s * 0.20f, c.y + s * 0.06f), Size(s * 0.40f, s * 0.19f), CornerRadius(s * 0.03f, s * 0.03f))
-}
-
-private fun DrawScope.drawExitBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color(0xFFFFE5E5), Offset(c.x - s * 0.30f, c.y - s * 0.32f), Size(s * 0.38f, s * 0.64f), CornerRadius(s * 0.05f, s * 0.05f), style = Stroke(s * 0.045f))
-    drawLine(Color(0xFFE84646), Offset(c.x - s * 0.02f, c.y), Offset(c.x + s * 0.30f, c.y), s * 0.055f, StrokeCap.Round)
-    drawLine(Color(0xFFE84646), Offset(c.x + s * 0.30f, c.y), Offset(c.x + s * 0.19f, c.y - s * 0.10f), s * 0.055f, StrokeCap.Round)
-    drawLine(Color(0xFFE84646), Offset(c.x + s * 0.30f, c.y), Offset(c.x + s * 0.19f, c.y + s * 0.10f), s * 0.055f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawBookBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color(0xFFFFF5E5), Offset(c.x - s * 0.34f, c.y - s * 0.28f), Size(s * 0.32f, s * 0.56f), CornerRadius(s * 0.04f, s * 0.04f))
-    drawRoundRect(Color(0xFFEAF4FF), Offset(c.x + s * 0.02f, c.y - s * 0.28f), Size(s * 0.32f, s * 0.56f), CornerRadius(s * 0.04f, s * 0.04f))
-    drawLine(EgDesign.blue, Offset(c.x, c.y - s * 0.27f), Offset(c.x, c.y + s * 0.28f), s * 0.035f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawGiftBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFFFF3C4))
-    drawRoundRect(Color(0xFFFFB020), Offset(c.x - s * 0.30f, c.y - s * 0.07f), Size(s * 0.60f, s * 0.36f), CornerRadius(s * 0.06f, s * 0.06f))
-    drawRoundRect(Color(0xFFFFD76A), Offset(c.x - s * 0.34f, c.y - s * 0.18f), Size(s * 0.68f, s * 0.16f), CornerRadius(s * 0.05f, s * 0.05f))
-    drawRoundRect(Color(0xFFEF4444), Offset(c.x - s * 0.05f, c.y - s * 0.18f), Size(s * 0.10f, s * 0.47f), CornerRadius(s * 0.03f, s * 0.03f))
-    drawCircle(Color(0xFFEF4444), s * 0.09f, Offset(c.x - s * 0.08f, c.y - s * 0.27f), style = Stroke(s * 0.045f))
-    drawCircle(Color(0xFFEF4444), s * 0.09f, Offset(c.x + s * 0.08f, c.y - s * 0.27f), style = Stroke(s * 0.045f))
-}
-
-private fun DrawScope.drawTrashBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color(0xFFFFE8E8), Offset(c.x - s * 0.24f, c.y - s * 0.12f), Size(s * 0.48f, s * 0.44f), CornerRadius(s * 0.05f, s * 0.05f), style = Stroke(s * 0.05f))
-    drawLine(Color(0xFFE84646), Offset(c.x - s * 0.30f, c.y - s * 0.20f), Offset(c.x + s * 0.30f, c.y - s * 0.20f), s * 0.05f, StrokeCap.Round)
-    drawLine(Color(0xFFE84646), Offset(c.x - s * 0.10f, c.y - s * 0.29f), Offset(c.x + s * 0.10f, c.y - s * 0.29f), s * 0.045f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawMicBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(Color(0xFF58B6F6), Offset(c.x - s * 0.11f, c.y - s * 0.33f), Size(s * 0.22f, s * 0.40f), CornerRadius(s * 0.10f, s * 0.10f))
-    drawArc(Color(0xFF58B6F6), 20f, 140f, false, Offset(c.x - s * 0.25f, c.y - s * 0.10f), Size(s * 0.50f, s * 0.36f), style = Stroke(s * 0.055f, cap = StrokeCap.Round))
-    drawLine(Color(0xFF58B6F6), Offset(c.x, c.y + s * 0.22f), Offset(c.x, c.y + s * 0.35f), s * 0.055f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawInfoBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFE9F6FF))
-    drawCircle(EgDesign.blue, s * 0.17f, c)
-    drawCircle(Color.White, s * 0.035f, Offset(c.x, c.y - s * 0.10f))
-    drawLine(Color.White, Offset(c.x, c.y - s * 0.01f), Offset(c.x, c.y + s * 0.14f), s * 0.045f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawRefreshBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFE8FAF0))
-    drawArc(Color(0xFF39B772), -38f, 285f, false, Offset(c.x - s * 0.25f, c.y - s * 0.25f), Size(s * 0.50f, s * 0.50f), style = Stroke(s * 0.065f, cap = StrokeCap.Round))
-    drawPath(Path().apply {
-        moveTo(c.x + s * 0.23f, c.y - s * 0.22f)
-        lineTo(c.x + s * 0.34f, c.y - s * 0.24f)
-        lineTo(c.x + s * 0.26f, c.y - s * 0.11f)
-        close()
-    }, Color(0xFF39B772))
-}
-
-private fun DrawScope.drawEditBadge() {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawBadgeBase(Color(0xFFFFF3D8))
-    drawLine(Color(0xFFF59E0B), Offset(c.x - s * 0.20f, c.y + s * 0.18f), Offset(c.x + s * 0.20f, c.y - s * 0.22f), s * 0.075f, StrokeCap.Round)
-    drawPath(Path().apply {
-        moveTo(c.x - s * 0.29f, c.y + s * 0.28f)
-        lineTo(c.x - s * 0.16f, c.y + s * 0.24f)
-        lineTo(c.x - s * 0.25f, c.y + s * 0.14f)
-        close()
-    }, Color(0xFFF59E0B))
-}
-
-private fun DrawScope.drawMonoGlyph(key: String, color: Color) {
-    when (key) {
-        "settings" -> drawGear(color, fillCenter = false)
-        "user", "child" -> {
-            val s = min(size.width, size.height)
-            val c = center()
-            drawCircle(color, s * 0.13f, Offset(c.x, c.y - s * 0.14f))
-            drawRoundRect(color, Offset(c.x - s * 0.25f, c.y + s * 0.05f), Size(s * 0.50f, s * 0.24f), CornerRadius(s * 0.13f, s * 0.13f))
-        }
-        "report", "document", "book" -> drawLineDocument(color)
-        "sparkle", "star" -> drawStar(center(), min(size.width, size.height) * 0.34f, min(size.width, size.height) * 0.15f, color)
-        "gamepad" -> drawGamepadLine(color)
-        "chat" -> drawChatLine(color)
-        "lock" -> drawLockLine(color)
-        "camera" -> drawCameraLine(color)
-        "mail" -> drawMailLine(color)
-        "calendar" -> drawCalendarLine(color)
-        "phone" -> drawPhoneLine(color)
-        "trophy" -> drawTrophyLine(color)
-        "eye" -> drawEyeLine(color)
-        "target" -> drawTargetLine(color)
-        "puzzle" -> drawPuzzleLine(color)
-        "palette" -> drawPaletteLine(color)
-        "bulb" -> drawBulbLine(color)
-        "warning" -> drawWarningLine(color)
-        "speaker" -> drawSpeakerBadge()
-        "bell" -> drawBellBadge()
-        "clock" -> drawClockBadge()
-        "check" -> drawCheckLine(color)
-        "close" -> drawCloseLine(color)
-        "edit" -> drawEditLine(color)
-        "refresh" -> drawRefreshLine(color)
-        "play", "next" -> drawPlayTriangle(color)
-        "download" -> drawDownloadLine(color)
-        "fullscreen" -> drawFullscreenLine(color)
-        "trash" -> drawTrashBadge()
-        "home" -> drawHomeLine(color)
-        "back" -> drawBackArrowLine(color)
-        else -> drawStar(center(), min(size.width, size.height) * 0.34f, min(size.width, size.height) * 0.15f, color)
-    }
-}
-
-private fun DrawScope.center(): Offset = Offset(size.width / 2f, size.height / 2f)
-
-private fun DrawScope.drawGear(color: Color, fillCenter: Boolean) {
-    val s = min(size.width, size.height)
-    val c = center()
-    repeat(8) { i ->
-        val a = Math.toRadians((i * 45).toDouble())
-        drawLine(
-            color,
-            Offset(c.x + cos(a).toFloat() * s * 0.25f, c.y + sin(a).toFloat() * s * 0.25f),
-            Offset(c.x + cos(a).toFloat() * s * 0.39f, c.y + sin(a).toFloat() * s * 0.39f),
-            s * 0.07f,
-            StrokeCap.Round
+private fun DrawScope.drawTeardrop(center: Offset, height: Float, color: Color) {
+    val path = Path().apply {
+        moveTo(center.x, center.y - height * 0.58f)
+        cubicTo(
+            center.x - height * 0.42f,
+            center.y - height * 0.08f,
+            center.x - height * 0.28f,
+            center.y + height * 0.46f,
+            center.x,
+            center.y + height * 0.52f
         )
-    }
-    drawCircle(color, s * 0.23f, c, style = Stroke(s * 0.065f))
-    if (fillCenter) drawCircle(color, s * 0.07f, c) else drawCircle(color, s * 0.045f, c)
-}
-
-private fun DrawScope.drawStar(center: Offset, outer: Float, inner: Float, color: Color) {
-    val p = Path()
-    repeat(10) { i ->
-        val angle = Math.toRadians((i * 36 - 90).toDouble())
-        val r = if (i % 2 == 0) outer else inner
-        val point = Offset(center.x + cos(angle).toFloat() * r, center.y + sin(angle).toFloat() * r)
-        if (i == 0) p.moveTo(point.x, point.y) else p.lineTo(point.x, point.y)
-    }
-    p.close()
-    drawPath(p, color)
-}
-
-private fun DrawScope.drawLineDocument(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(color, Offset(c.x - s * 0.27f, c.y - s * 0.35f), Size(s * 0.54f, s * 0.70f), CornerRadius(s * 0.055f, s * 0.055f), style = Stroke(s * 0.06f))
-    repeat(3) { i ->
-        val y = c.y - s * 0.14f + i * s * 0.16f
-        drawLine(color, Offset(c.x - s * 0.14f, y), Offset(c.x + s * 0.15f, y), s * 0.045f, StrokeCap.Round)
-    }
-}
-
-private fun DrawScope.drawGamepadLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(color, Offset(c.x - s * 0.40f, c.y - s * 0.18f), Size(s * 0.80f, s * 0.40f), CornerRadius(s * 0.18f, s * 0.18f), style = Stroke(s * 0.06f))
-    drawLine(color, Offset(c.x - s * 0.27f, c.y), Offset(c.x - s * 0.13f, c.y), s * 0.05f, StrokeCap.Round)
-    drawLine(color, Offset(c.x - s * 0.20f, c.y - s * 0.07f), Offset(c.x - s * 0.20f, c.y + s * 0.07f), s * 0.05f, StrokeCap.Round)
-    drawCircle(color, s * 0.035f, Offset(c.x + s * 0.15f, c.y - s * 0.03f))
-    drawCircle(color, s * 0.035f, Offset(c.x + s * 0.27f, c.y + s * 0.04f))
-}
-
-private fun DrawScope.drawChatLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(color, Offset(c.x - s * 0.34f, c.y - s * 0.25f), Size(s * 0.68f, s * 0.45f), CornerRadius(s * 0.13f, s * 0.13f), style = Stroke(s * 0.06f))
-    drawLine(color, Offset(c.x - s * 0.08f, c.y + s * 0.20f), Offset(c.x - s * 0.22f, c.y + s * 0.34f), s * 0.055f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawLockLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawArc(color, 205f, 130f, false, Offset(c.x - s * 0.20f, c.y - s * 0.32f), Size(s * 0.40f, s * 0.38f), style = Stroke(s * 0.06f, cap = StrokeCap.Round))
-    drawRoundRect(color, Offset(c.x - s * 0.25f, c.y - s * 0.02f), Size(s * 0.50f, s * 0.36f), CornerRadius(s * 0.05f, s * 0.05f), style = Stroke(s * 0.06f))
-}
-
-private fun DrawScope.drawCameraLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(color, Offset(c.x - s * 0.34f, c.y - s * 0.18f), Size(s * 0.68f, s * 0.45f), CornerRadius(s * 0.06f, s * 0.06f), style = Stroke(s * 0.06f))
-    drawCircle(color, s * 0.12f, c, style = Stroke(s * 0.055f))
-    drawLine(color, Offset(c.x - s * 0.16f, c.y - s * 0.25f), Offset(c.x + s * 0.02f, c.y - s * 0.25f), s * 0.055f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawMailLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(color, Offset(c.x - s * 0.36f, c.y - s * 0.24f), Size(s * 0.72f, s * 0.48f), CornerRadius(s * 0.06f, s * 0.06f), style = Stroke(s * 0.055f))
-    drawLine(color, Offset(c.x - s * 0.33f, c.y - s * 0.18f), Offset(c.x, c.y + s * 0.06f), s * 0.045f, StrokeCap.Round)
-    drawLine(color, Offset(c.x + s * 0.33f, c.y - s * 0.18f), Offset(c.x, c.y + s * 0.06f), s * 0.045f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawCalendarLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(color, Offset(c.x - s * 0.33f, c.y - s * 0.30f), Size(s * 0.66f, s * 0.62f), CornerRadius(s * 0.06f, s * 0.06f), style = Stroke(s * 0.055f))
-    drawLine(color, Offset(c.x - s * 0.30f, c.y - s * 0.10f), Offset(c.x + s * 0.30f, c.y - s * 0.10f), s * 0.05f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawPhoneLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(color, Offset(c.x - s * 0.20f, c.y - s * 0.36f), Size(s * 0.40f, s * 0.72f), CornerRadius(s * 0.09f, s * 0.09f), style = Stroke(s * 0.055f))
-    drawCircle(color, s * 0.025f, Offset(c.x, c.y + s * 0.26f))
-}
-
-private fun DrawScope.drawTrophyLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(color, Offset(c.x - s * 0.20f, c.y - s * 0.28f), Size(s * 0.40f, s * 0.36f), CornerRadius(s * 0.06f, s * 0.06f), style = Stroke(s * 0.055f))
-    drawLine(color, Offset(c.x, c.y + s * 0.08f), Offset(c.x, c.y + s * 0.28f), s * 0.055f, StrokeCap.Round)
-    drawLine(color, Offset(c.x - s * 0.20f, c.y + s * 0.32f), Offset(c.x + s * 0.20f, c.y + s * 0.32f), s * 0.055f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawEyeLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawOval(color, Offset(c.x - s * 0.36f, c.y - s * 0.18f), Size(s * 0.72f, s * 0.36f), style = Stroke(s * 0.055f))
-    drawCircle(color, s * 0.10f, c)
-}
-
-private fun DrawScope.drawTargetLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawCircle(color, s * 0.31f, c, style = Stroke(s * 0.055f))
-    drawCircle(color, s * 0.18f, c, style = Stroke(s * 0.055f))
-    drawCircle(color, s * 0.055f, c)
-}
-
-private fun DrawScope.drawPuzzleLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawRoundRect(color, Offset(c.x - s * 0.28f, c.y - s * 0.24f), Size(s * 0.56f, s * 0.50f), CornerRadius(s * 0.07f, s * 0.07f), style = Stroke(s * 0.055f))
-    drawCircle(color, s * 0.07f, Offset(c.x + s * 0.03f, c.y - s * 0.24f))
-}
-
-private fun DrawScope.drawPaletteLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawOval(color, Offset(c.x - s * 0.33f, c.y - s * 0.25f), Size(s * 0.66f, s * 0.52f), style = Stroke(s * 0.055f))
-    drawCircle(color, s * 0.04f, Offset(c.x - s * 0.14f, c.y - s * 0.06f))
-    drawCircle(color, s * 0.04f, Offset(c.x + s * 0.03f, c.y - s * 0.10f))
-    drawCircle(color, s * 0.04f, Offset(c.x - s * 0.02f, c.y + s * 0.07f))
-}
-
-private fun DrawScope.drawBulbLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawCircle(color, s * 0.20f, Offset(c.x, c.y - s * 0.08f), style = Stroke(s * 0.055f))
-    drawLine(color, Offset(c.x - s * 0.12f, c.y + s * 0.14f), Offset(c.x + s * 0.12f, c.y + s * 0.14f), s * 0.05f, StrokeCap.Round)
-    drawLine(color, Offset(c.x - s * 0.08f, c.y + s * 0.25f), Offset(c.x + s * 0.08f, c.y + s * 0.25f), s * 0.04f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawWarningLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    val p = Path().apply {
-        moveTo(c.x, c.y - s * 0.35f)
-        lineTo(c.x + s * 0.37f, c.y + s * 0.32f)
-        lineTo(c.x - s * 0.37f, c.y + s * 0.32f)
+        cubicTo(
+            center.x + height * 0.28f,
+            center.y + height * 0.46f,
+            center.x + height * 0.42f,
+            center.y - height * 0.08f,
+            center.x,
+            center.y - height * 0.58f
+        )
         close()
     }
-    drawPath(p, color, style = Stroke(s * 0.055f, join = StrokeJoin.Round))
-    drawLine(color, Offset(c.x, c.y - s * 0.08f), Offset(c.x, c.y + s * 0.10f), s * 0.05f, StrokeCap.Round)
-    drawCircle(color, s * 0.03f, Offset(c.x, c.y + s * 0.23f))
-}
-
-private fun DrawScope.drawCheckLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawLine(color, Offset(c.x - s * 0.25f, c.y), Offset(c.x - s * 0.06f, c.y + s * 0.18f), s * 0.08f, StrokeCap.Round)
-    drawLine(color, Offset(c.x - s * 0.06f, c.y + s * 0.18f), Offset(c.x + s * 0.28f, c.y - s * 0.22f), s * 0.08f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawCloseLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawLine(color, Offset(c.x - s * 0.23f, c.y - s * 0.23f), Offset(c.x + s * 0.23f, c.y + s * 0.23f), s * 0.065f, StrokeCap.Round)
-    drawLine(color, Offset(c.x + s * 0.23f, c.y - s * 0.23f), Offset(c.x - s * 0.23f, c.y + s * 0.23f), s * 0.065f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawEditLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawLine(color, Offset(c.x - s * 0.21f, c.y + s * 0.20f), Offset(c.x + s * 0.20f, c.y - s * 0.21f), s * 0.075f, StrokeCap.Round)
-    drawLine(color, Offset(c.x - s * 0.28f, c.y + s * 0.28f), Offset(c.x - s * 0.13f, c.y + s * 0.23f), s * 0.055f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawRefreshLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    drawArc(color, -40f, 270f, false, Offset(c.x - s * 0.29f, c.y - s * 0.29f), Size(s * 0.58f, s * 0.58f), style = Stroke(s * 0.06f, cap = StrokeCap.Round))
-    drawLine(color, Offset(c.x + s * 0.18f, c.y - s * 0.25f), Offset(c.x + s * 0.30f, c.y - s * 0.26f), s * 0.06f, StrokeCap.Round)
-    drawLine(color, Offset(c.x + s * 0.18f, c.y - s * 0.25f), Offset(c.x + s * 0.20f, c.y - s * 0.12f), s * 0.06f, StrokeCap.Round)
-}
-
-private fun DrawScope.drawPlayTriangle(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    val p = Path().apply {
-        moveTo(c.x - s * 0.16f, c.y - s * 0.25f)
-        lineTo(c.x + s * 0.24f, c.y)
-        lineTo(c.x - s * 0.16f, c.y + s * 0.25f)
-        close()
-    }
-    drawPath(p, color)
-}
-
-private fun DrawScope.drawDownloadLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    val stroke = s * 0.07f
-    drawLine(color, Offset(c.x, c.y - s * 0.30f), Offset(c.x, c.y + s * 0.12f), stroke, StrokeCap.Round)
-    drawLine(color, Offset(c.x, c.y + s * 0.12f), Offset(c.x - s * 0.17f, c.y - s * 0.04f), stroke, StrokeCap.Round)
-    drawLine(color, Offset(c.x, c.y + s * 0.12f), Offset(c.x + s * 0.17f, c.y - s * 0.04f), stroke, StrokeCap.Round)
-    drawLine(color, Offset(c.x - s * 0.28f, c.y + s * 0.29f), Offset(c.x + s * 0.28f, c.y + s * 0.29f), stroke, StrokeCap.Round)
-}
-
-private fun DrawScope.drawFullscreenLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    val stroke = s * 0.055f
-    drawLine(color, Offset(c.x - s * 0.32f, c.y - s * 0.12f), Offset(c.x - s * 0.32f, c.y - s * 0.32f), stroke, StrokeCap.Round)
-    drawLine(color, Offset(c.x - s * 0.32f, c.y - s * 0.32f), Offset(c.x - s * 0.12f, c.y - s * 0.32f), stroke, StrokeCap.Round)
-    drawLine(color, Offset(c.x + s * 0.32f, c.y - s * 0.12f), Offset(c.x + s * 0.32f, c.y - s * 0.32f), stroke, StrokeCap.Round)
-    drawLine(color, Offset(c.x + s * 0.32f, c.y - s * 0.32f), Offset(c.x + s * 0.12f, c.y - s * 0.32f), stroke, StrokeCap.Round)
-    drawLine(color, Offset(c.x - s * 0.32f, c.y + s * 0.12f), Offset(c.x - s * 0.32f, c.y + s * 0.32f), stroke, StrokeCap.Round)
-    drawLine(color, Offset(c.x - s * 0.32f, c.y + s * 0.32f), Offset(c.x - s * 0.12f, c.y + s * 0.32f), stroke, StrokeCap.Round)
-    drawLine(color, Offset(c.x + s * 0.32f, c.y + s * 0.12f), Offset(c.x + s * 0.32f, c.y + s * 0.32f), stroke, StrokeCap.Round)
-    drawLine(color, Offset(c.x + s * 0.32f, c.y + s * 0.32f), Offset(c.x + s * 0.12f, c.y + s * 0.32f), stroke, StrokeCap.Round)
-}
-
-private fun DrawScope.drawHomeLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    val p = Path().apply {
-        moveTo(c.x - s * 0.34f, c.y - s * 0.02f)
-        lineTo(c.x, c.y - s * 0.32f)
-        lineTo(c.x + s * 0.34f, c.y - s * 0.02f)
-    }
-    drawPath(p, color, style = Stroke(s * 0.06f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    drawRoundRect(color, Offset(c.x - s * 0.24f, c.y - s * 0.02f), Size(s * 0.48f, s * 0.32f), CornerRadius(s * 0.04f, s * 0.04f), style = Stroke(s * 0.06f))
-}
-
-private fun DrawScope.drawBackArrowBadge() {
-    drawBadgeBase(Color(0xFFE9F5FF))
-    drawBackArrowLine(EgDesign.blue)
-}
-
-private fun DrawScope.drawBackArrowLine(color: Color) {
-    val s = min(size.width, size.height)
-    val c = center()
-    val strokeWidth = s * 0.12f
-    val stroke = Stroke(strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-
-    // Horizontal line
-    drawLine(color, Offset(c.x + s * 0.28f, c.y), Offset(c.x - s * 0.28f, c.y), strokeWidth, StrokeCap.Round)
-
-    // Arrow heads
-    val p = Path().apply {
-        moveTo(c.x - s * 0.04f, c.y - s * 0.22f)
-        lineTo(c.x - s * 0.28f, c.y)
-        lineTo(c.x - s * 0.04f, c.y + s * 0.22f)
-    }
-    drawPath(p, color, style = stroke)
+    drawPath(path, color)
+    drawCircle(Color.White.copy(alpha = 0.55f), height * 0.10f, Offset(center.x - height * 0.10f, center.y - height * 0.18f))
 }
