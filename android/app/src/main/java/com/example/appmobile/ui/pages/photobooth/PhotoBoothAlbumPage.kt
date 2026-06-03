@@ -3,7 +3,6 @@ package com.example.appmobile.ui.pages.photobooth
 import android.app.Application
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +40,7 @@ import coil.compose.AsyncImage
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgSoftCard
+import com.example.appmobile.ui.components.egTactileClick
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -189,8 +189,8 @@ private fun EmptyAlbumCard() {
 @Composable
 private fun AlbumItemCard(item: SavedPhotoBoothItem, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().egTactileClick(onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.radiusLarge),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)

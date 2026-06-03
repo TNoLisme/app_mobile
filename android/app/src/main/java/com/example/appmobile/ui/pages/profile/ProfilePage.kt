@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,7 +52,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -75,6 +83,7 @@ import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
 import com.example.appmobile.ui.components.EgTab
+import com.example.appmobile.ui.components.egTactileClick
 import com.example.appmobile.ui.state.UserAvatarState
 import com.google.firebase.auth.FirebaseAuth
 import coil.compose.AsyncImage
@@ -504,29 +513,160 @@ private fun BadgeCircle(
 ) {
     Box(
         modifier = Modifier
-            .size(40.dp)
-            .clickable(onClick = onClick),
+            .size(42.dp)
+            .egTactileClick(onClick = onClick),
         contentAlignment = Alignment.TopEnd
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             shape = CircleShape,
-            color = if (unlocked) Color(0xFFFFF4B8) else EgDesign.cardSoft,
-            border = BorderStroke(1.dp, if (unlocked) Color(0xFFFFD54F) else ProfileCardBorder),
+            color = if (unlocked) Color(0xFFFFF8D6) else EgDesign.cardSoft,
+            border = BorderStroke(1.dp, if (unlocked) Color(0xFFFFD166) else ProfileCardBorder),
             shadowElevation = if (unlocked) 2.dp else 0.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
-                EgVectorEmojiIcon(
-                    badge.icon,
-                    modifier = Modifier.alpha(if (unlocked) 1f else 0.38f),
-                    size = 31.dp
-                )
+                ProfileBadgeArt(icon = badge.icon, unlocked = unlocked, modifier = Modifier.size(34.dp))
             }
         }
         if (!unlocked) {
-            EgVectorEmojiIcon("lock", size = 11.dp, tint = ProfileTextSecondary)
+            Surface(
+                modifier = Modifier.size(14.dp),
+                shape = CircleShape,
+                color = EgDesign.card,
+                border = BorderStroke(1.dp, ProfileCardBorder)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    EgVectorEmojiIcon("lock", size = 9.dp, tint = ProfileTextSecondary)
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun ProfileBadgeArt(icon: String, unlocked: Boolean, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.alpha(if (unlocked) 1f else 0.36f)) {
+        drawProfileBadgeArt(icon = icon, unlocked = unlocked)
+    }
+}
+
+private fun DrawScope.drawProfileBadgeArt(icon: String, unlocked: Boolean) {
+    val s = minOf(size.width, size.height)
+    val c = center
+    val accent = if (unlocked) profileBadgeAccent(icon) else Color(0xFF8EA2B7)
+    val dark = if (unlocked) Color(0xFF174062) else Color(0xFF6B7C8D)
+
+    drawCircle(
+        brush = Brush.radialGradient(
+            listOf(Color.White.copy(alpha = 0.96f), accent.copy(alpha = 0.22f), accent.copy(alpha = 0.38f)),
+            center = Offset(c.x - s * 0.18f, c.y - s * 0.20f),
+            radius = s * 0.78f
+        ),
+        radius = s * 0.47f,
+        center = c
+    )
+    drawCircle(accent.copy(alpha = 0.50f), s * 0.43f, c, style = Stroke(s * 0.035f))
+    drawCircle(Color.White.copy(alpha = 0.65f), s * 0.08f, Offset(c.x - s * 0.17f, c.y - s * 0.18f))
+
+    when (icon) {
+        "gift" -> drawGiftBadge(c, s, accent, dark)
+        "eye" -> drawEyeBadge(c, s, accent, dark)
+        "target" -> drawTargetBadge(c, s, accent, dark)
+        "puzzle" -> drawPuzzleBadge(c, s, accent, dark)
+        "palette" -> drawPaletteBadge(c, s, accent, dark)
+        "camera" -> drawCameraBadge(c, s, accent, dark)
+        else -> drawStarBadge(c, s, accent, dark)
+    }
+}
+
+private fun profileBadgeAccent(icon: String): Color = when (icon) {
+    "gift" -> Color(0xFFFFB84D)
+    "eye" -> Color(0xFF5FB5FF)
+    "target" -> Color(0xFFFF7A7A)
+    "puzzle" -> Color(0xFF64C58E)
+    "palette" -> Color(0xFFFFC75F)
+    "camera" -> Color(0xFF6FA7F7)
+    else -> Color(0xFFFFD24D)
+}
+
+private fun DrawScope.drawGiftBadge(c: Offset, s: Float, accent: Color, dark: Color) {
+    drawRect(accent, Offset(c.x - s * 0.22f, c.y - s * 0.04f), Size(s * 0.44f, s * 0.25f))
+    drawRect(accent.copy(alpha = 0.82f), Offset(c.x - s * 0.25f, c.y - s * 0.17f), Size(s * 0.50f, s * 0.13f))
+    drawLine(Color.White, Offset(c.x, c.y - s * 0.17f), Offset(c.x, c.y + s * 0.21f), s * 0.035f, StrokeCap.Round)
+    drawLine(Color.White, Offset(c.x - s * 0.24f, c.y - s * 0.04f), Offset(c.x + s * 0.24f, c.y - s * 0.04f), s * 0.026f, StrokeCap.Round)
+    drawArc(dark, 130f, 210f, false, Offset(c.x - s * 0.19f, c.y - s * 0.31f), Size(s * 0.20f, s * 0.18f), style = Stroke(s * 0.035f, cap = StrokeCap.Round))
+    drawArc(dark, -20f, 210f, false, Offset(c.x + s * 0.01f, c.y - s * 0.31f), Size(s * 0.20f, s * 0.18f), style = Stroke(s * 0.035f, cap = StrokeCap.Round))
+}
+
+private fun DrawScope.drawEyeBadge(c: Offset, s: Float, accent: Color, dark: Color) {
+    val eye = Path().apply {
+        moveTo(c.x - s * 0.29f, c.y)
+        cubicTo(c.x - s * 0.12f, c.y - s * 0.18f, c.x + s * 0.12f, c.y - s * 0.18f, c.x + s * 0.29f, c.y)
+        cubicTo(c.x + s * 0.12f, c.y + s * 0.18f, c.x - s * 0.12f, c.y + s * 0.18f, c.x - s * 0.29f, c.y)
+        close()
+    }
+    drawPath(eye, accent.copy(alpha = 0.34f))
+    drawPath(eye, dark, style = Stroke(s * 0.036f, cap = StrokeCap.Round))
+    drawCircle(accent, s * 0.115f, c)
+    drawCircle(dark, s * 0.060f, c)
+    drawCircle(Color.White, s * 0.022f, Offset(c.x - s * 0.025f, c.y - s * 0.026f))
+}
+
+private fun DrawScope.drawTargetBadge(c: Offset, s: Float, accent: Color, dark: Color) {
+    drawCircle(accent.copy(alpha = 0.25f), s * 0.25f, c)
+    drawCircle(dark, s * 0.25f, c, style = Stroke(s * 0.034f))
+    drawCircle(accent, s * 0.145f, c, style = Stroke(s * 0.034f))
+    drawCircle(dark, s * 0.040f, c)
+    drawLine(dark, Offset(c.x, c.y - s * 0.32f), Offset(c.x, c.y - s * 0.22f), s * 0.026f, StrokeCap.Round)
+    drawLine(dark, Offset(c.x, c.y + s * 0.22f), Offset(c.x, c.y + s * 0.32f), s * 0.026f, StrokeCap.Round)
+    drawLine(dark, Offset(c.x - s * 0.32f, c.y), Offset(c.x - s * 0.22f, c.y), s * 0.026f, StrokeCap.Round)
+    drawLine(dark, Offset(c.x + s * 0.22f, c.y), Offset(c.x + s * 0.32f, c.y), s * 0.026f, StrokeCap.Round)
+}
+
+private fun DrawScope.drawPuzzleBadge(c: Offset, s: Float, accent: Color, dark: Color) {
+    drawRect(accent.copy(alpha = 0.78f), Offset(c.x - s * 0.23f, c.y - s * 0.19f), Size(s * 0.42f, s * 0.38f))
+    drawCircle(Color.White.copy(alpha = 0.92f), s * 0.060f, Offset(c.x - s * 0.02f, c.y - s * 0.19f))
+    drawCircle(Color.White.copy(alpha = 0.92f), s * 0.058f, Offset(c.x + s * 0.19f, c.y + s * 0.02f))
+    drawLine(dark, Offset(c.x - s * 0.23f, c.y - s * 0.19f), Offset(c.x + s * 0.19f, c.y - s * 0.19f), s * 0.032f, StrokeCap.Round)
+    drawLine(dark, Offset(c.x - s * 0.23f, c.y + s * 0.19f), Offset(c.x + s * 0.19f, c.y + s * 0.19f), s * 0.032f, StrokeCap.Round)
+}
+
+private fun DrawScope.drawPaletteBadge(c: Offset, s: Float, accent: Color, dark: Color) {
+    drawOval(accent.copy(alpha = 0.50f), Offset(c.x - s * 0.28f, c.y - s * 0.20f), Size(s * 0.56f, s * 0.40f))
+    drawCircle(Color.White, s * 0.075f, Offset(c.x + s * 0.12f, c.y + s * 0.05f))
+    drawCircle(Color(0xFFFF7A7A), s * 0.040f, Offset(c.x - s * 0.13f, c.y - s * 0.06f))
+    drawCircle(Color(0xFF64C58E), s * 0.040f, Offset(c.x, c.y - s * 0.11f))
+    drawCircle(Color(0xFF5FB5FF), s * 0.040f, Offset(c.x + s * 0.11f, c.y - s * 0.05f))
+    drawPath(Path().apply {
+        moveTo(c.x - s * 0.20f, c.y + s * 0.14f)
+        quadraticBezierTo(c.x + s * 0.03f, c.y + s * 0.29f, c.x + s * 0.22f, c.y + s * 0.10f)
+    }, dark, style = Stroke(s * 0.030f, cap = StrokeCap.Round))
+}
+
+private fun DrawScope.drawCameraBadge(c: Offset, s: Float, accent: Color, dark: Color) {
+    drawRect(accent.copy(alpha = 0.72f), Offset(c.x - s * 0.27f, c.y - s * 0.11f), Size(s * 0.54f, s * 0.33f))
+    drawRect(dark.copy(alpha = 0.80f), Offset(c.x - s * 0.17f, c.y - s * 0.19f), Size(s * 0.20f, s * 0.08f))
+    drawCircle(Color.White, s * 0.125f, c)
+    drawCircle(dark, s * 0.085f, c)
+    drawCircle(Color.White.copy(alpha = 0.75f), s * 0.024f, Offset(c.x - s * 0.03f, c.y - s * 0.035f))
+}
+
+private fun DrawScope.drawStarBadge(c: Offset, s: Float, accent: Color, dark: Color) {
+    val star = Path().apply {
+        moveTo(c.x, c.y - s * 0.30f)
+        lineTo(c.x + s * 0.07f, c.y - s * 0.08f)
+        lineTo(c.x + s * 0.29f, c.y - s * 0.08f)
+        lineTo(c.x + s * 0.11f, c.y + s * 0.04f)
+        lineTo(c.x + s * 0.18f, c.y + s * 0.27f)
+        lineTo(c.x, c.y + s * 0.12f)
+        lineTo(c.x - s * 0.18f, c.y + s * 0.27f)
+        lineTo(c.x - s * 0.11f, c.y + s * 0.04f)
+        lineTo(c.x - s * 0.29f, c.y - s * 0.08f)
+        lineTo(c.x - s * 0.07f, c.y - s * 0.08f)
+        close()
+    }
+    drawPath(star, accent)
+    drawPath(star, dark.copy(alpha = 0.55f), style = Stroke(s * 0.024f, cap = StrokeCap.Round))
 }
 
 @Composable
@@ -537,7 +677,7 @@ private fun BadgeRequirementDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { EgVectorEmojiIcon(badge.icon, size = 38.dp) },
+        icon = { ProfileBadgeArt(icon = badge.icon, unlocked = unlocked, modifier = Modifier.size(46.dp)) },
         title = {
             Text(
                 badge.title,
@@ -689,7 +829,7 @@ private fun GradientPill(
     Surface(
         modifier = modifier
             .height(heightDp.dp)
-            .clickable(onClick = onClick),
+            .egTactileClick(onClick = onClick),
         shape = RoundedCornerShape(999.dp),
         color = Color.Transparent,
         shadowElevation = shadowDp.dp
@@ -783,7 +923,7 @@ private fun EditProfileDialogV2(
                     .fillMaxWidth()
                     .fillMaxHeight(0.88f)
                     .widthIn(max = 720.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(EgDesign.radiusXLarge),
                 color = EgDesign.card,
                 border = BorderStroke(1.dp, ProfileCardBorder),
                 shadowElevation = 8.dp
@@ -895,13 +1035,13 @@ private fun CloseButton(enabled: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .size(36.dp)
-            .clickable(enabled = enabled, onClick = onClick),
+            .egTactileClick(enabled = enabled, onClick = onClick),
         shape = CircleShape,
         color = EgDesign.cardSoft,
         border = BorderStroke(1.dp, ProfileCardBorder)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text("×", color = ProfileTextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            EgVectorEmojiIcon("close", size = 20.dp, tint = ProfileTextPrimary)
         }
     }
 }
@@ -1016,7 +1156,7 @@ private fun GenderDropdown(value: String, onValueChange: (String) -> Unit) {
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Text("v", color = ProfileTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                EgVectorEmojiIcon("expand", size = 20.dp, tint = ProfileTextPrimary)
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -1043,7 +1183,7 @@ private fun SecondaryPillButton(
     Surface(
         modifier = modifier
             .height(48.dp)
-            .clickable(enabled = enabled, onClick = onClick),
+            .egTactileClick(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(999.dp),
         color = EgDesign.card,
         border = BorderStroke(1.dp, ProfileCardBorder),

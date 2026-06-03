@@ -259,7 +259,7 @@ private fun ReportHeader(onBack: () -> Unit) {
 private fun LoadingCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(EgDesign.radiusXLarge),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
@@ -284,7 +284,7 @@ private fun ChildWeeklySummaryCard(
     val sessions = summary?.sessionsCount ?: 0
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(EgDesign.radiusXLarge),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
@@ -415,8 +415,8 @@ private fun SendReportCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, ReportLine, RoundedCornerShape(24.dp)),
-        shape = RoundedCornerShape(24.dp),
+            .border(1.dp, ReportLine, RoundedCornerShape(EgDesign.radiusXLarge)),
+        shape = RoundedCornerShape(EgDesign.radiusXLarge),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
@@ -476,7 +476,7 @@ private fun SendReportCard(
 private fun MissingParentEmailCard(onAddEmail: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(EgDesign.radiusXLarge),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
@@ -513,7 +513,7 @@ private fun SentReportHistoryCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(EgDesign.radiusXLarge),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
@@ -657,7 +657,7 @@ private fun ConfirmSendReportDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(EgDesign.radiusXLarge),
             color = EgDesign.card,
             shadowElevation = 10.dp
         ) {
@@ -716,7 +716,7 @@ private fun ParentGateDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(EgDesign.radiusXLarge),
             color = EgDesign.card,
             shadowElevation = 10.dp
         ) {
@@ -776,7 +776,7 @@ private fun SendReportResultDialog(
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(26.dp),
+            shape = RoundedCornerShape(EgDesign.radiusXLarge),
             color = EgDesign.card,
             shadowElevation = 12.dp
         ) {

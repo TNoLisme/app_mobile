@@ -2,7 +2,6 @@ package com.example.appmobile.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -245,7 +244,7 @@ private fun LegalDialogShell(
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth().widthIn(max = 620.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(EgDesign.radiusXLarge),
                 color = EgDesign.card,
                 border = BorderStroke(1.dp, EgDesign.cardBorder),
                 shadowElevation = 8.dp
@@ -295,7 +294,7 @@ private fun LegalSummaryCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(EgDesign.cardSoft, RoundedCornerShape(16.dp))
+            .background(EgDesign.cardSoft, RoundedCornerShape(EgDesign.radiusMedium))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -316,8 +315,8 @@ private fun LegalTextLink(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        modifier = modifier.egTactileClick(onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.radiusMedium),
         color = EgDesign.accentSoft,
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
@@ -343,7 +342,7 @@ private fun LegalActionButton(
     val background = if (tonal) EgDesign.cardSoft else EgDesign.primary
     val textColor = if (tonal) EgDesign.primaryDark else Color.White
     Surface(
-        modifier = modifier.height(44.dp).clickable(onClick = onClick),
+        modifier = modifier.height(44.dp).egTactileClick(onClick = onClick),
         shape = RoundedCornerShape(EgDesign.pillRadius),
         color = background,
         border = BorderStroke(1.dp, EgDesign.cardBorder)

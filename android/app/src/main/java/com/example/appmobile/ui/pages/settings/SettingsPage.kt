@@ -83,6 +83,7 @@ import com.example.appmobile.ui.components.LegalDocumentType
 import com.example.appmobile.ui.components.SupportContactDialog
 import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
 import com.example.appmobile.ui.components.EgTab
+import com.example.appmobile.ui.components.egTactileClick
 import com.example.appmobile.ui.state.AppSettingsState
 import com.example.appmobile.ui.state.AppThemeMode
 import com.example.appmobile.ui.state.CvEmotionScoreState
@@ -489,7 +490,7 @@ private fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
+            .padding(vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         SettingsHeader()
@@ -581,7 +582,7 @@ private fun LearningExperienceSection(
         SwitchSettingsRow(
             icon = "chat",
             title = "Bong bóng Mầm Mầm",
-            description = "Hiện bạn trợ lý nhỏ ở góc màn hình.",
+            description = "Hiện Mầm Mầm ở góc màn hình.",
             checked = assistantBubbleEnabled,
             onCheckedChange = onAssistantBubbleChanged
         )
@@ -646,7 +647,7 @@ private fun ParentAreaEntryCard(onClick: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .egTactileClick(onClick = onClick)
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -663,7 +664,7 @@ private fun ParentAreaEntryCard(onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Text(">", color = EgDesign.textSecondary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            EgVectorEmojiIcon("next", size = 22.dp, tint = EgDesign.textSecondary)
         }
     }
 }
@@ -1172,13 +1173,13 @@ private fun BottomSheetHeader(title: String, subtitle: String, onDismiss: () -> 
             Text(subtitle, color = EgDesign.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
         }
         Surface(
-            modifier = Modifier.size(40.dp).clickable(onClick = onDismiss),
+            modifier = Modifier.size(40.dp).egTactileClick(onClick = onDismiss),
             shape = CircleShape,
             color = EgDesign.cardSoft,
             border = BorderStroke(1.dp, EgDesign.cardBorder)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text("x", color = EgDesign.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                EgVectorEmojiIcon("close", size = 20.dp, tint = EgDesign.textPrimary)
             }
         }
     }
@@ -1192,7 +1193,7 @@ private fun SettingsChoiceButton(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.height(42.dp).clickable(onClick = onClick),
+        modifier = modifier.height(42.dp).egTactileClick(onClick = onClick),
         shape = RoundedCornerShape(EgDesign.pillRadius),
         color = if (selected) EgDesign.primary else EgDesign.cardSoft,
         border = BorderStroke(1.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
@@ -1235,7 +1236,7 @@ private fun SettingsButton(
         else -> Color.White
     }
     Surface(
-        modifier = modifier.height(44.dp).widthIn(min = minWidth).clickable(enabled = enabled, onClick = onClick),
+        modifier = modifier.height(44.dp).widthIn(min = minWidth).egTactileClick(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(EgDesign.pillRadius),
         color = if (enabled) background else EgDesign.cardBorder,
         border = BorderStroke(1.dp, if (danger && tonal && !isDark) Color(0xFFFECACA) else EgDesign.cardBorder),
@@ -1527,7 +1528,7 @@ private fun SettingsDialog(onDismiss: () -> Unit, content: @Composable ColumnSco
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth().widthIn(max = 560.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(EgDesign.radiusXLarge),
                 color = EgDesign.card,
                 border = BorderStroke(1.dp, EgDesign.cardBorder),
                 shadowElevation = 8.dp

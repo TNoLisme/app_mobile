@@ -45,7 +45,7 @@ object AppSettingsState {
     val acceptedPolicyVersion = mutableStateOf<String?>(null)
     val acceptedTermsVersion = mutableStateOf<String?>(null)
     val legalAcceptedAt = mutableStateOf<Long?>(null)
-    val dynamicColorEnabled = mutableStateOf(true)
+    val dynamicColorEnabled = mutableStateOf(false)
     val themeMode = mutableStateOf(AppThemeMode.System)
     val activeDarkTheme = mutableStateOf(false)
 
@@ -66,7 +66,7 @@ object AppSettingsState {
         legalPolicyAccepted.value = preferences.getBoolean(KEY_LEGAL_ACCEPTED, false) &&
             storedPolicyVersion == CURRENT_PRIVACY_POLICY_VERSION &&
             storedTermsVersion == CURRENT_TERMS_VERSION
-        dynamicColorEnabled.value = preferences.getBoolean(KEY_DYNAMIC_COLOR, true)
+        dynamicColorEnabled.value = preferences.getBoolean(KEY_DYNAMIC_COLOR, false)
         themeMode.value = AppThemeMode.fromKey(preferences.getString(KEY_THEME_MODE, AppThemeMode.System.key))
     }
 

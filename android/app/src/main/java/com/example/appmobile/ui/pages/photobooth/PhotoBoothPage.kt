@@ -87,6 +87,7 @@ import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgGradientPill
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
+import com.example.appmobile.ui.components.egTactileClick
 import java.io.File
 
 @Composable
@@ -375,7 +376,7 @@ private fun CaptureSequenceScreen(
                 overflow = TextOverflow.Ellipsis
             )
             Surface(
-                shape = RoundedCornerShape(999.dp),
+                shape = RoundedCornerShape(EgDesign.pillRadius),
                 color = EgDesign.card,
                 border = BorderStroke(1.dp, EgDesign.cardBorder)
             ) {
@@ -423,7 +424,7 @@ private fun CaptureSequenceScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(EgDesign.radiusXLarge))
                 .background(Color.Black)
         ) {
             if (hasCameraPermission) {
@@ -508,7 +509,7 @@ private fun FinalPreviewScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 420.dp, max = 560.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(EgDesign.radiusLarge))
                         .background(EgDesign.cardSoft)
                 ) {
                     AsyncImage(
@@ -651,8 +652,8 @@ private fun EmotionSelectCard(
     Card(
         modifier = modifier
             .height(116.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
+            .egTactileClick(onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.radiusLarge),
         colors = CardDefaults.cardColors(containerColor = if (selected) EgDesign.cardSoft else EgDesign.card),
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 1.dp)
@@ -691,8 +692,8 @@ private fun FrameTemplateCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
+            .egTactileClick(onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.radiusLarge),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -1058,7 +1059,7 @@ internal fun PhotoBoothDownloadButton(
             .semantics {
                 contentDescription = if (isSaved) "Đã tải ảnh xuống" else "Tải ảnh xuống"
             }
-            .clickable(enabled = !isBusy && !isSaved, onClick = onClick),
+            .egTactileClick(enabled = !isBusy && !isSaved, onClick = onClick),
         shape = CircleShape,
         color = if (isSaved) Color(0xFFF0FAF4).copy(alpha = 0.96f) else Color.White.copy(alpha = 0.94f),
         border = BorderStroke(1.dp, if (isSaved) Color(0xFF65B37D) else EgDesign.cardBorder),
@@ -1083,8 +1084,8 @@ private fun OutlinePill(text: String, onClick: () -> Unit, modifier: Modifier = 
     Surface(
         modifier = modifier
             .height(46.dp)
-            .clickable(enabled = enabled, onClick = onClick),
-        shape = RoundedCornerShape(999.dp),
+            .egTactileClick(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(EgDesign.pillRadius),
         color = if (enabled) EgDesign.card else EgDesign.cardSoft,
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {

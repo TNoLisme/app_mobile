@@ -67,6 +67,7 @@ import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
+import com.example.appmobile.ui.components.egTactileClick
 import kotlin.math.min
 
 @Composable
@@ -316,7 +317,7 @@ private fun GardenMessageCard(message: String, onDismiss: () -> Unit) {
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
-            Text("×", color = EgDesign.textSecondary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            EgVectorEmojiIcon("close", size = 18.dp, tint = EgDesign.textSecondary)
         }
     }
 }
@@ -418,7 +419,7 @@ private fun GardenTaskLauncher(state: GardenUiState, onOpenTasks: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onOpenTasks),
+            .egTactileClick(onClick = onOpenTasks),
         shape = RoundedCornerShape(18.dp),
         color = EgDesign.card,
         border = BorderStroke(1.dp, EgDesign.cardBorder),
@@ -459,7 +460,7 @@ private fun GardenTaskLauncher(state: GardenUiState, onOpenTasks: () -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text("Xem", color = EgDesign.blue, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("›", color = EgDesign.blue, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    EgVectorEmojiIcon("next", size = 17.dp, tint = EgDesign.blue)
                 }
             }
         }
@@ -488,7 +489,7 @@ private fun GardenTaskPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(0.82f),
-                shape = RoundedCornerShape(26.dp),
+                shape = RoundedCornerShape(EgDesign.radiusXLarge),
                 color = EgDesign.card,
                 border = BorderStroke(1.dp, EgDesign.cardBorder),
                 shadowElevation = 8.dp
@@ -512,13 +513,13 @@ private fun GardenTaskPanel(
                             )
                         }
                         Surface(
-                            modifier = Modifier.size(34.dp).clickable(onClick = onDismiss),
+                            modifier = Modifier.size(34.dp).egTactileClick(onClick = onDismiss),
                             shape = CircleShape,
                             color = EgDesign.cardSoft,
                             border = BorderStroke(1.dp, EgDesign.cardBorder)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("×", color = EgDesign.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                EgVectorEmojiIcon("close", size = 19.dp, tint = EgDesign.textPrimary)
                             }
                         }
                     }
@@ -676,7 +677,7 @@ private fun TaskActionButton(task: GardenTask, busy: Boolean, onClick: () -> Uni
         modifier = Modifier
             .height(36.dp)
             .alpha(if (enabled) 1f else 0.65f)
-            .clickable(enabled = enabled, onClick = onClick),
+            .egTactileClick(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(999.dp),
         color = if (primary && enabled) EgDesign.primary else EgDesign.cardSoft,
         border = if (primary && enabled) null else BorderStroke(1.dp, EgDesign.cardBorder),
@@ -729,7 +730,7 @@ private fun PlantDetailDialog(
     val stageName = GardenRepository.plantStageName(plant.emotionId, plant.level)
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(26.dp),
+            shape = RoundedCornerShape(EgDesign.radiusXLarge),
             color = EgDesign.card,
             border = BorderStroke(1.dp, EgDesign.cardBorder),
             shadowElevation = 8.dp
