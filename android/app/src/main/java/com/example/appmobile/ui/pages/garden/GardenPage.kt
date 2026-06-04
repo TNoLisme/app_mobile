@@ -2,6 +2,7 @@ package com.example.appmobile.ui.pages.garden
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,15 +38,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -870,50 +868,37 @@ private fun GardenProgressBar(progress: Float, modifier: Modifier = Modifier, he
 
 @Composable
 private fun GardenScenePreview(plants: List<EmotionPlant>, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val s = min(size.width, size.height)
-        drawRoundRect(
-            color = Color(0xFFE8F8EE),
-            topLeft = Offset(s * 0.04f, s * 0.10f),
-            size = Size(s * 0.92f, s * 0.78f),
-            cornerRadius = CornerRadius(s * 0.18f)
-        )
-        drawOval(Color(0xFF8ED49B), Offset(s * 0.10f, s * 0.63f), Size(s * 0.80f, s * 0.20f))
-        plants.take(6).forEachIndexed { index, plant ->
-            val col = index % 3
-            val row = index / 3
-            val x = s * (0.23f + col * 0.27f)
-            val y = s * (0.67f - row * 0.22f)
-            drawTinyPlant(Offset(x, y), s * 0.13f, plant.level, plantColor(plant.emotionId))
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFFE8F8EE)),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            plants.take(6).forEach { plant ->
+                Image(
+                    painter = painterResource(GardenPlantAssets.assetFor(plant.emotionId, plant.level)),
+                    contentDescription = GardenRepository.plantSpeciesName(plant.emotionId),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun EmotionPlantVisual(plant: EmotionPlant, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val s = min(size.width, size.height)
-        val base = Offset(size.width / 2f, size.height * 0.82f)
-        val tint = plantColor(plant.emotionId)
-        drawCircle(tint.copy(alpha = 0.11f), s * 0.48f, Offset(size.width / 2f, size.height * 0.52f))
-        drawOval(Color(0xFF8ED49B).copy(alpha = 0.55f), Offset(s * 0.13f, s * 0.78f), Size(s * 0.74f, s * 0.16f))
-        if (plant.level == 0) {
-            drawSeed(base, s, tint, plant.growthPoints > 0)
-            return@Canvas
-        }
-        if (plant.level == 1) {
-            drawSprout(base, s, tint)
-            return@Canvas
-        }
-        when (GardenRepository.plantSpecies(plant.emotionId).speciesId) {
-            "sunflower" -> drawSunflower(base, s, plant.level)
-            "blue_willow" -> drawWillow(base, s, plant.level)
-            "chili_plant" -> drawChiliPlant(base, s, plant.level)
-            "shy_plant" -> drawShyPlant(base, s, plant.level)
-            "surprise_tulip" -> drawTulip(base, s, plant.level)
-            "pitcher_plant" -> drawPitcherPlant(base, s, plant.level)
-        }
-    }
+    Image(
+        painter = painterResource(GardenPlantAssets.assetFor(plant.emotionId, plant.level)),
+        contentDescription = GardenRepository.plantSpeciesName(plant.emotionId),
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -963,212 +948,6 @@ private fun TaskIcon(type: GardenTaskType, status: GardenTaskStatus, modifier: M
                 GardenTaskType.SEND_REPORT -> EgVectorEmojiIcon("report", size = 24.dp)
             }
         }
-    }
-}
-
-private fun DrawScope.drawTinyPlant(center: Offset, radius: Float, level: Int, color: Color) {
-    drawLine(Color(0xFF3E9B5E), Offset(center.x, center.y + radius), Offset(center.x, center.y - radius * 0.7f), radius * 0.18f)
-    if (level <= 0) {
-        drawCircle(Color(0xFFB7791F), radius * 0.40f, Offset(center.x, center.y + radius * 0.55f))
-        return
-    }
-    if (level >= 2) {
-        drawOval(Color(0xFF61BF7A), Offset(center.x - radius * 0.55f, center.y), Size(radius * 0.70f, radius * 0.35f))
-    }
-    if (level >= 4) {
-        if (level >= 5) drawBloom(Offset(center.x, center.y - radius), radius * 0.65f, color)
-        else drawCircle(color, radius * 0.42f, Offset(center.x, center.y - radius))
-    }
-}
-
-private fun DrawScope.drawSeed(base: Offset, s: Float, tint: Color, sprouting: Boolean) {
-    drawOval(Color(0xFF8B5E2B), Offset(base.x - s * 0.22f, base.y - s * 0.13f), Size(s * 0.44f, s * 0.22f))
-    drawOval(tint.copy(alpha = 0.58f), Offset(base.x - s * 0.12f, base.y - s * 0.10f), Size(s * 0.24f, s * 0.08f))
-    if (sprouting) drawSprout(base, s * 0.82f, tint)
-}
-
-private fun DrawScope.drawSprout(base: Offset, s: Float, tint: Color) {
-    val top = Offset(base.x, base.y - s * 0.30f)
-    drawLine(Color(0xFF45A162), Offset(base.x, base.y - s * 0.05f), top, s * 0.050f)
-    drawLeaf(Offset(top.x, top.y + s * 0.03f), s * 0.14f, left = true, color = Color(0xFF65C783))
-    drawLeaf(Offset(top.x, top.y + s * 0.03f), s * 0.13f, left = false, color = tint.copy(alpha = 0.85f))
-}
-
-private fun DrawScope.drawSunflower(base: Offset, s: Float, level: Int) {
-    val stemTop = size.height * (0.70f - level * 0.055f)
-    drawLine(Color(0xFF3F9A5F), base, Offset(base.x, stemTop), s * 0.060f)
-    drawLeaf(Offset(base.x, base.y - s * 0.18f), s * 0.18f, left = true)
-    if (level >= 3) drawLeaf(Offset(base.x, base.y - s * 0.33f), s * 0.20f, left = false)
-    val top = Offset(base.x, stemTop)
-    if (level >= 5) {
-        repeat(12) { index ->
-            val angle = Math.toRadians((index * 30).toDouble())
-            drawOval(
-                Color(0xFFFFD64D),
-                topLeft = Offset(
-                    top.x + kotlin.math.cos(angle).toFloat() * s * 0.18f - s * 0.070f,
-                    top.y + kotlin.math.sin(angle).toFloat() * s * 0.18f - s * 0.115f
-                ),
-                size = Size(s * 0.14f, s * 0.23f)
-            )
-        }
-        drawCircle(Color(0xFF8B5E2B), s * 0.16f, top)
-        drawCircle(Color.White.copy(alpha = 0.30f), s * 0.045f, Offset(top.x - s * 0.04f, top.y - s * 0.04f))
-    } else if (level >= 4) {
-        drawCircle(Color(0xFFFFD64D), s * 0.14f, top)
-        drawCircle(Color(0xFF8B5E2B), s * 0.07f, top)
-    }
-}
-
-private fun DrawScope.drawWillow(base: Offset, s: Float, level: Int) {
-    val trunkTop = Offset(base.x, base.y - s * (0.40f + level * 0.035f))
-    drawLine(Color(0xFF8B6A3D), base, trunkTop, s * 0.075f)
-    drawLeaf(Offset(base.x, base.y - s * 0.22f), s * 0.18f, left = true, color = Color(0xFF69B8A6))
-    if (level >= 3) {
-        val canopy = Offset(trunkTop.x, trunkTop.y + s * 0.03f)
-        drawCircle(Color(0xFF8DD8C8), s * 0.22f, canopy)
-        val strands = if (level >= 5) 9 else 6
-        repeat(strands) { index ->
-            val x = canopy.x - s * 0.24f + index * s * 0.06f
-            drawLine(
-                Color(0xFF58AD9D),
-                Offset(x, canopy.y - s * 0.11f),
-                Offset(x + (index % 2 - 0.5f) * s * 0.05f, canopy.y + s * (0.22f + level * 0.025f)),
-                s * 0.025f
-            )
-        }
-    }
-}
-
-private fun DrawScope.drawChiliPlant(base: Offset, s: Float, level: Int) {
-    val top = Offset(base.x, base.y - s * (0.38f + level * 0.04f))
-    drawLine(Color(0xFF3F9A5F), base, top, s * 0.060f)
-    listOf(
-        Offset(base.x, base.y - s * 0.18f) to true,
-        Offset(base.x, base.y - s * 0.28f) to false,
-        Offset(base.x, base.y - s * 0.40f) to true
-    ).take(level.coerceAtMost(3)).forEach { (anchor, left) ->
-        drawLeaf(anchor, s * 0.18f, left = left, color = Color(0xFF5BBE72))
-    }
-    if (level >= 4) {
-        drawChili(Offset(base.x + s * 0.11f, base.y - s * 0.39f), s * 0.16f)
-    }
-    if (level >= 5) {
-        drawChili(Offset(base.x - s * 0.13f, base.y - s * 0.30f), s * 0.15f)
-        drawChili(Offset(base.x + s * 0.02f, base.y - s * 0.51f), s * 0.13f)
-    }
-}
-
-private fun DrawScope.drawChili(center: Offset, r: Float) {
-    val path = Path().apply {
-        moveTo(center.x, center.y - r)
-        cubicTo(center.x + r * 0.75f, center.y - r * 0.35f, center.x + r * 0.30f, center.y + r * 0.95f, center.x - r * 0.15f, center.y + r * 1.05f)
-        cubicTo(center.x - r * 0.20f, center.y + r * 0.40f, center.x - r * 0.45f, center.y - r * 0.35f, center.x, center.y - r)
-        close()
-    }
-    drawPath(path, Color(0xFFFF5A4E))
-    drawLine(Color(0xFF4B9B58), Offset(center.x, center.y - r), Offset(center.x - r * 0.32f, center.y - r * 1.28f), r * 0.18f)
-}
-
-private fun DrawScope.drawShyPlant(base: Offset, s: Float, level: Int) {
-    val top = Offset(base.x, base.y - s * (0.34f + level * 0.04f))
-    drawLine(Color(0xFF4D9A70), base, top, s * 0.052f)
-    val rows = when {
-        level >= 5 -> 5
-        level >= 3 -> 4
-        else -> 2
-    }
-    repeat(rows) { row ->
-        val y = base.y - s * (0.15f + row * 0.095f)
-        val spread = if (level >= 4 && row > rows / 2) s * 0.10f else s * 0.18f
-        drawLine(Color(0xFF4D9A70), Offset(base.x, y), Offset(base.x - spread, y - s * 0.035f), s * 0.024f)
-        drawLine(Color(0xFF4D9A70), Offset(base.x, y), Offset(base.x + spread, y - s * 0.035f), s * 0.024f)
-        repeat(3) { index ->
-            val offset = (index + 1) * s * 0.045f
-            drawOval(Color(0xFF69C59A), Offset(base.x - offset - s * 0.025f, y - s * 0.062f), Size(s * 0.05f, s * 0.035f))
-            drawOval(Color(0xFF69C59A), Offset(base.x + offset - s * 0.025f, y - s * 0.062f), Size(s * 0.05f, s * 0.035f))
-        }
-    }
-}
-
-private fun DrawScope.drawTulip(base: Offset, s: Float, level: Int) {
-    val top = Offset(base.x, base.y - s * (0.38f + level * 0.045f))
-    drawLine(Color(0xFF4AA66D), base, top, s * 0.060f)
-    drawLeaf(Offset(base.x, base.y - s * 0.16f), s * 0.22f, left = true, color = Color(0xFF65C783))
-    if (level >= 3) drawLeaf(Offset(base.x, base.y - s * 0.26f), s * 0.20f, left = false, color = Color(0xFF65C783))
-    if (level >= 4) {
-        val bloomPath = Path().apply {
-            moveTo(top.x, top.y + s * 0.17f)
-            cubicTo(top.x - s * 0.22f, top.y + s * 0.04f, top.x - s * 0.20f, top.y - s * 0.23f, top.x - s * 0.02f, top.y - s * 0.16f)
-            cubicTo(top.x, top.y - s * 0.31f, top.x + s * 0.08f, top.y - s * 0.28f, top.x + s * 0.10f, top.y - s * 0.13f)
-            cubicTo(top.x + s * 0.26f, top.y - s * 0.20f, top.x + s * 0.24f, top.y + s * 0.05f, top.x, top.y + s * 0.17f)
-            close()
-        }
-        drawPath(bloomPath, if (level >= 5) Color(0xFFFFC26B) else Color(0xFFFFDDA1))
-        if (level >= 5) {
-            drawCircle(Color.White.copy(alpha = 0.35f), s * 0.035f, Offset(top.x - s * 0.06f, top.y - s * 0.05f))
-            drawCircle(Color(0xFFFFD54F), s * 0.025f, Offset(top.x + s * 0.20f, top.y - s * 0.24f))
-        }
-    }
-}
-
-private fun DrawScope.drawPitcherPlant(base: Offset, s: Float, level: Int) {
-    val top = Offset(base.x, base.y - s * (0.30f + level * 0.035f))
-    drawLine(Color(0xFF4D9A70), base, top, s * 0.052f)
-    drawLeaf(Offset(base.x, base.y - s * 0.18f), s * 0.20f, left = true, color = Color(0xFF6BC47E))
-    drawLeaf(Offset(base.x, base.y - s * 0.26f), s * 0.18f, left = false, color = Color(0xFF6BC47E))
-    if (level >= 3) drawLeaf(Offset(base.x, base.y - s * 0.40f), s * 0.18f, left = true, color = Color(0xFF6BC47E))
-    if (level >= 4) drawPitcher(Offset(base.x + s * 0.16f, base.y - s * 0.30f), s * 0.18f)
-    if (level >= 5) {
-        drawPitcher(Offset(base.x - s * 0.18f, base.y - s * 0.24f), s * 0.16f)
-        drawPitcher(Offset(base.x + s * 0.02f, base.y - s * 0.48f), s * 0.14f)
-    }
-}
-
-private fun DrawScope.drawPitcher(center: Offset, r: Float) {
-    drawRoundRect(
-        color = Color(0xFF8BD36D),
-        topLeft = Offset(center.x - r * 0.45f, center.y - r * 0.15f),
-        size = Size(r * 0.90f, r * 1.10f),
-        cornerRadius = CornerRadius(r * 0.25f)
-    )
-    drawOval(Color(0xFFFFA0A7), Offset(center.x - r * 0.48f, center.y - r * 0.30f), Size(r * 0.96f, r * 0.32f))
-    drawLine(Color(0xFF4D9A70), Offset(center.x, center.y - r * 0.30f), Offset(center.x - r * 0.30f, center.y - r * 0.70f), r * 0.10f)
-}
-
-private fun DrawScope.drawLeaf(anchor: Offset, sizeValue: Float, left: Boolean, color: Color = Color(0xFF5BBE72)) {
-    val sign = if (left) -1f else 1f
-    val p = Path().apply {
-        moveTo(anchor.x, anchor.y)
-        cubicTo(anchor.x + sign * sizeValue * 0.8f, anchor.y - sizeValue * 0.45f, anchor.x + sign * sizeValue * 1.2f, anchor.y + sizeValue * 0.25f, anchor.x, anchor.y + sizeValue * 0.45f)
-        cubicTo(anchor.x + sign * sizeValue * 0.25f, anchor.y + sizeValue * 0.10f, anchor.x + sign * sizeValue * 0.25f, anchor.y - sizeValue * 0.10f, anchor.x, anchor.y)
-        close()
-    }
-    drawPath(p, color)
-}
-
-private fun DrawScope.drawBloom(center: Offset, radius: Float, color: Color) {
-    repeat(6) { index ->
-        val angle = Math.toRadians((index * 60).toDouble())
-        val petalCenter = Offset(
-            center.x + kotlin.math.cos(angle).toFloat() * radius * 0.72f,
-            center.y + kotlin.math.sin(angle).toFloat() * radius * 0.72f
-        )
-        drawCircle(color, radius * 0.44f, petalCenter)
-    }
-    drawCircle(Color(0xFFFFD54F), radius * 0.36f, center)
-    drawCircle(Color.White.copy(alpha = 0.45f), radius * 0.14f, Offset(center.x - radius * 0.12f, center.y - radius * 0.12f))
-}
-
-private fun plantColor(emotionId: String): Color {
-    return when (GardenRepository.normalizeEmotionId(emotionId)) {
-        "happy" -> Color(0xFFFFD64D)
-        "sad" -> Color(0xFF6CB8FF)
-        "angry" -> Color(0xFFFF8A55)
-        "fear" -> Color(0xFF9D8CFF)
-        "surprise" -> Color(0xFFFFC26B)
-        "disgust" -> Color(0xFF8BD36D)
-        else -> Color(0xFF7CC8FF)
     }
 }
 

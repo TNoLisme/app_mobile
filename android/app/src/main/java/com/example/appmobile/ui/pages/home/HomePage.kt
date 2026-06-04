@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -121,7 +120,16 @@ fun HomePage(
         TodayLearningCard(
             emotionId = state.recommendedEmotionId,
             onStartLearn = startLearningAction,
-            onStartChallenge = challengeAction
+            onStartChallenge = challengeAction,
+            recentGames = state.recentGames,
+            onPlayNow = { onNavigateToGame("all") },
+            onOpenRecentGame = { game ->
+                if (!game.id.isNullOrBlank()) {
+                    onNavigateToLevel(game.id)
+                } else {
+                    onNavigateToGame(gameCategory(game))
+                }
+            }
         )
 
         EmotionGardenCtaCard(
@@ -136,19 +144,6 @@ fun HomePage(
         )
 
         PhotoBoothCtaCard(onStart = onNavigateToPhotoBooth)
-
-        RecentGamesSection(
-            games = state.recentGames,
-            onPlayNow = { onNavigateToGame("all") },
-            onViewAll = { onNavigateToGame("all") },
-            onOpenGame = { game ->
-                if (!game.id.isNullOrBlank()) {
-                    onNavigateToLevel(game.id)
-                } else {
-                    onNavigateToGame(gameCategory(game))
-                }
-            }
-        )
     }
 }
 
@@ -336,7 +331,10 @@ private fun GreetingSection(childName: String?) {
 private fun TodayLearningCard(
     emotionId: String,
     onStartLearn: () -> Unit,
-    onStartChallenge: () -> Unit
+    onStartChallenge: () -> Unit,
+    recentGames: List<HomeRecentGameUi>,
+    onPlayNow: () -> Unit,
+    onOpenRecentGame: (HomeRecentGameUi) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -379,6 +377,11 @@ private fun TodayLearningCard(
                 HomeActionPill("Bắt đầu học", onStartLearn, Modifier.weight(1f), primary = true)
                 HomeActionPill("Chơi thử thách", onStartChallenge, Modifier.weight(1f), primary = false)
             }
+            RecentGamesInsideTodayCard(
+                games = recentGames,
+                onPlayNow = onPlayNow,
+                onOpenGame = onOpenRecentGame
+            )
         }
     }
 }
@@ -435,95 +438,89 @@ private fun ReportCtaCard(
 }
 
 @Composable
-private fun RecentGamesSection(
+private fun RecentGamesInsideTodayCard(
     games: List<HomeRecentGameUi>,
     onPlayNow: () -> Unit,
-    onViewAll: () -> Unit,
     onOpenGame: (HomeRecentGameUi) -> Unit
 ) {
-    Column(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        shape = RoundedCornerShape(18.dp),
+        color = HomeCard,
+        border = BorderStroke(1.dp, HomeCardBorder)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SectionTitle("Trò chơi gần đây", modifier = Modifier.weight(1f))
-            if (games.size > 2) {
-                TextButton(onClick = onViewAll) {
-                    Text("Xem tất cả", color = HomeBlue, fontWeight = FontWeight.Bold)
-                }
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                EgVectorEmojiIcon("gamepad", size = 20.dp)
+                Text(
+                    text = "Trò chơi gần đây",
+                    color = HomeTextPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.weight(1f)
+                )
             }
-        }
-
-        if (games.isEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(EgDesign.radiusLarge),
-                colors = CardDefaults.cardColors(containerColor = HomeCard),
-                border = BorderStroke(1.dp, HomeCardBorder)
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+            if (games.isEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
                         text = "Bé chưa chơi game nào gần đây.",
                         color = HomeTextSecondary,
-                        fontSize = 14.sp
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f)
                     )
                     HomeActionPill("Chơi ngay", onPlayNow, primary = true)
                 }
+            } else {
+                games.take(2).forEach { game ->
+                    RecentGameCompactRow(game = game, onClick = { onOpenGame(game) })
+                }
             }
-            return
-        }
-
-        games.take(2).forEach { game ->
-            RecentGameRowCard(game = game, onClick = { onOpenGame(game) })
         }
     }
 }
 
 @Composable
-private fun RecentGameRowCard(game: HomeRecentGameUi, onClick: () -> Unit) {
-    Card(
+private fun RecentGameCompactRow(game: HomeRecentGameUi, onClick: () -> Unit) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 82.dp)
-            .egTactileClick(onClick = onClick),
-        shape = RoundedCornerShape(EgDesign.radiusLarge),
-        colors = CardDefaults.cardColors(containerColor = HomeCard),
-        border = BorderStroke(1.dp, HomeCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(HomeCardSoft)
+            .egTactileClick(onClick = onClick)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Image(
-                painter = painterResource(id = gameImageRes(game)),
-                contentDescription = game.name,
-                modifier = Modifier
-                    .size(62.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop
+        Image(
+            painter = painterResource(id = gameImageRes(game)),
+            contentDescription = game.name,
+            modifier = Modifier
+                .size(46.dp)
+                .clip(RoundedCornerShape(10.dp)),
+            contentScale = ContentScale.Crop
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = game.name,
+                color = HomeTextPrimary,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    text = game.name,
-                    color = HomeTextPrimary,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = if (game.lastPlayed.isNotBlank()) "Chơi gần đây" else "Tiếp tục",
-                    color = HomeTextSecondary,
-                    fontSize = 12.sp
-                )
-            }
-            EgVectorEmojiIcon("next", size = 20.dp, tint = HomeTextSecondary)
+            Text(
+                text = if (game.lastPlayed.isNotBlank()) "Chơi gần đây" else "Tiếp tục",
+                color = HomeTextSecondary,
+                fontSize = 11.sp
+            )
         }
+        EgVectorEmojiIcon("next", size = 18.dp, tint = HomeTextSecondary)
     }
 }
 
@@ -556,17 +553,6 @@ private fun HomeActionPill(
             )
         }
     }
-}
-
-@Composable
-private fun SectionTitle(title: String, modifier: Modifier = Modifier) {
-    Text(
-        text = title,
-        modifier = modifier,
-        color = HomeTextPrimary,
-        fontSize = 18.sp,
-        fontWeight = FontWeight.ExtraBold
-    )
 }
 
 @Composable
