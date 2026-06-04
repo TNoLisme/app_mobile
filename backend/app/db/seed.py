@@ -4,10 +4,10 @@ from sqlalchemy.orm import Session
 from app.models.game import EmotionConcept, Game, GameContent
 
 
-GAME_RECOGNIZE_EMOTION = "3bcb2108-721c-4a15-a585-31f3084ed000"
+GAME_RECOGNIZE_EMOTION = "3bcb2108-721c-4a15-a585-31f084ed0000"
 GAME_FACE_ASSEMBLY = "33ecafaa-ec7e-40d2-9c67-ed0a29ac0051"
-GAME_EMOTION_MATCH = "08bbffbf-d147-4556-bccb-b7621cafbf15"
-GAME_DETECTIVE = "aacaf79e-e15e-42a9-a3d1-a522720d919b"
+GAME_EMOTION_MATCH = "aacaf79e-e15e-42a9-a3d1-a522720d919b"
+GAME_DETECTIVE = "08bbffbf-d147-4556-bccb-b7621cafbf15"
 GAME_CV_STORY = "e05909f3-3dee-42a6-9a75-fd985b1bdf47"
 GAME_CV_REQUEST = "61f5e09e-eefa-44c1-86e1-87dfceac3b8e"
 
