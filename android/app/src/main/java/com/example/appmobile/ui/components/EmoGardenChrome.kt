@@ -3,18 +3,17 @@ package com.example.appmobile.ui.components
 import android.content.Context
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,17 +21,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
+import com.example.appmobile.R
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -45,7 +45,8 @@ fun DraggableAssistantBubble(onClick: () -> Unit, modifier: Modifier = Modifier)
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val scope = rememberCoroutineScope()
-    val bubblePx = with(density) { 58.dp.toPx() }
+    val bubbleSize = 64.dp
+    val bubblePx = with(density) { bubbleSize.toPx() }
     val edgePx = with(density) { 12.dp.toPx() }
     val topPx = with(density) { 24.dp.toPx() }
     val bottomPx = edgePx
@@ -74,16 +75,32 @@ fun DraggableAssistantBubble(onClick: () -> Unit, modifier: Modifier = Modifier)
         )
     }
     var isDragging by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val bubbleImage = if (isDragging || isPressed) {
+        R.drawable.assistant_bubble_active
+    } else {
+        R.drawable.assistant_bubble_idle
+    }
+    val bubbleScale by animateFloatAsState(
+        targetValue = if (isDragging || isPressed) 1.08f else 1f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 520f),
+        label = "assistantBubbleScale"
+    )
 
     LaunchedEffect(screenWidth, screenHeight) {
         offset.snapTo(clamp(offset.value))
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        Surface(
+        Image(
+            painter = painterResource(id = bubbleImage),
+            contentDescription = "Mầm Mầm",
+            contentScale = ContentScale.Fit,
             modifier = Modifier
                 .offset { IntOffset(offset.value.x.roundToInt(), offset.value.y.roundToInt()) }
-                .size(58.dp)
+                .size(bubbleSize)
+                .scale(bubbleScale)
                 .pointerInput(screenWidth, screenHeight) {
                     detectDragGestures(
                         onDragStart = {
@@ -112,26 +129,12 @@ fun DraggableAssistantBubble(onClick: () -> Unit, modifier: Modifier = Modifier)
                         }
                     )
                 }
-                .clickable(enabled = !isDragging, onClick = onClick),
-            shape = CircleShape,
-            color = Color.Transparent,
-            border = BorderStroke(1.dp, EgDesign.primary.copy(alpha = 0.40f)),
-            shadowElevation = if (isDragging) 8.dp else 4.dp
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(Color.White, Color(0xFFEAF7FF), Color(0xFFBEE7FF)),
-                        ),
-                        CircleShape
-                    )
-                    .padding(6.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                EgAssistantMascot(size = 44.dp, speaking = isDragging)
-            }
-        }
+                .clickable(
+                    enabled = !isDragging,
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick
+                )
+        )
     }
 }

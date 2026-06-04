@@ -60,7 +60,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -486,13 +485,10 @@ private fun AssistantIntroCard(chatContext: AppChatContext) {
         ) {
             Box(
                 modifier = Modifier
-                    .height(64.dp)
-                    .widthIn(min = 64.dp)
-                    .clip(CircleShape)
-                    .background(EgDesign.accentSoft),
+                    .size(64.dp),
                 contentAlignment = Alignment.Center
             ) {
-                EgAssistantMascot(size = 58.dp)
+                EgAssistantMascot(size = 64.dp)
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -665,17 +661,10 @@ private fun AssistantTypingBubble() {
 @Composable
 private fun AssistantMascotAvatar(speaking: Boolean = false) {
     Box(
-        modifier = Modifier
-            .size(42.dp)
-            .clip(CircleShape)
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(Color.White, Color(0xFFFFF0B8), EgDesign.accentSoft)
-                )
-            ),
+        modifier = Modifier.size(42.dp),
         contentAlignment = Alignment.Center
     ) {
-        EgAssistantMascot(size = 38.dp, speaking = speaking)
+        EgAssistantMascot(size = 42.dp, speaking = speaking)
     }
 }
 
