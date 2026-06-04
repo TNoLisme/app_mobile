@@ -1,6 +1,8 @@
 package com.example.appmobile.ui.catalog
 
 import com.example.appmobile.R
+import java.text.Normalizer
+import java.util.Locale
 
 data class GameUiItem(
     val id: String,
@@ -37,6 +39,8 @@ object GameUiCatalog {
     const val GAME_DETECTIVE = "08bbffbf-d147-4556-bccb-b7621cafbf15"
     const val GAME_CV_STORY = "e05909f3-3dee-42a6-9a75-fd985b1bdf47"
     const val GAME_CV_REQUEST = "61f5e09e-eefa-44c1-86e1-87dfceac3b8e"
+
+    private const val LEGACY_RECOGNIZE_EMOTION = "3bcb2108-721c-4a15-a585-31f3084ed000"
 
     val games = listOf(
         GameUiItem(
@@ -110,15 +114,21 @@ object GameUiCatalog {
 
     fun gamesByType(type: String): List<GameUiItem> = games.filter { it.type == type }
 
-    fun gameById(id: String): GameUiItem? = games.firstOrNull { it.id.equals(id, ignoreCase = true) }
+    fun gameById(id: String): GameUiItem? {
+        val canonicalId = when (id.lowercase(Locale.ROOT)) {
+            LEGACY_RECOGNIZE_EMOTION -> GAME_RECOGNIZE_EMOTION
+            else -> id
+        }
+        return gameByCanonicalId(canonicalId)
+    }
 
     fun isClickGame(id: String): Boolean = gameById(id)?.type == "click_game"
 
     fun emotionById(id: String): EmotionUiItem? = emotions.firstOrNull { it.id == id }
 
     fun gameFromBackend(id: String, title: String, type: String, maxLevel: Int): GameUiItem {
-        val normalizedId = id.lowercase()
-        val fallback = gameById(normalizedId)
+        val fallback = gameByBackendTitle(title) ?: gameById(id)
+        val normalizedId = fallback?.id ?: id.lowercase(Locale.ROOT)
         return GameUiItem(
             id = normalizedId,
             title = fallback?.title ?: title.ifBlank { "Trò chơi" },
@@ -127,6 +137,16 @@ object GameUiCatalog {
             imageRes = fallback?.imageRes ?: R.drawable.logo_emo,
             maxLevel = maxLevel.takeIf { it > 0 } ?: fallback?.maxLevel ?: 1
         )
+    }
+
+    fun normalizeGameList(items: List<GameUiItem>): List<GameUiItem> {
+        val order = games.mapIndexed { index, game -> game.id to index }.toMap()
+        return items
+            .distinctBy { it.id.lowercase(Locale.ROOT) }
+            .sortedWith(
+                compareBy<GameUiItem> { order[it.id] ?: Int.MAX_VALUE }
+                    .thenBy { it.title }
+            )
     }
 
     fun emotionFromBackend(id: String, title: String, description: String): EmotionUiItem {
@@ -140,9 +160,40 @@ object GameUiCatalog {
     }
 
     fun levelsForGame(gameId: String): List<LevelUiItem> {
-        if (gameId.equals(GAME_CV_STORY, ignoreCase = true)) return cvStoryLevels()
-        val maxLevel = games.firstOrNull { it.id.equals(gameId, ignoreCase = true) }?.maxLevel ?: return emptyList()
+        val game = gameById(gameId) ?: return emptyList()
+        if (game.id.equals(GAME_CV_STORY, ignoreCase = true)) return cvStoryLevels()
+        val maxLevel = game.maxLevel
         return levelsForMaxLevel(maxLevel)
+    }
+
+    private fun gameByCanonicalId(id: String): GameUiItem? {
+        return games.firstOrNull { it.id.equals(id, ignoreCase = true) }
+    }
+
+    private fun gameByBackendTitle(title: String): GameUiItem? {
+        val key = normalizedSearchKey(title)
+        return when {
+            "chiec" in key || "hop cam xuc" in key || "nhan dien" in key -> gameByCanonicalId(GAME_RECOGNIZE_EMOTION)
+            "xuong" in key || "lap ghep" in key -> gameByCanonicalId(GAME_FACE_ASSEMBLY)
+            "dung cho" in key -> gameByCanonicalId(GAME_EMOTION_MATCH)
+            "tham tu" in key -> gameByCanonicalId(GAME_DETECTIVE)
+            "cau chuyen" in key || "khuon mat" in key -> gameByCanonicalId(GAME_CV_STORY)
+            "thu thach" in key || "bieu cam" in key -> gameByCanonicalId(GAME_CV_REQUEST)
+            else -> null
+        }
+    }
+
+    private fun normalizedSearchKey(value: String): String {
+        val source = if (value.contains("Ã") || value.contains("Ä") || value.contains("áº")) {
+            runCatching { String(value.toByteArray(Charsets.ISO_8859_1), Charsets.UTF_8) }
+                .getOrDefault(value)
+        } else {
+            value
+        }
+        return Normalizer
+            .normalize(source, Normalizer.Form.NFD)
+            .replace(Regex("\\p{Mn}+"), "")
+            .lowercase(Locale.ROOT)
     }
 
     private fun cvStoryLevels(): List<LevelUiItem> {
