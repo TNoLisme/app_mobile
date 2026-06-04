@@ -96,7 +96,6 @@ import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.GameScreenShell
-import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

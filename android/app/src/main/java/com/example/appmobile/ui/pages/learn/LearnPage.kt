@@ -66,9 +66,14 @@ import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgTab
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
+import com.example.appmobile.ui.components.EgEmotionCardBackground
+import com.example.appmobile.ui.components.EgEmotionCardBorder
+import com.example.appmobile.ui.components.EgEmotionCardSelectedBackground
+import com.example.appmobile.ui.components.EgEmotionCardSelectedBorder
+import com.example.appmobile.ui.components.EgEmotionCardSelectedText
+import com.example.appmobile.ui.components.EgEmotionCardText
 import com.example.appmobile.ui.components.egEmotionDisplayName
 import com.example.appmobile.ui.components.egEmotionKey
-import com.example.appmobile.ui.components.egEmotionPastelColor
 import com.example.appmobile.ui.components.egLearningEmotionGridItems
 import com.example.appmobile.ui.components.egTactileClick
 import com.example.appmobile.ui.state.AppSettingsState
@@ -285,15 +290,18 @@ private fun EmotionGridItem(
     modifier: Modifier = Modifier
 ) {
     val key = egEmotionKey(emotion)
-    val backgroundColor = if (selected) EgDesign.cardSoft else egEmotionPastelColor(key)
+    val backgroundColor = if (selected) EgEmotionCardSelectedBackground else EgEmotionCardBackground
     Surface(
         modifier = modifier
             .height(72.dp)
             .egTactileClick(onClick = onClick),
-        shape = RoundedCornerShape(EgDesign.radiusLarge),
+        shape = RoundedCornerShape(16.dp),
         color = backgroundColor,
-        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
-        shadowElevation = if (selected) 3.dp else 1.dp
+        border = BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) EgEmotionCardSelectedBorder else EgEmotionCardBorder
+        ),
+        shadowElevation = if (selected) 2.dp else 1.dp
     ) {
         Box(
             modifier = Modifier
@@ -306,10 +314,11 @@ private fun EmotionGridItem(
                         .align(Alignment.TopEnd)
                         .size(20.dp),
                     shape = CircleShape,
-                    color = EgDesign.primary
+                    color = Color.White,
+                    border = BorderStroke(1.dp, EgEmotionCardSelectedBorder.copy(alpha = 0.24f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        EgVectorEmojiIcon("check", size = 12.dp)
+                        EgVectorEmojiIcon("check", size = 12.dp, tint = EgEmotionCardSelectedBorder)
                     }
                 }
             }
@@ -321,7 +330,7 @@ private fun EmotionGridItem(
                 EgEmotionVectorIcon(key, size = 34.dp)
                 Text(
                     text = egEmotionDisplayName(emotion),
-                    color = EgDesign.textPrimary,
+                    color = if (selected) EgEmotionCardSelectedText else EgEmotionCardText,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 12.sp,
                     lineHeight = 15.sp,

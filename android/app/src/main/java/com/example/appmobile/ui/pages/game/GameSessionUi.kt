@@ -49,6 +49,10 @@ import com.example.appmobile.R
 import com.example.appmobile.data.remote.dto.GameContentOptionDto
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgEmotionCardBackground
+import com.example.appmobile.ui.components.EgEmotionCardBorder
+import com.example.appmobile.ui.components.EgEmotionCardSelectedBackground
+import com.example.appmobile.ui.components.EgEmotionCardSelectedBorder
 import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.egTactileClick
@@ -224,17 +228,18 @@ fun ClickEmotionOptionCard(
     compact: Boolean = false,
     onClick: () -> Unit
 ) {
+    val neutralState = visualState.borderColor == EgEmotionCardBorder
     Surface(
         modifier = modifier
             .egTactileClick(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(EgDesign.radiusMedium),
         color = visualState.containerColor,
         border = BorderStroke(
-            width = if (visualState.borderColor == EgDesign.cardBorder) 1.dp else 2.dp,
+            width = if (neutralState) 1.dp else 2.dp,
             color = visualState.borderColor
         ),
         tonalElevation = 0.dp,
-        shadowElevation = if (visualState.borderColor == EgDesign.cardBorder) 0.dp else 1.dp
+        shadowElevation = if (neutralState) 0.dp else 1.dp
     ) {
         Row(
             modifier = Modifier
@@ -610,12 +615,12 @@ fun answerVisualState(
             containerColor = EgDesign.danger.copy(alpha = if (isDark) 0.18f else 0.12f)
         )
         isSelected -> AnswerVisualState(
-            borderColor = EgDesign.primary,
-            containerColor = EgDesign.cardSoft
+            borderColor = EgEmotionCardSelectedBorder,
+            containerColor = EgEmotionCardSelectedBackground
         )
         else -> AnswerVisualState(
-            borderColor = EgDesign.cardBorder,
-            containerColor = EgDesign.card
+            borderColor = EgEmotionCardBorder,
+            containerColor = EgEmotionCardBackground
         )
     }
 }

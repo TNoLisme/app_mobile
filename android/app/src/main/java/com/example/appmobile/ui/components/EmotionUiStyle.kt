@@ -3,9 +3,15 @@ package com.example.appmobile.ui.components
 import androidx.compose.ui.graphics.Color
 import com.example.appmobile.ui.catalog.EmotionUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
-import com.example.appmobile.ui.state.AppSettingsState
 
 val EgEmotionDisplayOrder = listOf("happy", "sad", "angry", "fear", "surprise", "disgust")
+
+val EgEmotionCardBackground = Color(0xFFF8FBFF)
+val EgEmotionCardSelectedBackground = Color(0xFFF3F9FF)
+val EgEmotionCardBorder = Color(0xFFDCE7F2)
+val EgEmotionCardSelectedBorder = Color(0xFF2F80ED)
+val EgEmotionCardText = Color(0xFF1F2A44)
+val EgEmotionCardSelectedText = Color(0xFF0B3D91)
 
 fun egEmotionKey(emotion: EmotionUiItem): String {
     val idKey = egEmotionKey(emotion.id)
@@ -65,30 +71,6 @@ fun egEmotionIcon(value: String): String {
         "surprise" -> "surprise"
         "disgust" -> "disgust"
         else -> "neutral"
-    }
-}
-
-fun egEmotionPastelColor(value: String): Color {
-    val dark = AppSettingsState.activeDarkTheme.value
-    if (dark) {
-        return when (egEmotionKey(value)) {
-            "happy" -> Color(0xFF4A3D16)
-            "sad" -> Color(0xFF173B54)
-            "angry" -> Color(0xFF51222B)
-            "fear" -> Color(0xFF352B59)
-            "surprise" -> Color(0xFF51351B)
-            "disgust" -> Color(0xFF1E4A32)
-            else -> Color(0xFF263241)
-        }
-    }
-    return when (egEmotionKey(value)) {
-        "happy" -> Color(0xFFFFF7CC)
-        "sad" -> Color(0xFFE0F2FE)
-        "angry" -> Color(0xFFFFE4E6)
-        "fear" -> Color(0xFFEDE9FE)
-        "surprise" -> Color(0xFFFFEDD5)
-        "disgust" -> Color(0xFFDCFCE7)
-        else -> Color(0xFFF4F4F5)
     }
 }
 

@@ -83,6 +83,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgEmotionCardBackground
+import com.example.appmobile.ui.components.EgEmotionCardBorder
+import com.example.appmobile.ui.components.EgEmotionCardSelectedBackground
+import com.example.appmobile.ui.components.EgEmotionCardSelectedBorder
+import com.example.appmobile.ui.components.EgEmotionCardSelectedText
+import com.example.appmobile.ui.components.EgEmotionCardText
 import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgGradientPill
 import com.example.appmobile.ui.components.EgSoftCard
@@ -653,9 +659,14 @@ private fun EmotionSelectCard(
         modifier = modifier
             .height(116.dp)
             .egTactileClick(onClick = onClick),
-        shape = RoundedCornerShape(EgDesign.radiusLarge),
-        colors = CardDefaults.cardColors(containerColor = if (selected) EgDesign.cardSoft else EgDesign.card),
-        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) EgDesign.primaryDark else EgDesign.cardBorder),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) EgEmotionCardSelectedBackground else EgEmotionCardBackground
+        ),
+        border = BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) EgEmotionCardSelectedBorder else EgEmotionCardBorder
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 1.dp)
     ) {
         Box(Modifier.fillMaxSize().padding(12.dp)) {
@@ -665,16 +676,27 @@ private fun EmotionSelectCard(
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 EgEmotionVectorIcon(emotion.id, size = 42.dp)
-                Text(emotion.name, color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                Text(
+                    emotion.name,
+                    color = if (selected) EgEmotionCardSelectedText else EgEmotionCardText,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp
+                )
             }
             order?.let {
                 Surface(
                     modifier = Modifier.align(Alignment.TopEnd).size(26.dp),
                     shape = CircleShape,
-                    color = EgDesign.primaryDark
+                    color = Color.White,
+                    border = BorderStroke(1.dp, EgEmotionCardSelectedBorder.copy(alpha = 0.24f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("$it", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                        Text(
+                            "$it",
+                            color = EgEmotionCardSelectedBorder,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }
