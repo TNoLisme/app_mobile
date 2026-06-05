@@ -16,6 +16,7 @@ class AuthViewModel(private val userRepository: UserRepository) : ViewModel() {
         username: String? = null,
         dateOfBirth: String? = null,
         phoneNumber: String? = null,
+        reportPreferences: String? = null,
         onResult: (Boolean, String?) -> Unit
     ) {
         viewModelScope.launch {
@@ -27,7 +28,8 @@ class AuthViewModel(private val userRepository: UserRepository) : ViewModel() {
                 gender = gender,
                 username = username,
                 dateOfBirth = dateOfBirth,
-                phoneNumber = phoneNumber
+                phoneNumber = phoneNumber,
+                reportPreferences = reportPreferences
             )
             if (result.isSuccess) {
                 onResult(true, null)

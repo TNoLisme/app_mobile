@@ -1,5 +1,6 @@
 package com.example.appmobile.ui.pages.auth
 
+import android.app.DatePickerDialog
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -23,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
@@ -53,6 +56,7 @@ import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.viewmodel.AuthViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -71,11 +75,34 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
     var username by remember { mutableStateOf("") }
     var accountEmail by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var gender by remember { mutableStateOf("male") }
     var dateOfBirth by remember { mutableStateOf("") }
     var parentPhone by remember { mutableStateOf("") }
+    var parentReportEmail by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    val dateFormatter = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false } }
+
+    fun showDatePicker() {
+        focusManager.clearFocus()
+        val calendar = Calendar.getInstance()
+        runCatching { dateFormatter.parse(dateOfBirth) }
+            .getOrNull()
+            ?.let { calendar.time = it }
+        DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                dateOfBirth = String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, day)
+                errorMessage = null
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).apply {
+            datePicker.maxDate = Calendar.getInstance().timeInMillis
+        }.show()
+    }
 
     Box(
         modifier = Modifier
@@ -170,6 +197,8 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
                         label = "Mật khẩu",
                         placeholder = "Tối thiểu 8 ký tự",
                         isPassword = true,
+                        passwordVisible = passwordVisible,
+                        onTogglePasswordVisibility = { passwordVisible = !passwordVisible },
                         keyboardType = KeyboardType.Password,
                         imeAction = ImeAction.Next
                     )
@@ -184,13 +213,24 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
 
                     RegisterTextField(
                         value = dateOfBirth,
+                        onValueChange = {},
+                        label = "Ngày sinh",
+                        placeholder = "Chọn ngày sinh của bé",
+                        readOnly = true,
+                        trailingIconKey = "calendar",
+                        onClick = { showDatePicker() },
+                        imeAction = ImeAction.Next
+                    )
+
+                    RegisterTextField(
+                        value = parentReportEmail,
                         onValueChange = {
-                            dateOfBirth = it.take(10)
+                            parentReportEmail = it
                             errorMessage = null
                         },
-                        label = "Ngày sinh (yyyy-mm-dd)",
-                        placeholder = "Ví dụ: 2018-05-20",
-                        keyboardType = KeyboardType.Number,
+                        label = "Email phụ huynh nhận báo cáo (không bắt buộc)",
+                        placeholder = "phuhuynh@email.com",
+                        keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next
                     )
 
@@ -233,7 +273,8 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
                                     password = password,
                                     dateOfBirth = dateOfBirth,
                                     age = age,
-                                    phone = parentPhone
+                                    phone = parentPhone,
+                                    parentReportEmail = parentReportEmail
                                 )
                                 if (validation != null) {
                                     errorMessage = validation
@@ -253,7 +294,8 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
                                     gender = gender,
                                     username = username.trim(),
                                     dateOfBirth = dateOfBirth.trim(),
-                                    phoneNumber = parentPhone.trim().ifBlank { null }
+                                    phoneNumber = parentPhone.trim().ifBlank { null },
+                                    reportPreferences = buildReportPreferences(parentReportEmail)
                                 ) { success, error ->
                                     isLoading = false
                                     if (success) {
@@ -319,18 +361,51 @@ private fun RegisterTextField(
     label: String,
     placeholder: String,
     isPassword: Boolean = false,
+    passwordVisible: Boolean = false,
+    onTogglePasswordVisibility: (() -> Unit)? = null,
+    readOnly: Boolean = false,
+    trailingIconKey: String? = null,
+    onClick: (() -> Unit)? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
     imeAction: ImeAction = ImeAction.Default
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         label = { Text(label) },
         placeholder = { Text(placeholder, color = EgDesign.textSecondary) },
         singleLine = true,
         shape = RoundedCornerShape(EgDesign.controlRadius),
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        readOnly = readOnly,
+        visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+        trailingIcon = when {
+            isPassword -> {
+                {
+                    IconButton(onClick = { onTogglePasswordVisibility?.invoke() }) {
+                        EgVectorEmojiIcon(
+                            value = "eye",
+                            size = 20.dp,
+                            tint = if (passwordVisible) EgDesign.primary else EgDesign.textSecondary
+                        )
+                    }
+                }
+            }
+            trailingIconKey != null -> {
+                {
+                    IconButton(onClick = { onClick?.invoke() }) {
+                        EgVectorEmojiIcon(
+                            value = trailingIconKey,
+                            size = 20.dp,
+                            tint = EgDesign.primary
+                        )
+                    }
+                }
+            }
+            else -> null
+        },
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = EgDesign.primary,
@@ -391,7 +466,8 @@ private fun validateRegister(
     password: String,
     dateOfBirth: String,
     age: Int?,
-    phone: String
+    phone: String,
+    parentReportEmail: String
 ): String? {
     if (name.isBlank() || username.isBlank() || email.isBlank() || password.isBlank() || dateOfBirth.isBlank()) {
         return "Vui lòng điền đầy đủ các mục bắt buộc."
@@ -403,7 +479,18 @@ private fun validateRegister(
     if (phone.isNotBlank() && !phone.matches(Regex("^\\d{9,11}$"))) {
         return "Số điện thoại phụ huynh chưa hợp lệ."
     }
+    if (parentReportEmail.isNotBlank() && !isValidEmail(parentReportEmail)) {
+        return "Email phụ huynh nhận báo cáo chưa hợp lệ."
+    }
     return null
+}
+
+private fun buildReportPreferences(parentReportEmail: String): String? {
+    val email = parentReportEmail.trim().takeIf { it.isNotBlank() } ?: return null
+    val escaped = email
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+    return "{\"parent_email\":\"$escaped\"}"
 }
 
 private fun calculateAge(dateOfBirth: String): Int? {

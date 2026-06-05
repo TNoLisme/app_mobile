@@ -241,23 +241,32 @@ fun ClickEmotionOptionCard(
         tonalElevation = 0.dp,
         shadowElevation = if (neutralState) 0.dp else 1.dp
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
                     horizontal = if (compact) 9.dp else 12.dp,
                     vertical = if (compact) 8.dp else 12.dp
                 ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            contentAlignment = Alignment.Center
         ) {
-            EgEmotionVectorIcon(emotionId, size = if (compact) 22.dp else 30.dp)
-            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(if (compact) 30.dp else 40.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                EgEmotionVectorIcon(emotionId, size = if (compact) 22.dp else 30.dp)
+            }
             Text(
                 emotionName,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = if (compact) 32.dp else 44.dp),
                 color = EgDesign.textPrimary,
                 fontWeight = FontWeight.Bold,
                 fontSize = if (compact) 13.sp else 15.sp,
+                textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

@@ -1,6 +1,10 @@
 package com.example.appmobile.ui.pages.auth
 
+import android.app.Activity
+import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -24,6 +29,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -54,6 +61,10 @@ import com.example.appmobile.data.remote.FirebaseAuthHelper
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.UserRepository
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.EgVectorEmojiIcon
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import kotlinx.coroutines.launch
 
 @Composable
@@ -69,9 +80,85 @@ fun LoginPage(
 
     var loginId by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var isGoogleLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showForgotDialog by remember { mutableStateOf(false) }
+    val googleWebClientId = remember(context) { findGoogleWebClientId(context) }
+    val googleSignInClient = remember(context, googleWebClientId) {
+        if (googleWebClientId.isBlank()) {
+            null
+        } else {
+            val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(googleWebClientId)
+                .requestEmail()
+                .build()
+            GoogleSignIn.getClient(context, options)
+        }
+    }
+    val googleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode != Activity.RESULT_OK) {
+            isGoogleLoading = false
+            return@rememberLauncherForActivityResult
+        }
+
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            val idToken = account.idToken
+            if (idToken.isNullOrBlank()) {
+                isGoogleLoading = false
+                errorMessage = "Chưa bật đăng nhập Google cho app này. Vui lòng kiểm tra cấu hình rồi thử lại."
+                return@rememberLauncherForActivityResult
+            }
+
+            authHelper.loginWithGoogleIdToken(idToken) { success, error ->
+                if (!success) {
+                    isGoogleLoading = false
+                    errorMessage = mapGoogleLoginError(error)
+                    return@loginWithGoogleIdToken
+                }
+
+                val firebaseUser = authHelper.auth.currentUser
+                val email = firebaseUser?.email ?: account.email
+                val userId = firebaseUser?.uid
+                if (userId.isNullOrBlank() || email.isNullOrBlank()) {
+                    authHelper.auth.signOut()
+                    isGoogleLoading = false
+                    errorMessage = "Google chưa trả về đủ thông tin tài khoản. Vui lòng thử lại."
+                    return@loginWithGoogleIdToken
+                }
+
+                scope.launch {
+                    val syncResult = userRepository.syncGoogleAccount(
+                        userId = userId,
+                        email = email,
+                        displayName = account.displayName ?: firebaseUser.displayName
+                    )
+                    isGoogleLoading = false
+                    syncResult.onSuccess { profile ->
+                        errorMessage = null
+                        AppSession.clear(context)
+                        profile.userId?.let { AppSession.saveBackendUserId(context, it) }
+                        Toast.makeText(context, "Đăng nhập Google thành công", Toast.LENGTH_SHORT).show()
+                        onLoginSuccess()
+                    }.onFailure {
+                        authHelper.auth.signOut()
+                        errorMessage = it.message ?: "Chưa đăng nhập được với Google. Vui lòng thử lại."
+                    }
+                }
+            }
+        } catch (error: ApiException) {
+            isGoogleLoading = false
+            errorMessage = mapGoogleLoginError(error)
+        } catch (error: Exception) {
+            isGoogleLoading = false
+            errorMessage = mapGoogleLoginError(error)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -143,6 +230,8 @@ fun LoginPage(
                         label = "Mật khẩu",
                         placeholder = "Nhập mật khẩu",
                         isPassword = true,
+                        passwordVisible = passwordVisible,
+                        onTogglePasswordVisibility = { passwordVisible = !passwordVisible },
                         keyboardType = KeyboardType.Password,
                         imeAction = ImeAction.Done
                     )
@@ -168,6 +257,7 @@ fun LoginPage(
                         CircularProgressIndicator(color = EgDesign.primary, modifier = Modifier.align(Alignment.CenterHorizontally))
                     } else {
                         Button(
+                            enabled = !isGoogleLoading,
                             onClick = {
                                 val validation = validateLogin(loginId, password)
                                 if (validation != null) {
@@ -211,6 +301,31 @@ fun LoginPage(
                         }
                     }
 
+                    AuthDivider()
+
+                    GoogleSignInButton(
+                        enabled = !isLoading && !isGoogleLoading,
+                        isLoading = isGoogleLoading,
+                        onClick = {
+                            if (googleSignInClient == null) {
+                                errorMessage = "Chưa bật đăng nhập Google cho app này. Vui lòng kiểm tra cấu hình rồi thử lại."
+                                return@GoogleSignInButton
+                            }
+                            isGoogleLoading = true
+                            errorMessage = null
+                            googleSignInClient.signOut().addOnCompleteListener {
+                                googleLauncher.launch(googleSignInClient.signInIntent)
+                            }
+                        }
+                    )
+
+                    FacebookSignInButton(
+                        enabled = !isLoading && !isGoogleLoading,
+                        onClick = {
+                            errorMessage = "Đăng nhập Facebook đang được chuẩn bị."
+                        }
+                    )
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center
@@ -241,12 +356,151 @@ fun LoginPage(
 }
 
 @Composable
+private fun AuthDivider() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = EgDesign.cardBorder
+        )
+        Text(
+            text = "Hoặc",
+            color = EgDesign.textSecondary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = EgDesign.cardBorder
+        )
+    }
+}
+
+@Composable
+private fun GoogleSignInButton(
+    enabled: Boolean,
+    isLoading: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        enabled = enabled,
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp),
+        shape = RoundedCornerShape(999.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, EgDesign.cardBorder),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = EgDesign.card,
+            contentColor = EgDesign.textPrimary,
+            disabledContainerColor = EgDesign.cardSoft,
+            disabledContentColor = EgDesign.textSecondary
+        )
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = EgDesign.primary
+            )
+            Spacer(modifier = Modifier.size(10.dp))
+            Text(
+                text = "Đang đăng nhập Google...",
+                fontWeight = FontWeight.Bold
+            )
+        } else {
+            GoogleLogoMark()
+            Spacer(modifier = Modifier.size(10.dp))
+            Text(
+                text = "Đăng nhập với Google",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 15.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun GoogleLogoMark() {
+    Surface(
+        modifier = Modifier.size(24.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = "G",
+                color = Color(0xFF4285F4),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun FacebookSignInButton(
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        enabled = enabled,
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp),
+        shape = RoundedCornerShape(999.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, EgDesign.cardBorder),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = EgDesign.card,
+            contentColor = EgDesign.textPrimary,
+            disabledContainerColor = EgDesign.cardSoft,
+            disabledContentColor = EgDesign.textSecondary
+        )
+    ) {
+        FacebookLogoMark()
+        Spacer(modifier = Modifier.size(10.dp))
+        Text(
+            text = "Đăng nhập với Facebook",
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 15.sp
+        )
+    }
+}
+
+@Composable
+private fun FacebookLogoMark() {
+    Surface(
+        modifier = Modifier.size(24.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFF1877F2)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = "f",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
 private fun AuthTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
     placeholder: String,
     isPassword: Boolean = false,
+    passwordVisible: Boolean = false,
+    onTogglePasswordVisibility: (() -> Unit)? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
     imeAction: ImeAction = ImeAction.Default
 ) {
@@ -258,7 +512,20 @@ private fun AuthTextField(
         placeholder = { Text(placeholder, color = EgDesign.textSecondary) },
         shape = RoundedCornerShape(EgDesign.controlRadius),
         singleLine = true,
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+        trailingIcon = if (isPassword) {
+            {
+                IconButton(onClick = { onTogglePasswordVisibility?.invoke() }) {
+                    EgVectorEmojiIcon(
+                        value = "eye",
+                        size = 20.dp,
+                        tint = if (passwordVisible) EgDesign.primary else EgDesign.textSecondary
+                    )
+                }
+            }
+        } else {
+            null
+        },
         keyboardOptions = KeyboardOptions(
             keyboardType = keyboardType,
             imeAction = imeAction
@@ -379,6 +646,15 @@ private fun isValidEmail(value: String): Boolean {
     return value.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
 }
 
+private fun findGoogleWebClientId(context: Context): String {
+    val resourceId = context.resources.getIdentifier(
+        "default_web_client_id",
+        "string",
+        context.packageName
+    )
+    return if (resourceId == 0) "" else context.getString(resourceId).trim()
+}
+
 private fun mapLoginError(error: Throwable): String {
     val message = (error.message ?: "").lowercase()
     return if (
@@ -391,5 +667,26 @@ private fun mapLoginError(error: Throwable): String {
         "Không kết nối được máy chủ. Kiểm tra backend và mạng rồi thử lại."
     } else {
         "Tên đăng nhập/email hoặc mật khẩu chưa đúng."
+    }
+}
+
+private fun mapGoogleLoginError(error: Throwable): String = mapGoogleLoginError(error.message)
+
+private fun mapGoogleLoginError(rawMessage: String?): String {
+    val message = (rawMessage ?: "").lowercase()
+    return when {
+        "developer_error" in message ||
+            "10:" in message ||
+            "default_web_client_id" in message ||
+            "id token" in message -> "Chưa bật đăng nhập Google cho app này. Vui lòng kiểm tra cấu hình rồi thử lại."
+        "failed to connect" in message ||
+            "unable to resolve host" in message ||
+            "timeout" in message ||
+            "cannot connect to backend" in message ||
+            "connection refused" in message ||
+            "không kết nối" in message ||
+            "máy chủ" in message ||
+            "mạng" in message -> "Không kết nối được máy chủ. Kiểm tra backend và mạng rồi thử lại."
+        else -> "Chưa đăng nhập được với Google. Vui lòng thử lại."
     }
 }

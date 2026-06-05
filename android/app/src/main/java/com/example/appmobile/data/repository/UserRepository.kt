@@ -13,6 +13,7 @@ import com.example.appmobile.data.remote.dto.RecentGameDto
 import com.example.appmobile.data.remote.dto.ReportPayloadDto
 import com.example.appmobile.data.remote.dto.ReportRequestDto
 import com.example.appmobile.data.remote.dto.SessionHistoryItemDto
+import com.example.appmobile.data.remote.dto.UserDto
 import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateRequestDto
@@ -30,13 +31,18 @@ class UserRepository(
 ) {
     private suspend fun saveProfileToLocal(profile: UserProfileDto) {
         val resolvedUserId = profile.userId?.takeIf { it.isNotBlank() } ?: return
+        val displayName = bestStoredDisplayName(
+            profile.email,
+            profile.name,
+            firebaseAuthHelper.auth.currentUser?.displayName
+        )
         userDao.insertUser(
             UserEntity(
                 userId = resolvedUserId,
                 username = profile.username,
                 email = profile.email.orEmpty(),
                 role = profile.role ?: "child",
-                name = profile.name,
+                name = displayName,
                 createdAt = profile.createdAt
             )
         )
@@ -87,6 +93,39 @@ class UserRepository(
             ?.takeIf { it.isNotBlank() && "@" in it }
     }
 
+    private fun cleanGoogleDisplayName(displayName: String?, fallbackEmail: String): String {
+        val fallback = fallbackEmail.substringBefore("@").ifBlank { "Local Player" }
+        val rawName = displayName
+            ?.trim()
+            ?.replace(Regex("\\s+"), " ")
+            ?.takeIf { it.isNotBlank() }
+            ?: fallback
+        val withoutProviderWord = rawName.replace(Regex("(?i)\\s*\\(?google\\)?\\s*$"), "").trim()
+        return if (
+            withoutProviderWord.endsWith("gg", ignoreCase = true) &&
+            withoutProviderWord.dropLast(2).contains(" ")
+        ) {
+            withoutProviderWord.dropLast(2).trim()
+        } else {
+            withoutProviderWord.ifBlank { fallback }
+        }
+    }
+
+    private fun cleanStoredDisplayName(displayName: String?, email: String?): String? {
+        val rawName = displayName?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return cleanGoogleDisplayName(rawName, email.orEmpty()).takeIf { it.isNotBlank() }
+    }
+
+    private fun bestStoredDisplayName(email: String?, vararg displayNames: String?): String? {
+        return displayNames
+            .mapNotNull { cleanStoredDisplayName(it, email) }
+            .distinct()
+            .maxWithOrNull(
+                compareBy<String> { name -> name.count { it.code > 127 } }
+                    .thenBy { name -> name.length }
+            )
+    }
+
     suspend fun registerNewAccount(
         email: String,
         pass: String,
@@ -95,7 +134,8 @@ class UserRepository(
         gender: String,
         username: String? = null,
         dateOfBirth: String? = null,
-        phoneNumber: String? = null
+        phoneNumber: String? = null,
+        reportPreferences: String? = null
     ): Result<String> {
         firebaseAuthHelper.auth.signOut()
         return registerWithBackend(
@@ -106,7 +146,8 @@ class UserRepository(
             gender = gender,
             username = username,
             dateOfBirth = dateOfBirth,
-            phoneNumber = phoneNumber
+            phoneNumber = phoneNumber,
+            reportPreferences = reportPreferences
         )
     }
 
@@ -118,7 +159,8 @@ class UserRepository(
         gender: String,
         username: String? = null,
         dateOfBirth: String? = null,
-        phoneNumber: String? = null
+        phoneNumber: String? = null,
+        reportPreferences: String? = null
     ): Result<String> {
         return try {
             val safeUsername = username?.takeIf { it.isNotBlank() } ?: email.substringBefore("@")
@@ -131,7 +173,8 @@ class UserRepository(
                     age = age,
                     gender = gender,
                     dateOfBirth = dateOfBirth,
-                    phoneNumber = phoneNumber
+                    phoneNumber = phoneNumber,
+                    reportPreferences = reportPreferences
                 )
             )
 
@@ -140,7 +183,7 @@ class UserRepository(
                 val currentTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
                 runCatching {
                     userDao.insertUser(UserEntity(uid, safeUsername, email, "child", name, currentTime))
-                    userDao.insertChild(ChildEntity(uid, age, gender, dateOfBirth, phoneNumber, null))
+                    userDao.insertChild(ChildEntity(uid, age, gender, dateOfBirth, phoneNumber, reportPreferences))
                 }
                 Result.success(uid)
             } else {
@@ -237,11 +280,79 @@ class UserRepository(
         }
     }
 
+    suspend fun syncGoogleAccount(
+        userId: String,
+        email: String,
+        displayName: String?
+    ): Result<UserProfileDto> {
+        return try {
+            val safeEmail = email.trim().takeIf { it.isNotBlank() && "@" in it }
+                ?: return Result.failure(Exception("Google chưa trả về email tài khoản."))
+            val safeName = cleanGoogleDisplayName(displayName, safeEmail)
+            val safeUsername = safeEmail.substringBefore("@").take(50)
+
+            val syncResponse = apiService.syncUser(
+                UserDto(
+                    userId = userId,
+                    username = safeUsername,
+                    email = safeEmail,
+                    role = "child",
+                    name = safeName,
+                    createdAt = null
+                )
+            )
+            if (!syncResponse.isSuccessful) {
+                return Result.failure(
+                    Exception(
+                        extractBackendErrorMessage(
+                            response = syncResponse,
+                            defaultMessage = "Chưa đồng bộ được tài khoản Google. Vui lòng thử lại."
+                        )
+                    )
+                )
+            }
+
+            val profile = (getProfile(userId) ?: UserProfileDto(
+                userId = userId,
+                username = safeUsername,
+                email = safeEmail,
+                role = "child",
+                name = safeName
+            )).let { fetchedProfile ->
+                val resolvedName = bestStoredDisplayName(safeEmail, safeName, fetchedProfile.name)
+                fetchedProfile.copy(name = resolvedName ?: safeName)
+            }
+            saveProfileToLocal(profile)
+            Result.success(profile)
+        } catch (e: Exception) {
+            val lower = (e.message ?: "").lowercase()
+            val friendly = when {
+                "failed to connect" in lower ||
+                    "cannot connect to backend" in lower ||
+                    "unable to resolve host" in lower ||
+                    "timeout" in lower ||
+                    "connection refused" in lower -> "Không kết nối được máy chủ. Kiểm tra backend và mạng rồi thử lại."
+                else -> e.message ?: "Chưa đăng nhập được với Google. Vui lòng thử lại."
+            }
+            Result.failure(Exception(friendly))
+        }
+    }
+
     suspend fun getProfile(userId: String): UserProfileDto? {
         return try {
             val response = apiService.getUserProfile(userId, currentAccountEmail())
             if (response.isSuccessful) {
-                response.body()?.also { saveProfileToLocal(it) } ?: getCachedProfile(userId)
+                response.body()?.let { profile ->
+                    val cleanedProfile = profile.copy(
+                        name = bestStoredDisplayName(
+                            profile.email,
+                            profile.name,
+                            firebaseAuthHelper.auth.currentUser?.displayName
+                        ) ?: profile.name
+                    )
+                    saveProfileToLocal(cleanedProfile)
+                    cleanedProfile
+                } ?: getCachedProfile(userId)
             } else {
                 getCachedProfile(userId)
             }
