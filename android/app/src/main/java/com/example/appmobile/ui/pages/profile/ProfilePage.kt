@@ -222,8 +222,9 @@ fun ProfilePage(
         onHome = onGoHome,
         onLearn = onOpenLearn,
         onGames = onOpenGames,
-        onProfile = {},
-        onSettings = onOpenSettings
+        onProfile = null,
+        onSettings = onOpenSettings,
+        onBack = onGoHome
     ) {
         Column(
             modifier = Modifier
@@ -443,7 +444,7 @@ private fun Avatar(avatarUri: String?, onClick: () -> Unit) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             shape = CircleShape,
-            color = Color(0xFFFFE082),
+            color = ProfileSoftSection,
             border = BorderStroke(2.dp, Color.White),
             shadowElevation = 2.dp
         ) {
@@ -461,12 +462,12 @@ private fun Avatar(avatarUri: String?, onClick: () -> Unit) {
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
-                            Color(0xFFFFF1A8),
+                            ProfileSoftSection,
                             CircleShape
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    EgVectorEmojiIcon("child", size = 42.dp)
+                    EgVectorEmojiIcon("child", size = 42.dp, tint = ProfileBlue)
                 }
             }
         }

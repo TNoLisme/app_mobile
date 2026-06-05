@@ -248,8 +248,9 @@ fun SettingsPage(
         onHome = onGoHome,
         onLearn = onOpenLearn,
         onGames = onOpenGames,
-        onProfile = onOpenProfile,
-        onSettings = {}
+        onProfile = null,
+        onSettings = null,
+        onBack = onBack
     ) {
         SettingsScreen(
             themeMode = themeMode,

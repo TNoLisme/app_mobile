@@ -153,6 +153,7 @@ fun EgCollapsibleMainScaffold(
     onGames: () -> Unit,
     onProfile: (() -> Unit)?,
     onSettings: (() -> Unit)?,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     verticalSpacing: Dp = 12.dp,
@@ -244,6 +245,7 @@ fun EgCollapsibleMainScaffold(
         EgTopActions(
             onProfile = onProfile,
             onSettings = onSettings,
+            onBack = onBack,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .statusBarsPadding()
@@ -327,6 +329,7 @@ private fun EgMainBottomNavSurface(
 fun EgTopActions(
     onProfile: (() -> Unit)?,
     onSettings: (() -> Unit)?,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -343,8 +346,9 @@ fun EgTopActions(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        onProfile?.let {
-            EgProfileAvatarButton(avatarUri = avatarUri, onClick = it)
+        when {
+            onBack != null -> AppBackButton(onClick = onBack)
+            onProfile != null -> EgProfileAvatarButton(avatarUri = avatarUri, onClick = onProfile)
         }
         Spacer(modifier = Modifier.weight(1f))
         onSettings?.let {
