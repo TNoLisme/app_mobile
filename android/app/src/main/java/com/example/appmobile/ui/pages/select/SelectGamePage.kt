@@ -88,8 +88,15 @@ fun SelectGamePage(
             }
         }.getOrDefault(emptyList())
 
-        val sourceGames = backendGames.ifEmpty {
-            if (showAll) GameUiCatalog.games else GameUiCatalog.gamesByType(type)
+        val catalogGames = if (showAll) {
+            GameUiCatalog.games
+        } else {
+            GameUiCatalog.gamesByType(type)
+        }
+        val sourceGames = if (backendGames.isEmpty()) {
+            catalogGames
+        } else {
+            backendGames + catalogGames
         }
         games = GameUiCatalog.normalizeGameList(sourceGames)
         isLoading = false
