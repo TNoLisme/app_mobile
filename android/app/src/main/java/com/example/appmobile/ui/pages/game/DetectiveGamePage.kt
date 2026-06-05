@@ -189,10 +189,12 @@ fun DetectiveGamePage(
     }
 
     val question = questions.value[currentIndex.intValue % questions.value.size]
-    val options = question.optionEmotionIds
-        .mapNotNull { GameUiCatalog.emotionById(it) }
-        .ifEmpty { GameUiCatalog.emotions }
-        .shuffled()
+    val options = remember(question.questionId, question.optionEmotionIds) {
+        question.optionEmotionIds
+            .mapNotNull { GameUiCatalog.emotionById(it) }
+            .ifEmpty { GameUiCatalog.emotions }
+            .shuffled()
+    }
 
     GameScreenShell(
         contentMaxWidth = 800,
@@ -386,6 +388,30 @@ private fun fallbackDetectiveQuestions(): List<DetectiveQuestionUi> {
             "Minh bám chặt tay mẹ khi thấy chó lớn. Cảm xúc nào đang ẩn giấu?",
             "fear",
             explanation = "Gợi ý: Khi sợ hãi, trẻ thường tìm đến người thân để được bảo vệ."
+        ),
+        DetectiveQuestionUi(
+            "fallback-detective-happy",
+            "Lan được cô giáo khen vì biết chia sẻ đồ chơi. Cảm xúc nào đang ẩn giấu?",
+            "happy",
+            explanation = "Gợi ý: Khi được khen hoặc làm điều tốt, bé thường vui và mỉm cười."
+        ),
+        DetectiveQuestionUi(
+            "fallback-detective-angry",
+            "Bình đang xếp tháp thì bạn khác chạy tới làm đổ. Cảm xúc nào đang ẩn giấu?",
+            "angry",
+            explanation = "Gợi ý: Khi công sức bị phá hỏng, bé có thể tức giận."
+        ),
+        DetectiveQuestionUi(
+            "fallback-detective-sad",
+            "Mai làm rơi cây kem yêu thích xuống đất và cúi mặt im lặng. Cảm xúc nào đang ẩn giấu?",
+            "sad",
+            explanation = "Gợi ý: Khi mất món đồ yêu thích, bé có thể buồn bã."
+        ),
+        DetectiveQuestionUi(
+            "fallback-detective-surprise",
+            "Nam mở hộp quà và thấy món đồ chơi mình mong muốn từ lâu. Cảm xúc nào đang ẩn giấu?",
+            "surprise",
+            explanation = "Gợi ý: Khi gặp điều bất ngờ, mắt bé thường mở to và miệng hơi há."
         )
     )
 }

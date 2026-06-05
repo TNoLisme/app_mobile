@@ -560,7 +560,11 @@ fun DraggableNameChip(
 
 private fun fallbackMatchQuestions(): List<MatchQuestionUi> {
     return listOf(
-        MatchQuestionUi("1", "", "Bình", "happy", "Vui vẻ", ""),
-        MatchQuestionUi("2", "", "Lan", "angry", "Tức giận", "")
+        MatchQuestionUi("fallback-match-happy", "", "Bình", "happy", "Vui vẻ", ""),
+        MatchQuestionUi("fallback-match-angry", "", "Lan", "angry", "Tức giận", ""),
+        MatchQuestionUi("fallback-match-sad", "", "Mai", "sad", "Buồn bã", ""),
+        MatchQuestionUi("fallback-match-fear", "", "Minh", "fear", "Sợ hãi", ""),
+        MatchQuestionUi("fallback-match-surprise", "", "Nam", "surprise", "Ngạc nhiên", ""),
+        MatchQuestionUi("fallback-match-disgust", "", "An", "disgust", "Ghê tởm", "")
     )
 }

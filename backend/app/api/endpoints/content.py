@@ -235,15 +235,7 @@ def _progress_payload(progress: ChildProgress, review: dict[str, int] | None = N
 
 
 def _question_count_for_level(level: int) -> int:
-    if level <= 2:
-        return 10
-    if level <= 4:
-        return 15
-    if level <= 6:
-        return 20
-    if level <= 8:
-        return 25
-    return 30
+    return CLICK_QUESTION_COUNT
 
 
 def _question_count_for_game_level(game_id: str, level: int) -> int:
@@ -315,6 +307,16 @@ def _get_or_create_question(db: Session, content: GameContent) -> Question:
 
 def _generate_click_questions(db: Session, game_id: str, user_id: str, level: int, ratio: list[float], count: int) -> list[Question]:
     candidates = _level_content(db, game_id, level)
+    if len(candidates) < count:
+        fallback_candidates = (
+            db.query(GameContent)
+            .filter(GameContent.game_id == game_id)
+            .order_by(GameContent.level, GameContent.content_id)
+            .all()
+        )
+        if len(fallback_candidates) >= count:
+            candidates = fallback_candidates
+
     if len(candidates) < count:
         raise HTTPException(
             status_code=409,

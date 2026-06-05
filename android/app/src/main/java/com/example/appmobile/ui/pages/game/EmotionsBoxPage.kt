@@ -398,8 +398,10 @@ fun EmotionsBoxPage(
 
 private fun fallbackRecognizeQuestions(): List<RecognizeQuestionUi> {
     return listOf(
+        RecognizeQuestionUi("fallback-recognize-happy", "Đây là cảm xúc gì?", R.drawable.happy_1, null, "happy"),
+        RecognizeQuestionUi("fallback-recognize-sad", "Đây là cảm xúc gì?", R.drawable.sad_1, null, "sad"),
         RecognizeQuestionUi("fallback-recognize-angry", "Đây là cảm xúc gì?", R.drawable.angry_1, null, "angry"),
         RecognizeQuestionUi("fallback-recognize-fear", "Đây là cảm xúc gì?", R.drawable.fear_1, null, "fear"),
-        RecognizeQuestionUi("fallback-recognize-disgust", "Đây là cảm xúc gì?", R.drawable.disgust_1, null, "disgust")
+        RecognizeQuestionUi("fallback-recognize-surprise", "Đây là cảm xúc gì?", R.drawable.surprise_1, null, "surprise")
     )
 }

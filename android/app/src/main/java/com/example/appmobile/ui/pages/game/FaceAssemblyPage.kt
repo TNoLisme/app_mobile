@@ -481,25 +481,24 @@ private fun FaceAssemblyRow(
             color = EgDesign.cardBorder
         )
 
-        // Right column – icon + label (1/3 width)
+        // Right column – compact part selector.
         Column(
-            modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 10.dp),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(horizontal = 8.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            EgVectorEmojiIcon(icon, size = 22.dp, tint = EgDesign.primary)
-            Spacer(Modifier.height(3.dp))
+            EgVectorEmojiIcon(icon, size = 20.dp, tint = EgDesign.primary)
+            Spacer(Modifier.height(4.dp))
             Text(
-                label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                color = EgDesign.textPrimary, textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = if (emotionIndex >= 0) "Đã chọn" else "Chạm để đổi",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                color = EgDesign.textSecondary,
-                textAlign = TextAlign.Center
+                text = label,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = EgDesign.textPrimary,
+                textAlign = TextAlign.Center,
+                maxLines = 1
             )
         }
     }
