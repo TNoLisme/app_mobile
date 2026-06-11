@@ -112,8 +112,8 @@ fun SupportContactDialog(
         LegalSummaryCard(
             title = "Kênh hỗ trợ",
             items = listOf(
-                "Email: support@example.com",
-                "Điện thoại: +84 900 000 000",
+                "Email: tandao1908zz@gmail.com",
+                "Điện thoại: +84 865 124 683",
                 "Phản hồi trong giờ làm việc: 08:00 - 17:00"
             )
         )

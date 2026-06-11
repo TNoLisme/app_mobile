@@ -138,12 +138,12 @@ fun SettingsPage(
     var confirmAction by remember { mutableStateOf<ConfirmAction?>(null) }
 
     val supportEmailIntent = remember(context) {
-        Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@example.com")).apply {
+        Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:tandao1908zz@gmail.com")).apply {
             putExtra(Intent.EXTRA_SUBJECT, "Hỗ trợ ứng dụng")
         }
     }
     val supportPhoneIntent = remember(context) {
-        Intent(Intent.ACTION_DIAL, Uri.parse("tel:+84900000000"))
+        Intent(Intent.ACTION_DIAL, Uri.parse("tel:+84865124683"))
     }
 
     val assistantBubbleEnabled by AppSettingsState.assistantBubbleEnabled
@@ -248,7 +248,7 @@ fun SettingsPage(
         onHome = onGoHome,
         onLearn = onOpenLearn,
         onGames = onOpenGames,
-        onProfile = null,
+        onProfile = onOpenProfile,
         onSettings = null,
         onBack = onBack
     ) {
@@ -313,7 +313,6 @@ fun SettingsPage(
             },
             onCameraPrivacy = { showCameraPrivacy = true },
             onResetPreferences = { confirmAction = ConfirmAction.ResetPreferences },
-            onResetGarden = { confirmAction = ConfirmAction.ResetGarden },
             onClearProgress = { confirmAction = ConfirmAction.ClearProgress }
         )
     }
@@ -430,10 +429,6 @@ fun SettingsPage(
                     ConfirmAction.ResetPreferences -> {
                         AppSettingsState.resetLocalPreferences(context)
                         statusMessage = "Đã đặt lại tùy chọn trên máy."
-                    }
-                    ConfirmAction.ResetGarden -> {
-                        gardenRepository.resetGarden()
-                        statusMessage = "Đã đặt lại Vườn cảm xúc."
                     }
                     ConfirmAction.ClearProgress -> {
                         scope.launch {
@@ -660,9 +655,7 @@ private fun ParentAreaEntryCard(onClick: () -> Unit) {
                     "Quản lý tài khoản, bảo mật, quyền riêng tư và dữ liệu học tập của bé.",
                     color = EgDesign.textSecondary,
                     fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    lineHeight = 18.sp
                 )
             }
             EgVectorEmojiIcon("next", size = 22.dp, tint = EgDesign.textSecondary)
@@ -753,7 +746,6 @@ private fun ParentAreaBottomSheet(
     onChangePassword: () -> Unit,
     onCameraPrivacy: () -> Unit,
     onResetPreferences: () -> Unit,
-    onResetGarden: () -> Unit,
     onClearProgress: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -812,15 +804,6 @@ private fun ParentAreaBottomSheet(
                             description = "Xem cách app dùng camera và mở cài đặt quyền khi cần.",
                             actionText = "Xem",
                             onClick = onCameraPrivacy
-                        )
-                    }
-                    ParentCompactSection(title = "Vườn cảm xúc", icon = "sparkle") {
-                        ActionSettingsRow(
-                            icon = "sparkle",
-                            title = "Đặt lại Vườn cảm xúc",
-                            description = "Đưa thực vật, giọt nước, ánh nắng và nhiệm vụ vườn về ban đầu.",
-                            actionText = "Đặt lại",
-                            onClick = onResetGarden
                         )
                     }
                     ParentCompactSection(title = "Dữ liệu học tập", icon = "save") {
@@ -1002,7 +985,7 @@ private fun SwitchSettingsRow(
                 Text(title, color = if (enabled) EgDesign.textPrimary else EgDesign.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
                 badge?.let { SettingsBadge(it) }
             }
-            Text(description, color = EgDesign.textSecondary, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(description, color = EgDesign.textSecondary, fontSize = 12.sp, lineHeight = 16.sp)
         }
         Switch(
             checked = checked,
@@ -1071,8 +1054,8 @@ private fun CompactValueRow(icon: String, label: String, value: String) {
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         SettingsIcon(icon, size = 34.dp)
-        Text(label, modifier = Modifier.weight(1f), color = EgDesign.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(value, color = EgDesign.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
+        Text(label, modifier = Modifier.weight(1f), color = EgDesign.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold, lineHeight = 17.sp)
+        Text(value, color = EgDesign.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End, lineHeight = 17.sp)
     }
 }
 
@@ -1128,10 +1111,10 @@ private fun AccountInfoText(
     Row(modifier = modifier, verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         SettingsIcon(icon, size = 34.dp)
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = EgDesign.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(value, color = EgDesign.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, color = EgDesign.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 17.sp)
+            Text(value, color = EgDesign.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, lineHeight = 16.sp)
             description?.let {
-                Text(it, color = EgDesign.textSecondary, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(it, color = EgDesign.textSecondary, fontSize = 11.sp, lineHeight = 15.sp)
             }
         }
     }
@@ -1147,8 +1130,8 @@ private fun CompactTextBlock(
     Row(modifier = modifier, verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         SettingsIcon(icon, size = 34.dp)
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(description, color = EgDesign.textSecondary, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, color = EgDesign.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 18.sp)
+            Text(description, color = EgDesign.textSecondary, fontSize = 12.sp, lineHeight = 16.sp)
         }
     }
 }
@@ -1646,7 +1629,6 @@ private fun accountEditContent(target: AccountEditTarget): AccountEditContent {
 
 private enum class ConfirmAction {
     ResetPreferences,
-    ResetGarden,
     ClearProgress,
     Logout
 }
@@ -1665,13 +1647,6 @@ private fun confirmContent(action: ConfirmAction): ConfirmContent {
             icon = "refresh",
             title = "Đặt lại tùy chọn?",
             message = "Các cài đặt giao diện, trợ lý, video và âm thanh sẽ được đưa về mặc định.",
-            confirmText = "Đặt lại",
-            danger = false
-        )
-        ConfirmAction.ResetGarden -> ConfirmContent(
-            icon = "sparkle",
-            title = "Reset Vườn cảm xúc?",
-            message = "Tiến độ thực vật, tài nguyên và nhiệm vụ trong vườn sẽ được đặt lại. Bé có thể bắt đầu chăm vườn lại từ đầu.",
             confirmText = "Đặt lại",
             danger = false
         )
