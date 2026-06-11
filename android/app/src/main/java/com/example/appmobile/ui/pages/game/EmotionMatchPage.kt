@@ -131,7 +131,8 @@ fun EmotionMatchPage(
 
     var summaryData by remember(level) { mutableStateOf<LevelSummaryData?>(null) }
 
-    val rounds = remember(questions.value) { questions.value.chunked(2) }
+    val chunkSize = if (level <= 4) 2 else 3
+    val rounds = remember(questions.value, chunkSize) { questions.value.chunked(chunkSize) }
     val currentRoundIndex = remember(level, replayCount.intValue) { mutableIntStateOf(0) }
     val currentRound = rounds.getOrNull(currentRoundIndex.intValue) ?: emptyList()
 
@@ -254,28 +255,24 @@ fun EmotionMatchPage(
             ) {
                     currentRound.forEachIndexed { index, question ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "${index + 1}",
+                                text = "${index + 1}.",
                                 color = EgDesign.blue,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = question.correctName,
-                                color = EgDesign.textPrimary,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.padding(top = 1.dp)
                             )
                             Text(
-                                text = question.emotionName,
-                                color = EgDesign.blue,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
+                                text = question.text,
+                                color = EgDesign.textPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal,
+                                modifier = Modifier.weight(1f),
+                                lineHeight = 20.sp
                             )
                         }
                     }
@@ -436,7 +433,12 @@ fun EmotionMatchPage(
                                 responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
                             )
                         }
-                        score.intValue += correctCount * 5
+                        val earnedScore = if (currentRound.size <= 2) {
+                            if (correctCount == 2) 10 else if (correctCount == 1) 5 else 0
+                        } else {
+                            if (correctCount == 3) 10 else if (correctCount >= 1) 5 else 0
+                        }
+                        score.intValue += earnedScore
                         feedback.value = if (correctCount == currentRound.size) "Chính xác tuyệt đối!" else "Chưa đúng hoàn toàn. Hãy xem lại đáp án."
                         return@Button
                     }
