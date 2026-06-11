@@ -16,3 +16,4 @@ env/
 TTNM-Game/ 
 .info/
 .claude
+backend/.env

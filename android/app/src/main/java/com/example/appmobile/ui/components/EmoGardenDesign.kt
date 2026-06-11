@@ -567,7 +567,14 @@ private fun EgTabButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val color = if (tab == activeTab) EgDesign.primaryDark else EgDesign.textSecondary
+    val isActive = tab == activeTab
+    val color = if (isActive) EgDesign.primaryDark else EgDesign.textSecondary
+    val scale by animateFloatAsState(
+        targetValue = if (isActive) 1.5f else 1.0f,
+        animationSpec = tween(durationMillis = 160),
+        label = "tab_scale"
+    )
+
     Column(
         modifier = modifier
             .height(54.dp)
@@ -581,7 +588,16 @@ private fun EgTabButton(
                 .weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            EgMainTabIcon(tab = tab, color = color, modifier = Modifier.size(30.dp))
+            EgMainTabIcon(
+                tab = tab,
+                color = color,
+                modifier = Modifier
+                    .size(30.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+            )
         }
     }
 }
