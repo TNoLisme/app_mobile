@@ -120,7 +120,7 @@ fun GameHeader(
                 ),
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(start = 52.dp, end = 18.dp),
+                    .padding(horizontal = 48.dp),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -159,9 +159,11 @@ fun GameFeedbackCard(message: String) {
             Text(
                 text = message,
                 color = EgDesign.textPrimary,
-                fontSize = 16.sp,
-                lineHeight = 22.sp,
-                fontWeight = FontWeight.SemiBold
+                fontSize = 15.sp,
+                lineHeight = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -262,7 +264,7 @@ fun ClickEmotionOptionCard(
                 emotionName,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = if (compact) 36.dp else 48.dp),
+                    .padding(start = if (compact) 36.dp else 48.dp, end = 4.dp),
                 color = EgDesign.textPrimary,
                 fontWeight = FontWeight.Bold,
                 fontSize = if (compact) 16.sp else 18.sp,

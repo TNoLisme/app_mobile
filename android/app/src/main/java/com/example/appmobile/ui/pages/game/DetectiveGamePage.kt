@@ -2,6 +2,8 @@ package com.example.appmobile.ui.pages.game
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +28,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -62,7 +65,8 @@ private data class DetectiveQuestionUi(
     val story: String,
     val correctEmotion: String,
     val optionEmotionIds: List<String> = GameUiCatalog.emotions.map { it.id },
-    val explanation: String? = null
+    val explanation: String? = null,
+    val mediaPath: String? = null
 )
 
 @Composable
@@ -164,7 +168,8 @@ fun DetectiveGamePage(
                     story = content.questionText?.ifBlank { "Cảm xúc nào đang ẩn giấu?" } ?: "Cảm xúc nào đang ẩn giấu?",
                     correctEmotion = emotion,
                     optionEmotionIds = optionEmotionIdsFromBackend(content.options, emotion),
-                    explanation = content.explanation
+                    explanation = content.explanation,
+                    mediaPath = content.mediaPath
                 )
             }
             .orEmpty()
@@ -189,6 +194,7 @@ fun DetectiveGamePage(
     }
 
     val question = questions.value[currentIndex.intValue % questions.value.size]
+    val hintShown = remember(currentIndex.intValue) { mutableStateOf(false) }
     val options = remember(question.questionId, question.optionEmotionIds) {
         question.optionEmotionIds
             .mapNotNull { GameUiCatalog.emotionById(it) }
@@ -233,14 +239,31 @@ fun DetectiveGamePage(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(84.dp),
+                                    .height(180.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.game_click_4),
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                                key(question.mediaPath) {
+                                    if (!question.mediaPath.isNullOrBlank()) {
+                                        val assetPath = if (question.mediaPath.startsWith("/"))
+                                            "file:///android_asset${question.mediaPath}"
+                                        else "file:///android_asset/${question.mediaPath}"
+                                        AsyncImage(
+                                            model = assetPath,
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop,
+                                            error = painterResource(id = R.drawable.game_click_4),
+                                            fallback = painterResource(id = R.drawable.game_click_4)
+                                        )
+                                    } else {
+                                        Image(
+                                            painter = painterResource(id = R.drawable.game_click_4),
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                }
                             }
                     }
 
@@ -284,6 +307,49 @@ fun DetectiveGamePage(
                     ) {
                         if (feedback.value != null) {
                             GameFeedbackCard(feedback.value.orEmpty())
+                        } else if (!question.explanation.isNullOrBlank()) {
+                            if (hintShown.value) {
+                                Surface(
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                    color = Color(0xFFFFD66B),
+                                    border = BorderStroke(1.dp, Color(0xFFF59E0B))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        EgVectorEmojiIcon("bulb", size = 20.dp, tint = Color(0xFFF59E0B))
+                                        Text(
+                                            text = question.explanation,
+                                            color = Color(0xFF92400E),
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            } else {
+                                Surface(
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                    color = EgDesign.cardSoft,
+                                    border = BorderStroke(1.dp, EgDesign.cardBorder),
+                                    onClick = { hintShown.value = true }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        EgVectorEmojiIcon("bulb", size = 20.dp, tint = Color(0xFFF59E0B))
+                                        Text(
+                                            text = "Gợi ý",
+                                            color = EgDesign.textPrimary,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -314,7 +380,7 @@ fun DetectiveGamePage(
                                         answer = selected,
                                         isCorrect = isCorrect,
                                         responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt(),
-                                        usedHint = false
+                                        usedHint = hintShown.value
                                     )
                                     results.value = updatedResults
                                     val targetName = GameUiCatalog.emotionById(question.correctEmotion)?.name

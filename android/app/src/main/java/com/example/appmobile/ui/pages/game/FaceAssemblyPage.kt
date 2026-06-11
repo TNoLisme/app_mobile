@@ -238,7 +238,7 @@ fun FaceAssemblyPage(
     GameScreenShell(contentMaxWidth = 900, onOpenAssistant = onOpenAssistant,
         scrollEnabled = false, bottomSpacerHeight = 0.dp) {
 
-        Column(modifier = Modifier.fillMaxSize().background(EgDesign.background)) {
+        Column(modifier = Modifier.fillMaxSize().background(EgDesign.card)) {
 
             if (summary.value != null) {
                 Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
@@ -367,13 +367,14 @@ fun FaceAssemblyPage(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Thử lại
-                        OutlinedButton(
+                        Button(
                             onClick = { resetCurrentQuestion() },
                             enabled = !hasFeedback && !isSubmitting.value,
                             modifier = Modifier.weight(1f).height(46.dp),
                             shape = RoundedCornerShape(EgDesign.pillRadius),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                             border = BorderStroke(1.5.dp, EgDesign.cardBorder)
-                        ) {
+                        ){
                             Text("Thử lại", fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold, color = EgDesign.textPrimary,
                                 maxLines = 1)
