@@ -131,6 +131,10 @@ def _alter_column_if_exists(connection, table_name: str, column_name: str, defin
 def apply_additive_migrations() -> None:
     with engine.begin() as connection:
         _add_column_if_missing(connection, "users", "password", "NVARCHAR(255) NULL")
+        _alter_column_if_exists(connection, "users", "username", "NVARCHAR(50) NULL")
+        _alter_column_if_exists(connection, "users", "password", "NVARCHAR(255) NULL")
+        _alter_column_if_exists(connection, "users", "role", "NVARCHAR(20) NULL")
+        _alter_column_if_exists(connection, "users", "name", "NVARCHAR(100) NULL")
         _add_column_if_missing(connection, "session_questions", "question_id", "NVARCHAR(64) NULL")
         _add_column_if_missing(connection, "session_questions", "used_hint", "INT NULL")
         _add_column_if_missing(connection, "game_data", "created_at", "DATETIME2 DEFAULT (GETUTCDATE()) NULL")

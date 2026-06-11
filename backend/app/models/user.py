@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Date
+from sqlalchemy import Column, String, Unicode, Integer, DateTime, ForeignKey, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.base import Base
@@ -6,11 +6,11 @@ from app.db.base import Base
 class User(Base):
     __tablename__ = "users"
     user_id = Column(String(128), primary_key=True)
-    username = Column(String(50))
-    email = Column(String(100), nullable=False, unique=True)
-    password = Column(String(255))
-    role = Column(String(20), default="child")
-    name = Column(String(100))
+    username = Column(Unicode(50))
+    email = Column(Unicode(100), nullable=False, unique=True)
+    password = Column(Unicode(255))
+    role = Column(Unicode(20), default="child")
+    name = Column(Unicode(100))
     created_at = Column(DateTime, default=datetime.utcnow)
 
     child_profile = relationship("Child", back_populates="user", uselist=False)

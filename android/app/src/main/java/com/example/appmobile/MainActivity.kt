@@ -95,9 +95,11 @@ private fun AppRoot() {
     var showLegalNotice by remember { mutableStateOf(false) }
     var showPrivacyPolicy by remember { mutableStateOf(false) }
     var showTermsOfUse by remember { mutableStateOf(false) }
+    var currentRoute by remember { mutableStateOf<String?>(null) }
+    val shouldGateLegalConsent = currentRoute != null && currentRoute !in setOf("login", "register")
 
-    LaunchedEffect(legalAccepted) {
-        showLegalNotice = !legalAccepted
+    LaunchedEffect(legalAccepted, shouldGateLegalConsent) {
+        showLegalNotice = !legalAccepted && shouldGateLegalConsent
     }
 
     val themeMode by AppSettingsState.themeMode
@@ -121,15 +123,22 @@ private fun AppRoot() {
     }
 
     AppMobileTheme(darkTheme = useDarkTheme, dynamicColor = dynamicColorEnabled) {
-        AppNavigation(modifier = Modifier.fillMaxSize())
+        AppNavigation(
+            modifier = Modifier.fillMaxSize(),
+            onRouteChanged = { route -> currentRoute = route }
+        )
 
-        if (showLegalNotice || !legalAccepted) {
+        if (showLegalNotice) {
             LegalConsentDialog(
                 onAccept = {
                     AppSettingsState.setLegalPolicyAccepted(context, true)
                     showLegalNotice = false
                 },
                 onDismiss = {
+                    AppSettingsState.setLegalPolicyAccepted(context, false)
+                    FirebaseAuth.getInstance().signOut()
+                    AppSession.clear(context)
+                    showLegalNotice = false
                     activity?.finish()
                 },
                 onOpenPrivacyPolicy = { showPrivacyPolicy = true },
@@ -154,7 +163,10 @@ private fun AppRoot() {
 }
 
 @Composable
-fun AppNavigation(modifier: Modifier = Modifier) {
+fun AppNavigation(
+    modifier: Modifier = Modifier,
+    onRouteChanged: (String?) -> Unit = {}
+) {
     val navController = rememberNavController()
     val auth = FirebaseAuth.getInstance()
     val context = LocalContext.current
@@ -168,6 +180,10 @@ fun AppNavigation(modifier: Modifier = Modifier) {
     }
     val gardenRepository = remember(context) { GardenRepository(context) }
     val activeUserId = AppSession.currentBackendUserId() ?: persistedBackendUserId ?: auth.currentUser?.uid
+
+    LaunchedEffect(currentRoute) {
+        onRouteChanged(currentRoute)
+    }
 
     LaunchedEffect(activeUserId) {
         val userId = activeUserId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
@@ -327,6 +343,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             when (id.lowercase()) {
                 // Các game Nhận diện
                 GameUiCatalog.GAME_RECOGNIZE_EMOTION,
+                "3bcb2108-721c-4a15-a585-31f3084ed000",
                 "6695AFE0-6414-40A3-B688-B08A98CD2B61" -> EmotionsBoxPage(
                     level = level,
                     onBack = { navController.popBackStack() },
@@ -537,6 +554,7 @@ private fun assistantContext(route: String?, args: Bundle?): String {
                 }
 
                 GameUiCatalog.GAME_RECOGNIZE_EMOTION,
+                "3bcb2108-721c-4a15-a585-31f3084ed000",
                 "6695AFE0-6414-40A3-B688-B08A98CD2B61" -> "emotions_box"
 
                 GameUiCatalog.GAME_FACE_ASSEMBLY,

@@ -14,7 +14,7 @@ import com.example.appmobile.data.local.entity.*
         SessionEntity::class, SessionQuestionEntity::class, GameDataEntity::class, GameDataQuestionEntity::class,
         ProgressEntity::class, ReportEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

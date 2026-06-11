@@ -32,6 +32,6 @@ object AppSession {
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
             .edit()
             .remove(KEY_BACKEND_USER_ID)
-            .apply()
+            .commit()
     }
 }

@@ -1,26 +1,44 @@
 {
   "project_info": {
-    "project_number": "427538866440",
-    "project_id": "appmobile-368e3",
-    "storage_bucket": "appmobile-368e3.firebasestorage.app"
+    "project_number": "1007731254115",
+    "project_id": "emogarden-1eaea",
+    "storage_bucket": "emogarden-1eaea.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:427538866440:android:241d81b0726837fff8ccbd",
+        "mobilesdk_app_id": "1:1007731254115:android:05abab96debcb432502956",
         "android_client_info": {
           "package_name": "com.example.appmobile"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1007731254115-fv452f41c6js2ofgr6etavlgu6lonpg9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.appmobile",
+            "certificate_hash": "2659b0ade3abee67d2c34469d16f073293aed689"
+          }
+        },
+        {
+          "client_id": "1007731254115-o7plfe4fng22hanvde716b3ifk0ah3l8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyBdSsM8iLrt1HlDihjuC9URiLRp0kmEL2k"
+          "current_key": "AIzaSyDbJwMKB07a0jGC3vsRlHDzRRu6wz_odwU"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1007731254115-o7plfe4fng22hanvde716b3ifk0ah3l8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

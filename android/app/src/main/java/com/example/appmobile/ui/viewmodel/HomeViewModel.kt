@@ -10,6 +10,7 @@ import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.ReportPayloadDto
 import com.example.appmobile.data.remote.dto.SessionHistoryItemDto
+import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -71,6 +72,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _state.update { it.copy(isLoading = true, errorMessage = null) }
 
             val context = getApplication<Application>()
+            val googleDisplayName = runCatching {
+                GoogleSignIn.getLastSignedInAccount(context)?.displayName
+            }.getOrNull()
+            val firebaseDisplayName = FirebaseAuth.getInstance().currentUser?.displayName
             val userId = FirebaseAuth.getInstance().currentUser?.uid
                 ?: AppSession.currentBackendUserId()
                 ?: AppSession.getBackendUserId(context)
@@ -78,7 +83,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
             var connected = false
             var failedRequests = 0
-            var childName: String? = _state.value.childName
+            var childName: String? = bestHomeDisplayName(
+                googleDisplayName,
+                firebaseDisplayName,
+                _state.value.childName
+            )
             var recentGames: List<HomeRecentGameUi> = _state.value.recentGames
             var emotionStats: List<HomeEmotionUi> = emptyList()
             var weakEmotionIds: List<String> = emptyList()
@@ -92,7 +101,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }.onSuccess { response ->
                 connected = true
                 if (response.isSuccessful) {
-                    childName = response.body()?.name?.takeIf { !it.isNullOrBlank() }
+                    childName = bestHomeDisplayName(
+                        googleDisplayName,
+                        firebaseDisplayName,
+                        response.body()?.name,
+                        childName
+                    )
                 }
             }.onFailure {
                 failedRequests += 1
@@ -366,6 +380,33 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         private const val REPORT_UI_PREF = "report_ui_state"
         private const val KEY_LAST_SENT_WEEKLY_PREFIX = "last_sent_weekly_"
     }
+}
+
+private fun cleanHomeDisplayName(name: String?): String? {
+    val normalized = name
+        ?.trim()
+        ?.replace(Regex("\\s+"), " ")
+        ?.takeIf { it.isNotBlank() }
+        ?: return null
+    val withoutProviderWord = normalized.replace(Regex("(?i)\\s*\\(?google\\)?\\s*$"), "").trim()
+    return if (
+        withoutProviderWord.endsWith("gg", ignoreCase = true) &&
+        withoutProviderWord.dropLast(2).contains(" ")
+    ) {
+        withoutProviderWord.dropLast(2).trim()
+    } else {
+        withoutProviderWord
+    }
+}
+
+private fun bestHomeDisplayName(vararg names: String?): String? {
+    return names
+        .mapNotNull(::cleanHomeDisplayName)
+        .distinct()
+        .maxWithOrNull(
+            compareBy<String> { name -> name.count { it.code > 127 } }
+                .thenBy { name -> name.length }
+        )
 }
 
 private val EmotionOrder = listOf("happy", "sad", "angry", "fear", "surprise", "disgust")

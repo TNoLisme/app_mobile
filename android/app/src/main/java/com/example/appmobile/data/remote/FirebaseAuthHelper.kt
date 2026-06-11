@@ -1,6 +1,7 @@
 package com.example.appmobile.data.remote
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 
 class FirebaseAuthHelper {
     val auth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -29,19 +30,18 @@ class FirebaseAuthHelper {
             }
     }
 
-    // Quên mật khẩu
-    fun resetPassword(email: String, onResult: (Boolean, String?) -> Unit) {
-        auth.sendPasswordResetEmail(email)
+    fun loginWithGoogleIdToken(idToken: String, onResult: (Boolean, String?) -> Unit) {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        auth.signInWithCredential(credential)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) onResult(true, null)
                 else onResult(false, task.exception?.message)
             }
     }
 
-    // Đăng nhập bằng Google
-    fun loginWithGoogleIdToken(idToken: String, onResult: (Boolean, String?) -> Unit) {
-        val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential)
+    // Quên mật khẩu
+    fun resetPassword(email: String, onResult: (Boolean, String?) -> Unit) {
+        auth.sendPasswordResetEmail(email)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) onResult(true, null)
                 else onResult(false, task.exception?.message)
