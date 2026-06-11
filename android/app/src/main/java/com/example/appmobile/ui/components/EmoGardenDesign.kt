@@ -165,13 +165,13 @@ fun EgCollapsibleMainScaffold(
     var navHeightPx by remember(density) { mutableIntStateOf(with(density) { 78.dp.roundToPx() }) }
     var horizontalDragPx by remember { mutableFloatStateOf(0f) }
     val navHeightDp = with(density) { navHeightPx.toDp() }
-    val topActionReserveDp = with(density) { WindowInsets.statusBars.getTop(this).toDp() } + 62.dp
+    val topActionReserveDp = with(density) { WindowInsets.statusBars.getTop(this).toDp() } + 16.dp
     val horizontalPaddingPx = with(density) { (EgDesign.screenPadding * 2).toPx() }
     val tabsTrackWidthPx = with(density) {
         (configuration.screenWidthDp.dp.toPx() - horizontalPaddingPx)
             .coerceAtLeast(220.dp.toPx())
     }
-    val tabSlotWidthPx = (tabsTrackWidthPx / 3f).coerceAtLeast(1f)
+    val tabSlotWidthPx = (tabsTrackWidthPx / 5f).coerceAtLeast(1f)
     val swipeCommitRatio = 0.55f
     val tabIndicatorPosition = mainTabIndicatorPosition(
         activeTab = activeTab,
@@ -231,6 +231,8 @@ fun EgCollapsibleMainScaffold(
             onHome = onHome,
             onLearn = onLearn,
             onGames = onGames,
+            onProfile = onProfile,
+            onSettings = onSettings,
             indicatorPosition = tabIndicatorPosition,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -240,16 +242,6 @@ fun EgCollapsibleMainScaffold(
                         navHeightPx = measuredHeight
                     }
                 }
-        )
-
-        EgTopActions(
-            onProfile = onProfile,
-            onSettings = onSettings,
-            onBack = onBack,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(horizontal = EgDesign.screenPadding, vertical = 8.dp)
         )
     }
 }
@@ -274,7 +266,7 @@ private fun mainTabIndicatorPosition(
     val baseIndex = activeTab.ordinal.toFloat()
     if (tabSlotWidthPx <= 0f) return baseIndex
     val dragDeltaInTabs = -horizontalDragPx / tabSlotWidthPx
-    return (baseIndex + dragDeltaInTabs).coerceIn(0f, 2f)
+    return (baseIndex + dragDeltaInTabs).coerceIn(0f, 4f)
 }
 
 private fun handleMainSwipe(
@@ -298,6 +290,8 @@ private fun EgMainBottomNavSurface(
     onHome: () -> Unit,
     onLearn: () -> Unit,
     onGames: () -> Unit,
+    onProfile: (() -> Unit)?,
+    onSettings: (() -> Unit)?,
     indicatorPosition: Float,
     modifier: Modifier = Modifier
 ) {
@@ -319,6 +313,8 @@ private fun EgMainBottomNavSurface(
                 onHome = onHome,
                 onLearn = onLearn,
                 onGames = onGames,
+                onProfile = onProfile,
+                onSettings = onSettings,
                 indicatorPosition = indicatorPosition
             )
         }
@@ -363,6 +359,8 @@ fun EgSegmentedTabs(
     onHome: () -> Unit,
     onLearn: () -> Unit,
     onGames: () -> Unit,
+    onProfile: (() -> Unit)?,
+    onSettings: (() -> Unit)?,
     indicatorPosition: Float,
     modifier: Modifier = Modifier
 ) {
@@ -380,27 +378,27 @@ fun EgSegmentedTabs(
             EgTabButton(EgTab.Home, activeTab, onHome, Modifier.weight(1f))
             EgTabButton(EgTab.Learn, activeTab, onLearn, Modifier.weight(1f))
             EgTabButton(EgTab.Games, activeTab, onGames, Modifier.weight(1f))
+            EgTabButton(EgTab.Profile, activeTab, onProfile ?: {}, Modifier.weight(1f))
+            EgTabButton(EgTab.Settings, activeTab, onSettings ?: {}, Modifier.weight(1f))
         }
-        if (activeTab == EgTab.Home || activeTab == EgTab.Learn || activeTab == EgTab.Games) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomStart)
-                    .padding(bottom = 1.dp)
-            ) {
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    val segmentWidth = maxWidth / 3f
-                    val lineWidth = segmentWidth * 0.58f
-                    val leftPadding = (segmentWidth - lineWidth) / 2f
-                    Box(
-                        modifier = Modifier
-                            .offset(x = (segmentWidth * animatedIndicatorPosition) + leftPadding)
-                            .height(4.dp)
-                            .width(lineWidth)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(EgDesign.primaryDark)
-                    )
-                }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomStart)
+                .padding(bottom = 1.dp)
+        ) {
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val segmentWidth = maxWidth / 5f
+                val lineWidth = segmentWidth * 0.58f
+                val leftPadding = (segmentWidth - lineWidth) / 2f
+                Box(
+                    modifier = Modifier
+                        .offset(x = (segmentWidth * animatedIndicatorPosition) + leftPadding)
+                        .height(4.dp)
+                        .width(lineWidth)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(EgDesign.primaryDark)
+                )
             }
         }
     }
