@@ -144,23 +144,23 @@ fun GameFeedbackCard(message: String) {
     val isCorrect = message.startsWith("Đúng")
         || message.startsWith("Phá án đúng")
         || message.startsWith("Chính xác")
-    val color = if (isCorrect) EgDesign.success else EgDesign.warning
+    val color = if (isCorrect) EgDesign.success else Color(0xFFEF4444)
     Surface(
         shape = RoundedCornerShape(EgDesign.radiusLarge),
         color = color.copy(alpha = if (AppSettingsState.activeDarkTheme.value) 0.18f else 0.12f),
         border = BorderStroke(1.dp, color.copy(alpha = 0.45f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            EgVectorEmojiIcon(if (isCorrect) "check" else "bulb", size = 18.dp, tint = color)
+            EgVectorEmojiIcon(if (isCorrect) "check" else "close", size = 20.dp, tint = color)
             Text(
                 text = message,
                 color = EgDesign.textPrimary,
-                fontSize = 14.sp,
-                lineHeight = 19.sp,
+                fontSize = 16.sp,
+                lineHeight = 22.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -188,19 +188,19 @@ fun ClickGameInstructionCard(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Surface(
-                    modifier = Modifier.size(30.dp),
+                    modifier = Modifier.size(32.dp),
                     shape = RoundedCornerShape(10.dp),
                     color = EgDesign.accentSoft,
                     border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        EgVectorEmojiIcon(iconKey, size = 17.dp, tint = EgDesign.blue)
+                        EgVectorEmojiIcon(iconKey, size = 20.dp, tint = EgDesign.blue)
                     }
                 }
                 Text(
                     text = title,
                     color = EgDesign.textPrimary,
-                    fontSize = 15.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -208,8 +208,8 @@ fun ClickGameInstructionCard(
                 Text(
                     text = description,
                     color = EgDesign.textSecondary,
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp,
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -245,27 +245,27 @@ fun ClickEmotionOptionCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = if (compact) 9.dp else 12.dp,
-                    vertical = if (compact) 8.dp else 12.dp
+                    horizontal = if (compact) 16.dp else 20.dp,
+                    vertical = if (compact) 16.dp else 20.dp
                 ),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .width(if (compact) 30.dp else 40.dp),
+                    .width(if (compact) 36.dp else 44.dp),
                 contentAlignment = Alignment.Center
             ) {
-                EgEmotionVectorIcon(emotionId, size = if (compact) 22.dp else 30.dp)
+                EgEmotionVectorIcon(emotionId, size = if (compact) 26.dp else 34.dp)
             }
             Text(
                 emotionName,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = if (compact) 32.dp else 44.dp),
+                    .padding(horizontal = if (compact) 36.dp else 48.dp),
                 color = EgDesign.textPrimary,
                 fontWeight = FontWeight.Bold,
-                fontSize = if (compact) 13.sp else 15.sp,
+                fontSize = if (compact) 16.sp else 18.sp,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

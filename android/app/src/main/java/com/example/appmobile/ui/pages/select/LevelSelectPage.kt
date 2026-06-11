@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -43,6 +44,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.data.local.AppDatabase
@@ -53,6 +55,7 @@ import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.catalog.LevelUiItem
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.egTactileClick
 import com.example.appmobile.ui.components.EgEmotionCardBackground
 import com.example.appmobile.ui.components.EgEmotionCardBorder
 import com.example.appmobile.ui.components.EgEmotionCardSelectedBackground
@@ -786,92 +789,79 @@ private fun LevelCard(
     onLockedClick: () -> Unit
 ) {
     val level = state.level
-    val containerColor = if (state.unlocked) EgDesign.card else EgDesign.cardSoft
+    val containerColor = if (state.unlocked) Color(0xFFF0FDF4) else EgDesign.cardSoft
     val titleColor = if (state.unlocked) EgDesign.textPrimary else EgDesign.textSecondary
-    val statusText = when {
-        state.resumable -> "Đang chơi dở"
-        state.completed -> "Đã hoàn thành"
-        state.unlocked -> "Đã mở khóa"
-        else -> "Chưa mở khóa"
-    }
-    val statusColor = when {
-        state.resumable -> Color(0xFF0369A1)
-        state.completed -> Color(0xFF2E7D32)
-        state.unlocked -> EgDesign.blue
-        else -> EgDesign.textSecondary
-    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = LevelCardMinHeight)
-            .clickable {
-                if (state.unlocked) {
-                    onStartGame(level.id.toString())
-                } else {
-                    onLockedClick()
-                }
+            .alpha(if (state.unlocked) 1f else 0.5f)
+            .clickable(enabled = !state.unlocked) {
+                onLockedClick()
             },
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        border = BorderStroke(1.dp, EgDesign.cardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (state.unlocked) 1.dp else 0.dp)
+        border = BorderStroke(1.dp, if (state.unlocked) Color(0xFF86EFAC) else EgDesign.cardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (state.unlocked) 2.dp else 0.dp)
     ) {
         Row(
-            modifier = Modifier.padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(18.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .background(
-                        if (state.unlocked) Color(level.colorHex) else EgDesign.cardBorder,
-                        MaterialTheme.shapes.small
-                    )
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = level.name,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = titleColor
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .size(12.dp)
+                        .background(
+                            if (state.unlocked) Color(level.colorHex) else EgDesign.cardBorder,
+                            MaterialTheme.shapes.small
+                        )
                 )
-                Text(
-                    text = when {
-                        state.resumable && !state.resumeProgressText.isNullOrBlank() -> "Đang chơi dở · ${state.resumeProgressText}"
-                        !state.unlocked && state.available -> "Hoàn thành cấp độ ${level.id - 1} để mở khóa."
-                        state.completed && state.score != null -> "Đã hoàn thành · Điểm gần nhất ${state.score}/100"
-                        state.completed -> "Đã hoàn thành"
-                        state.unlocked && state.score != null -> "Đã mở khóa · Điểm gần nhất ${state.score}/100"
-                        state.unlocked -> "Đã mở khóa"
-                        else -> ""
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = EgDesign.textSecondary
-                )
-                Surface(shape = MaterialTheme.shapes.medium, color = statusColor.copy(alpha = 0.12f)) {
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        statusText,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
-                        fontWeight = FontWeight.SemiBold
+                        text = level.name,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = titleColor
                     )
-                }
-                val progressText: String? = null
-                progressText?.let { text ->
                     Text(
-                        text = text,
-                        style = MaterialTheme.typography.labelSmall,
+                        text = when {
+                            state.resumable && !state.resumeProgressText.isNullOrBlank() -> "Đang chơi dở · ${state.resumeProgressText}"
+                            !state.unlocked && state.available -> "Hoàn thành cấp độ ${level.id - 1} để mở khóa."
+                            state.completed -> "Đã hoàn thành"
+                            state.unlocked -> "Đã mở khóa"
+                            else -> ""
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
                         color = EgDesign.textSecondary
                     )
+                    val progressText: String? = null
+                    progressText?.let { text ->
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = EgDesign.textSecondary
+                        )
+                    }
                 }
             }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
             if (state.unlocked) {
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = EgDesign.primary.copy(alpha = 0.16f)
+                Box(
+                    modifier = Modifier
+                        .height(44.dp)
+                        .widthIn(min = 100.dp)
+                        .egTactileClick(onClick = { onStartGame(level.id.toString()) })
+                        .background(EgDesign.primary, shape = RoundedCornerShape(EgDesign.controlRadius)),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = when {
@@ -879,14 +869,16 @@ private fun LevelCard(
                             state.completed -> "Chơi lại"
                             else -> "Bắt đầu"
                         },
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        color = EgDesign.blue,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
             } else {
-                EgVectorEmojiIcon("lock", size = 18.dp, tint = EgDesign.textSecondary)
+                Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                     EgVectorEmojiIcon("lock", size = 28.dp, tint = Color(0xFFEF4444))
+                }
             }
         }
     }

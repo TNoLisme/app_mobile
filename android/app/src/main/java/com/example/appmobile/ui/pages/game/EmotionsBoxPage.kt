@@ -196,6 +196,7 @@ fun EmotionsBoxPage(
 
     val currentQuestion = questions.value[currentIndex.intValue % questions.value.size]
     val options = GameUiCatalog.emotions
+    val hintShown = remember(currentIndex.intValue) { mutableStateOf(false) }
 
     GameScreenShell(
         contentMaxWidth = 800,
@@ -300,6 +301,49 @@ fun EmotionsBoxPage(
                     ) {
                         if (feedback.value != null) {
                             GameFeedbackCard(feedback.value.orEmpty())
+                        } else if (!currentQuestion.explanation.isNullOrBlank()) {
+                            if (hintShown.value) {
+                                Surface(
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                    color = Color(0xFFFFD66B),
+                                    border = BorderStroke(1.dp, Color(0xFFF59E0B))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        EgVectorEmojiIcon("bulb", size = 20.dp, tint = Color(0xFFF59E0B))
+                                        Text(
+                                            text = currentQuestion.explanation,
+                                            color = Color(0xFF92400E),
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            } else {
+                                Surface(
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                    color = EgDesign.cardSoft,
+                                    border = BorderStroke(1.dp, EgDesign.cardBorder),
+                                    onClick = { hintShown.value = true }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        EgVectorEmojiIcon("bulb", size = 20.dp, tint = Color(0xFFF59E0B))
+                                        Text(
+                                            text = "Gợi ý",
+                                            color = EgDesign.textPrimary,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -362,13 +406,15 @@ fun EmotionsBoxPage(
                                 GameUiCatalog.emotionById(it)?.name ?: it
                             }
                             Text(
-                                when {
+                                text = when {
                                     isSubmitting.value -> "Đang lưu..."
                                     feedback.value == null -> "Trả lời"
                                     pendingLearnEmotion.value != null -> "Học về $learnTarget"
                                     currentIndex.intValue >= questions.value.lastIndex -> "Hoàn thành"
                                     else -> "Câu tiếp theo"
-                                }
+                                },
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }

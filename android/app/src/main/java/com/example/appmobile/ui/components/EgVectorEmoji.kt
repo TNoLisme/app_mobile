@@ -99,6 +99,10 @@ fun EgVectorEmojiIcon(
         Canvas(modifier = modifier.size(size)) {
             drawEmotionFace(key)
         }
+    } else if (key == "bulb") {
+        Canvas(modifier = modifier.size(size)) {
+            drawCustomBulb()
+        }
     } else {
         Icon(
             imageVector = egMaterialIcon(key),
@@ -421,4 +425,46 @@ private fun DrawScope.drawTeardrop(center: Offset, height: Float, color: Color) 
     }
     drawPath(path, color)
     drawCircle(Color.White.copy(alpha = 0.55f), height * 0.10f, Offset(center.x - height * 0.10f, center.y - height * 0.18f))
+}
+
+private fun DrawScope.drawCustomBulb() {
+    val s = min(size.width, size.height)
+    val c = center
+    val bulbColor = Color(0xFFFFD66B)
+    val outlineColor = Color(0xFF1E293B)
+    val strokeWidth = s * 0.08f
+    val stroke = Stroke(strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+
+    val rayLength = s * 0.15f
+    val rayOffset = s * 0.38f
+    val angles = listOf(-135f, -90f, -45f)
+    angles.forEach { angle ->
+        val rad = Math.toRadians(angle.toDouble())
+        val start = Offset(
+            c.x + kotlin.math.cos(rad).toFloat() * rayOffset,
+            c.y + kotlin.math.sin(rad).toFloat() * rayOffset
+        )
+        val end = Offset(
+            c.x + kotlin.math.cos(rad).toFloat() * (rayOffset + rayLength),
+            c.y + kotlin.math.sin(rad).toFloat() * (rayOffset + rayLength)
+        )
+        drawLine(outlineColor, start, end, strokeWidth, StrokeCap.Round)
+    }
+
+    drawCircle(bulbColor, s * 0.30f, Offset(c.x, c.y + s * 0.05f))
+    drawCircle(outlineColor, s * 0.30f, Offset(c.x, c.y + s * 0.05f), style = stroke)
+
+    val baseY = c.y + s * 0.35f
+    drawLine(outlineColor, Offset(c.x - s * 0.12f, baseY), Offset(c.x + s * 0.12f, baseY), strokeWidth, StrokeCap.Round)
+    drawLine(outlineColor, Offset(c.x - s * 0.08f, baseY + s * 0.12f), Offset(c.x + s * 0.08f, baseY + s * 0.12f), strokeWidth, StrokeCap.Round)
+    
+    drawArc(
+        Color.White,
+        startAngle = 190f,
+        sweepAngle = 60f,
+        useCenter = false,
+        topLeft = Offset(c.x - s * 0.20f, c.y - s * 0.15f),
+        size = Size(s * 0.40f, s * 0.40f),
+        style = Stroke(s * 0.06f, cap = StrokeCap.Round)
+    )
 }
