@@ -37,11 +37,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -90,15 +92,18 @@ fun GardenPage(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(EgDesign.background)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp)
     ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AppBackButton(onClick = onBack)
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -122,13 +127,25 @@ fun GardenPage(
             LoadingCard()
         } else {
             GardenTopCard(state = state)
-            state.message?.let { GardenMessageCard(message = it, onDismiss = vm::clearMessage) }
             PlantGardenGrid(
                 plants = state.plants,
                 modifier = Modifier.weight(1f),
                 onOpenPlant = vm::openPlant
             )
             GardenTaskLauncher(state = state, onOpenTasks = { showTasks = true })
+        }
+        }
+
+        if (!state.isLoading) {
+            state.message?.let {
+                GardenMessageCard(
+                    message = it,
+                    onDismiss = vm::clearMessage,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 70.dp)
+                )
+            }
         }
     }
 
@@ -293,9 +310,9 @@ private fun ResourceChip(label: String, value: Int, type: String, modifier: Modi
 }
 
 @Composable
-private fun GardenMessageCard(message: String, onDismiss: () -> Unit) {
+private fun GardenMessageCard(message: String, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onDismiss),
         shape = RoundedCornerShape(18.dp),
@@ -366,7 +383,7 @@ private fun PlantCard(plant: EmotionPlant, modifier: Modifier = Modifier, onClic
             verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                EmotionPlantVisual(plant = plant, modifier = Modifier.size(66.dp).scale(scale))
+                EmotionPlantVisual(plant = plant, modifier = Modifier.size(76.dp).scale(scale))
                 Surface(
                     modifier = Modifier.align(Alignment.TopEnd).size(24.dp),
                     shape = CircleShape,
@@ -880,9 +897,8 @@ private fun GardenScenePreview(plants: List<EmotionPlant>, modifier: Modifier = 
             verticalAlignment = Alignment.Bottom
         ) {
             plants.take(6).forEach { plant ->
-                Image(
-                    painter = painterResource(GardenPlantAssets.assetFor(plant.emotionId, plant.level)),
-                    contentDescription = GardenRepository.plantSpeciesName(plant.emotionId),
+                EmotionPlantVisual(
+                    plant = plant,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
@@ -894,11 +910,29 @@ private fun GardenScenePreview(plants: List<EmotionPlant>, modifier: Modifier = 
 
 @Composable
 private fun EmotionPlantVisual(plant: EmotionPlant, modifier: Modifier = Modifier) {
-    Image(
-        painter = painterResource(GardenPlantAssets.assetFor(plant.emotionId, plant.level)),
-        contentDescription = GardenRepository.plantSpeciesName(plant.emotionId),
-        modifier = modifier
-    )
+    Box(
+        modifier = modifier.clipToBounds(),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(GardenPlantAssets.assetFor(plant.emotionId, plant.level)),
+            contentDescription = GardenRepository.plantSpeciesName(plant.emotionId),
+            modifier = Modifier
+                .fillMaxSize()
+                .scale(gardenPlantVisualZoom(plant.level)),
+            contentScale = ContentScale.Fit
+        )
+    }
+}
+
+private fun gardenPlantVisualZoom(level: Int): Float {
+    return when (level.coerceIn(0, 5)) {
+        0 -> 1.85f
+        1 -> 1.65f
+        2 -> 1.35f
+        3 -> 1.18f
+        else -> 1.08f
+    }
 }
 
 @Composable

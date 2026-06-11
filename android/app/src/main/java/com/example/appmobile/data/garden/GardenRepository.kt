@@ -364,9 +364,10 @@ class GardenRepository(private val context: Context) {
         val levelSum = plants.sumOf { it.level }
         val totalMaxGrowth = EmotionIds.size * TotalGrowthPerPlant
         val currentGrowth = plants.sumOf { it.totalGrowthPoints.coerceIn(0, TotalGrowthPerPlant) }
-        val progressPercent = ((currentGrowth.toFloat() / totalMaxGrowth.toFloat()) * 100f)
+        val rawProgressPercent = ((currentGrowth.toFloat() / totalMaxGrowth.toFloat()) * 100f)
             .roundToInt()
             .coerceIn(0, 100)
+        val progressPercent = if (currentGrowth > 0 && rawProgressPercent == 0) 1 else rawProgressPercent
         return GardenUiState(
             isLoading = false,
             plants = plants.sortedBy { EmotionIds.indexOf(it.emotionId).takeIf { index -> index >= 0 } ?: 99 },

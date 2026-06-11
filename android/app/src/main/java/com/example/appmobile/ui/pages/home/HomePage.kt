@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -109,10 +108,6 @@ fun HomePage(
     ) {
         state.errorMessage?.let { message ->
             ErrorBanner(message = message, onRetry = vm::refresh)
-        }
-
-        if (state.isLoading) {
-            LoadingStrip("Đang chuẩn bị bài học cho bé...")
         }
 
         GreetingSection(childName = state.childName)
@@ -551,29 +546,6 @@ private fun HomeActionPill(
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1
             )
-        }
-    }
-}
-
-@Composable
-private fun LoadingStrip(message: String) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = HomeCard,
-        border = BorderStroke(1.dp, HomeCardBorder),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
-                color = HomeBlue
-            )
-            Text(message, color = HomeTextSecondary, fontSize = 13.sp)
         }
     }
 }
