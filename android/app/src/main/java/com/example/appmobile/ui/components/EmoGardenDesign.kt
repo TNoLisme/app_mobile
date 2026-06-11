@@ -214,9 +214,9 @@ fun EgCollapsibleMainScaffold(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(top = topActionReserveDp)
                 .verticalScroll(scrollState)
-                .padding(horizontal = EgDesign.screenPadding)
-                .padding(top = topActionReserveDp),
+                .padding(horizontal = EgDesign.screenPadding),
             verticalArrangement = Arrangement.spacedBy(verticalSpacing),
             horizontalAlignment = horizontalAlignment
         ) {
