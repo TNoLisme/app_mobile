@@ -491,7 +491,7 @@ private fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 10.dp),
+            .padding(bottom = 10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         SettingsHeader()

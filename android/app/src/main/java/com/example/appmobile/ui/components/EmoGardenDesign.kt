@@ -157,6 +157,7 @@ fun EgCollapsibleMainScaffold(
     modifier: Modifier = Modifier,
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     verticalSpacing: Dp = 12.dp,
+    topPadding: Dp? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val scrollState = rememberScrollState()
@@ -165,7 +166,8 @@ fun EgCollapsibleMainScaffold(
     var navHeightPx by remember(density) { mutableIntStateOf(with(density) { 78.dp.roundToPx() }) }
     var horizontalDragPx by remember { mutableFloatStateOf(0f) }
     val navHeightDp = with(density) { navHeightPx.toDp() }
-    val topActionReserveDp = with(density) { WindowInsets.statusBars.getTop(this).toDp() } + 16.dp
+    val statusBarHeightDp = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    val topActionReserveDp = topPadding ?: statusBarHeightDp
     val horizontalPaddingPx = with(density) { (EgDesign.screenPadding * 2).toPx() }
     val tabsTrackWidthPx = with(density) {
         (configuration.screenWidthDp.dp.toPx() - horizontalPaddingPx)
