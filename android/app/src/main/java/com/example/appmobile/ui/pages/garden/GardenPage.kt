@@ -23,11 +23,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -137,9 +140,13 @@ fun GardenPage(
         }
 
         if (!state.isLoading) {
-            state.message?.let {
+            state.message?.let { msg ->
+                LaunchedEffect(msg) {
+                    delay(3000)
+                    vm.clearMessage()
+                }
                 GardenMessageCard(
-                    message = it,
+                    message = msg,
                     onDismiss = vm::clearMessage,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -163,7 +170,8 @@ fun GardenPage(
                     onOpenReport = onOpenReport,
                     onStartEmotionChallenge = { onStartEmotionChallenge(state.plants.firstOrNull()?.emotionId ?: "happy") }
                 )
-            }
+            },
+            onClearMessage = vm::clearMessage
         )
     }
 
@@ -290,21 +298,21 @@ private fun ResourceRow(inventory: GardenInventory) {
 @Composable
 private fun ResourceChip(label: String, value: Int, type: String, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.height(42.dp),
         shape = RoundedCornerShape(16.dp),
         color = EgDesign.cardSoft,
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            modifier = Modifier.padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.Center
         ) {
-            GardenResourceIcon(type = type, modifier = Modifier.size(22.dp))
-            Column {
-                Text(value.toString(), color = EgDesign.primaryDark, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                Text(label, color = EgDesign.textSecondary, fontSize = 10.sp, maxLines = 1)
-            }
+            GardenResourceIcon(type = type, modifier = Modifier.size(20.dp))
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(6.dp))
+            Text(value.toString(), color = EgDesign.primaryDark, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(4.dp))
+            Text(label, color = EgDesign.textSecondary, fontSize = 12.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
     }
 }
@@ -486,7 +494,8 @@ private fun GardenTaskLauncher(state: GardenUiState, onOpenTasks: () -> Unit) {
 private fun GardenTaskPanel(
     state: GardenUiState,
     onDismiss: () -> Unit,
-    onTaskAction: (GardenTask) -> Unit
+    onTaskAction: (GardenTask) -> Unit,
+    onClearMessage: () -> Unit
 ) {
     var showWeekly by remember { mutableStateOf(false) }
     Dialog(
@@ -498,7 +507,7 @@ private fun GardenTaskPanel(
                 .fillMaxSize()
                 .navigationBarsPadding()
                 .padding(horizontal = 14.dp, vertical = 12.dp),
-            contentAlignment = Alignment.BottomCenter
+            contentAlignment = Alignment.Center
         ) {
             Surface(
                 modifier = Modifier
@@ -566,8 +575,17 @@ private fun GardenTaskPanel(
                         }
                         UnlocksPreview()
                     }
-                    GardenPill("Đóng", onDismiss, Modifier.fillMaxWidth(), enabled = !state.isBusy)
+                    GardenPill("Đóng", onDismiss, Modifier.fillMaxWidth(), primary = true, enabled = !state.isBusy)
                 }
+            }
+            state.message?.let { msg ->
+                GardenMessageCard(
+                    message = msg,
+                    onDismiss = onClearMessage,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 20.dp)
+                )
             }
         }
     }
@@ -810,7 +828,8 @@ private fun PlantDetailDialog(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     GardenPill(
-                        text = "Tưới nước (${inventory.water})",
+                        text = "(${inventory.water})",
+                        icon = "water",
                         onClick = onWater,
                         modifier = Modifier.weight(1f),
                         primary = true,
@@ -818,7 +837,8 @@ private fun PlantDetailDialog(
                         height = 42.dp
                     )
                     GardenPill(
-                        text = "Tắm nắng (${inventory.sunlight})",
+                        text = "(${inventory.sunlight})",
+                        icon = "sun",
                         onClick = onSun,
                         modifier = Modifier.weight(1f),
                         primary = false,
@@ -837,6 +857,7 @@ private fun GardenPill(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    icon: String? = null,
     primary: Boolean = false,
     enabled: Boolean = true,
     height: androidx.compose.ui.unit.Dp = 42.dp
@@ -851,7 +872,14 @@ private fun GardenPill(
         border = if (primary && enabled) null else BorderStroke(1.dp, EgDesign.cardBorder),
         shadowElevation = if (primary && enabled) 2.dp else 0.dp
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (icon != null) {
+                GardenResourceIcon(type = icon, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+            }
             Text(
                 text,
                 color = if (primary && enabled) Color.White else EgDesign.blue,

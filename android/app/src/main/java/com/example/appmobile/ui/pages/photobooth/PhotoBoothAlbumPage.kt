@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -139,19 +141,34 @@ fun PhotoBoothAlbumPage(
             .background(EgDesign.background)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
+            .padding(top = 10.dp, bottom = 10.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        AppBackButton(onClick = onBack)
-        Text("Album EmoGarden Photobooth", color = EgDesign.textPrimary, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
-        Text("Những bộ ảnh cảm xúc con đã lưu trong ứng dụng.", color = EgDesign.textSecondary, fontSize = 14.sp)
-        state.message?.let { AlbumMessageCard(it) }
+        Column(modifier = Modifier.padding(horizontal = EgDesign.screenPadding)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AppBackButton(onClick = onBack)
+                Spacer(modifier = Modifier.width(16.dp))
+                Text("Album EmoGarden Photobooth", color = EgDesign.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text("Những bộ ảnh cảm xúc con đã lưu trong ứng dụng.", color = EgDesign.textSecondary, fontSize = 14.sp, lineHeight = 20.sp)
+        }
+        
+        state.message?.let { 
+            Box(modifier = Modifier.padding(horizontal = EgDesign.screenPadding)) {
+                AlbumMessageCard(it) 
+            }
+        }
 
         when {
-            state.isLoading -> Text("Đang mở album...", color = EgDesign.textSecondary)
-            state.items.isEmpty() -> EmptyAlbumCard()
+            state.isLoading -> Text("Đang mở album...", color = EgDesign.textSecondary, modifier = Modifier.padding(horizontal = EgDesign.screenPadding))
+            state.items.isEmpty() -> Box(modifier = Modifier.padding(horizontal = EgDesign.screenPadding)) { EmptyAlbumCard() }
             else -> LazyColumn(
                 modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = EgDesign.screenPadding),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(state.items, key = { it.id }) { item ->

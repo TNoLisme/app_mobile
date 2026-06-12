@@ -40,12 +40,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -194,11 +197,9 @@ fun PhotoBoothPage(
                 onSaveGallery = vm::saveToGallery,
                 onSaveAlbum = vm::saveToAlbum,
                 onRestart = vm::restartSession,
-                onGoHome = {
-                    vm.resetToIntro()
-                    onGoHome()
-                },
-                onOpenAlbum = onOpenAlbum
+                onGoHome = onGoHome,
+                onOpenAlbum = onOpenAlbum,
+                onBackToFrames = vm::goToFramePicker
             )
             PhotoBoothPhase.PermissionDenied -> PermissionDeniedScreen(
                 onBack = onBack,
@@ -216,7 +217,6 @@ fun PhotoBoothPage(
                 onDismiss = { showExitConfirm = false },
                 onExit = {
                     showExitConfirm = false
-                    vm.resetToIntro()
                     onBack()
                 }
             )
@@ -226,23 +226,23 @@ fun PhotoBoothPage(
 
 @Composable
 private fun PhotoBoothIntro(onBack: () -> Unit, onStart: () -> Unit, onOpenAlbum: () -> Unit) {
-    PhotoBoothScaffold(onBack = onBack) {
-        Text("EmoGarden Photobooth", color = EgDesign.textPrimary, fontSize = 27.sp, fontWeight = FontWeight.Bold)
-        Text(
-            "Chọn vài cảm xúc, chụp từng biểu cảm rồi ghép thành một bộ ảnh dễ thương.",
-            color = EgDesign.textSecondary,
-            fontSize = 15.sp,
-            lineHeight = 21.sp
-        )
-        EgSoftCard {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                MiniStripPreview()
+    PhotoBoothScaffold(
+        onBack = onBack,
+        title = "EmoGarden Photobooth",
+        subtitle = "Chọn vài cảm xúc, chụp từng biểu cảm rồi ghép thành một bộ ảnh dễ thương.",
+        bottomBar = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 EgGradientPill("Bắt đầu", onClick = onStart, modifier = Modifier.fillMaxWidth(), height = 46.dp, fontSize = 14)
                 OutlinePill("Xem album", onClick = onOpenAlbum, modifier = Modifier.fillMaxWidth())
+            }
+        }
+    ) {
+        EgSoftCard(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier.padding(vertical = 32.dp).fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                MiniStripPreview()
             }
         }
     }
@@ -250,73 +250,64 @@ private fun PhotoBoothIntro(onBack: () -> Unit, onStart: () -> Unit, onOpenAlbum
 
 @Composable
 private fun EmotionMultiPicker(state: PhotoBoothUiState, onBack: () -> Unit, vm: PhotoBoothViewModel) {
-    PhotoBoothScaffold(onBack = onBack) {
-        SectionHeader(
-            title = "Chọn cảm xúc",
-            subtitle = "Chọn từ 2 đến 4 cảm xúc. Thứ tự chọn sẽ là thứ tự chụp ảnh."
-        )
+    PhotoBoothScaffold(
+        onBack = onBack,
+        title = "Chọn cảm xúc",
+        subtitle = "Chọn từ 2 đến 4 cảm xúc. Thứ tự chọn sẽ là thứ tự chụp ảnh.",
+        bottomBar = {
+            EgGradientPill(
+                "Tiếp tục",
+                onClick = vm::goToFramePicker,
+                modifier = Modifier.fillMaxWidth(),
+                height = 46.dp,
+                fontSize = 14,
+                enabled = state.selectedEmotionIds.size >= 2
+            )
+        }
+    ) {
         EmotionPickerGrid(state = state, onToggle = vm::toggleEmotion)
         if (state.selectedEmotionIds.size < 2) {
             Text(
                 "Chọn ít nhất 2 cảm xúc để tiếp tục.",
                 color = EgDesign.textSecondary,
-                fontSize = 13.sp
+                fontSize = 15.sp
             )
         }
         state.validationMessage?.let { FriendlyNotice(it, isError = true) }
-        EgGradientPill(
-            "Tiếp tục",
-            onClick = vm::goToFramePicker,
-            modifier = Modifier.fillMaxWidth(),
-            height = 46.dp,
-            fontSize = 14,
-            enabled = state.selectedEmotionIds.size >= 2
-        )
     }
 }
 
 @Composable
 private fun FramePicker(state: PhotoBoothUiState, onBack: () -> Unit, vm: PhotoBoothViewModel) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(EgDesign.background)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        AppBackButton(onClick = onBack)
-        SectionHeader(
-            title = "Chọn khung",
-            subtitle = "Chọn khung dễ thương cho bộ ảnh của con."
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            PhotoBoothCatalog.frames.forEach { frame ->
-                FrameTemplateCard(
-                    frame = frame,
-                    selected = state.selectedFrameId == frame.id,
-                    layout = state.selectedLayout,
-                    onClick = { vm.selectFrame(frame.id) }
-                )
-            }
+    PhotoBoothScaffold(
+        onBack = onBack,
+        title = "Chọn khung",
+        subtitle = "Chọn khung dễ thương cho bộ ảnh của con.",
+        bottomBar = {
+            EgGradientPill("Tiếp tục chụp", onClick = vm::goToPreparation, modifier = Modifier.fillMaxWidth(), height = 46.dp, fontSize = 14)
         }
-        EgGradientPill("Tiếp tục chụp", onClick = vm::goToPreparation, modifier = Modifier.fillMaxWidth(), height = 46.dp, fontSize = 14)
+    ) {
+        PhotoBoothCatalog.frames.forEach { frame ->
+            FrameTemplateCard(
+                frame = frame,
+                selected = state.selectedFrameId == frame.id,
+                layout = state.selectedLayout,
+                onClick = { vm.selectFrame(frame.id) }
+            )
+        }
     }
 }
 
 @Composable
 private fun PreparationScreen(state: PhotoBoothUiState, onBack: () -> Unit, onStart: () -> Unit) {
-    PhotoBoothScaffold(onBack = onBack) {
-        SectionHeader(
-            title = "Chuẩn bị chụp",
-            subtitle = "Con sẽ chụp lần lượt từng cảm xúc theo thứ tự này."
-        )
+    PhotoBoothScaffold(
+        onBack = onBack,
+        title = "Chuẩn bị chụp",
+        subtitle = "Con sẽ chụp lần lượt từng cảm xúc theo thứ tự này.",
+        bottomBar = {
+            EgGradientPill("Bắt đầu chụp", onClick = onStart, modifier = Modifier.fillMaxWidth(), height = 46.dp, fontSize = 14)
+        }
+    ) {
         EgSoftCard {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 state.selectedEmotionIds.forEachIndexed { index, emotionId ->
@@ -344,7 +335,6 @@ private fun PreparationScreen(state: PhotoBoothUiState, onBack: () -> Unit, onSt
                 TipText("Sau mỗi ảnh, con có thể chụp lại nếu muốn.")
             }
         }
-        EgGradientPill("Bắt đầu chụp", onClick = onStart, modifier = Modifier.fillMaxWidth(), height = 46.dp, fontSize = 14)
     }
 }
 
@@ -502,13 +492,38 @@ private fun FinalPreviewScreen(
     onSaveAlbum: () -> Unit,
     onRestart: () -> Unit,
     onGoHome: () -> Unit,
-    onOpenAlbum: () -> Unit
+    onOpenAlbum: () -> Unit,
+    onBackToFrames: () -> Unit
 ) {
-    PhotoBoothScaffold(onBack = onGoHome) {
-        SectionHeader(
-            title = "Ảnh photobooth của con",
-            subtitle = "Con muốn lưu ảnh này không?"
-        )
+    PhotoBoothScaffold(
+        onBack = onBackToFrames,
+        title = "Ảnh photobooth của con",
+        subtitle = "Con muốn lưu ảnh này không?",
+        bottomBar = {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinePill(
+                    text = if (state.albumSaved) "Đã thêm" else "Thêm vào album",
+                    onClick = onSaveAlbum,
+                    modifier = Modifier.weight(1f),
+                    enabled = !state.isBusy && !state.albumSaved
+                )
+                OutlinePill(
+                    text = "Xem album",
+                    onClick = onOpenAlbum,
+                    modifier = Modifier.weight(1f),
+                    enabled = !state.isBusy
+                )
+                OutlinePill(
+                    text = "",
+                    onClick = onGoHome,
+                    modifier = Modifier.width(46.dp),
+                    enabled = !state.isBusy,
+                    icon = { Icon(androidx.compose.material.icons.Icons.Rounded.Home, contentDescription = null, modifier = Modifier.size(20.dp), tint = if (!state.isBusy) EgDesign.textPrimary else EgDesign.textSecondary) }
+                )
+            }
+        }
+    ) {
+        state.friendlyMessage?.let { FriendlyNotice(message = it, isError = false) }
         EgSoftCard {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(
@@ -541,18 +556,6 @@ private fun FinalPreviewScreen(
                 )
             }
         }
-        state.friendlyMessage?.let { FriendlyNotice(message = it, isError = false) }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinePill(
-                text = if (state.albumSaved) "Đã thêm vào album" else "Thêm vào album",
-                onClick = onSaveAlbum,
-                modifier = Modifier.weight(1f),
-                enabled = !state.isBusy && !state.albumSaved
-            )
-            OutlinePill("Xem album", onClick = onOpenAlbum, modifier = Modifier.weight(1f), enabled = !state.isBusy)
-        }
-        OutlinePill("Chụp lại", onClick = onRestart, modifier = Modifier.fillMaxWidth(), enabled = !state.isBusy)
-        OutlinePill("Về Trang chủ", onClick = onGoHome, modifier = Modifier.fillMaxWidth(), enabled = !state.isBusy)
     }
 }
 
@@ -589,19 +592,54 @@ private fun ErrorFallbackScreen(message: String, onRetry: () -> Unit, onBack: ()
 }
 
 @Composable
-private fun PhotoBoothScaffold(onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+private fun PhotoBoothScaffold(
+    onBack: () -> Unit,
+    title: String? = null,
+    subtitle: String? = null,
+    bottomBar: @Composable (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(EgDesign.background)
-            .verticalScroll(rememberScrollState())
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = EgDesign.screenPadding, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(top = 10.dp, bottom = 10.dp)
     ) {
-        AppBackButton(onClick = onBack)
-        content()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = EgDesign.screenPadding),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AppBackButton(onClick = onBack)
+            if (title != null) {
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(title, color = EgDesign.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            }
+        }
+        if (subtitle != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(subtitle, color = EgDesign.textSecondary, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(horizontal = EgDesign.screenPadding))
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = EgDesign.screenPadding),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            content()
+        }
+        if (bottomBar != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Box(modifier = Modifier.padding(horizontal = EgDesign.screenPadding)) {
+                bottomBar()
+            }
+        }
     }
 }
 
@@ -616,14 +654,6 @@ private fun PhotoBoothPlainScreen(content: @Composable () -> Unit) {
             .padding(EgDesign.screenPadding)
     ) {
         content()
-    }
-}
-
-@Composable
-private fun SectionHeader(title: String, subtitle: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(title, color = EgDesign.textPrimary, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 29.sp)
-        Text(subtitle, color = EgDesign.textSecondary, fontSize = 14.sp, lineHeight = 20.sp)
     }
 }
 
@@ -657,7 +687,7 @@ private fun EmotionSelectCard(
     val selected = order != null
     Card(
         modifier = modifier
-            .height(116.dp)
+            .height(140.dp)
             .egTactileClick(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -673,14 +703,14 @@ private fun EmotionSelectCard(
             Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                EgEmotionVectorIcon(emotion.id, size = 42.dp)
+                EgEmotionVectorIcon(emotion.id, size = 54.dp)
                 Text(
                     emotion.name,
                     color = if (selected) EgEmotionCardSelectedText else EgEmotionCardText,
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 14.sp
+                    fontSize = 16.sp
                 )
             }
             order?.let {
@@ -928,26 +958,26 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDecorativeDots(
 private fun MiniStripPreview() {
     Column(
         modifier = Modifier
-            .width(168.dp)
-            .clip(RoundedCornerShape(20.dp))
+            .width(260.dp)
+            .clip(RoundedCornerShape(24.dp))
             .background(Brush.linearGradient(listOf(Color(0xFFE7F7FF), Color(0xFFE9FAEF))))
-            .border(2.dp, Color.White, RoundedCornerShape(20.dp))
-            .padding(horizontal = 11.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp),
+            .border(2.dp, Color.White, RoundedCornerShape(24.dp))
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             "EmoGarden",
             color = Color(0xFF0B3A6E),
             fontWeight = FontWeight.ExtraBold,
-            fontSize = 11.sp
+            fontSize = 17.sp
         )
         MiniStripFrame("Vui vẻ", Color(0xFFFFD86A))
         MiniStripFrame("Buồn bã", Color(0xFF86B6FF))
         MiniStripFrame("Tức giận", Color(0xFFFF9B7A))
-        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(Color(0xFF65B37D), Color(0xFF7CC8FF), Color(0xFFFFD86A)).forEach { color ->
-                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(color))
+                Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(color))
             }
         }
     }
@@ -958,33 +988,33 @@ private fun MiniStripFrame(label: String, accent: Color) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(42.dp)
-                .clip(RoundedCornerShape(9.dp))
+                .height(64.dp)
+                .clip(RoundedCornerShape(12.dp))
                 .background(Color.White)
         ) {
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .size(22.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(accent)
             )
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 5.dp)
-                    .width(32.dp)
-                    .height(5.dp)
+                    .padding(bottom = 8.dp)
+                    .width(52.dp)
+                    .height(8.dp)
                     .clip(RoundedCornerShape(999.dp))
                     .background(accent.copy(alpha = 0.34f))
             )
         }
-        Text(label, color = Color(0xFF0B3A6E), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Color(0xFF0B3A6E), fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -1102,7 +1132,13 @@ internal fun PhotoBoothDownloadButton(
 }
 
 @Composable
-private fun OutlinePill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+private fun OutlinePill(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    icon: @Composable (() -> Unit)? = null
+) {
     Surface(
         modifier = modifier
             .height(46.dp)
@@ -1111,15 +1147,23 @@ private fun OutlinePill(text: String, onClick: () -> Unit, modifier: Modifier = 
         color = if (enabled) EgDesign.card else EgDesign.cardSoft,
         border = BorderStroke(1.dp, EgDesign.cardBorder)
     ) {
-        Box(modifier = Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-            Text(
-                text,
-                color = if (enabled) EgDesign.textPrimary else EgDesign.textSecondary,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+        Row(modifier = Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            if (icon != null) {
+                icon()
+                if (text.isNotEmpty()) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+            }
+            if (text.isNotEmpty()) {
+                Text(
+                    text,
+                    color = if (enabled) EgDesign.textPrimary else EgDesign.textSecondary,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
