@@ -1,5 +1,6 @@
 package com.example.appmobile.ui.pages.profile
 
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -89,9 +90,11 @@ import com.google.firebase.auth.FirebaseAuth
 import coil.compose.AsyncImage
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 
 private val ProfileButtonGradient: Color get() = EgDesign.primary
@@ -215,6 +218,13 @@ fun ProfilePage(
     LaunchedEffect(userId) {
         UserAvatarState.load(context, userId)
         loadProfileData()
+    }
+
+    LaunchedEffect(message) {
+        if (message != null && profile != null) {
+            delay(3500)
+            message = null
+        }
     }
 
     EgCollapsibleMainScaffold(
@@ -737,19 +747,14 @@ private fun ProfilePersonalInfoGrid(profile: UserProfileDto?) {
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoTile("user", "Tên đăng nhập", fallback(profile?.username), Modifier.weight(1f))
-                InfoTile("mail", "Email", fallback(profile?.email), Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 InfoTile("child", "Tên hiển thị", personalFallback(profile?.name), Modifier.weight(1f))
-                InfoTile("cake", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
+                InfoTile("cake", "Tuổi", calculatedAgeText(profile?.child?.dob), Modifier.weight(1f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 InfoTile("calendar", "Ngày sinh", formatPersonalDate(profile?.child?.dob), Modifier.weight(1f))
                 InfoTile("user", "Giới tính", formatGender(profile?.child?.gender), Modifier.weight(1f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoTile("phone", "Số điện thoại", fallback(profile?.child?.phone), Modifier.weight(1f))
                 InfoTile("calendar", "Ngày tham gia", formatPersonalDate(profile?.createdAt), Modifier.weight(1f))
             }
         }
@@ -877,31 +882,33 @@ private fun EditProfileDialogV2(
     onDismiss: () -> Unit,
     onSave: (UserProfileUpdateDto) -> Unit
 ) {
+    val context = LocalContext.current
     var name by rememberSaveable(profile?.userId) { mutableStateOf(profile?.name.orEmpty()) }
-    var username by rememberSaveable(profile?.userId) { mutableStateOf(profile?.username.orEmpty()) }
-    var email by rememberSaveable(profile?.userId) { mutableStateOf(profile?.email.orEmpty()) }
-    var age by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.age?.toString().orEmpty()) }
-    var gender by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.gender.orEmpty()) }
-    var dateOfBirth by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.dob.orEmpty()) }
-    var phone by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.phone.orEmpty()) }
+    var gender by rememberSaveable(profile?.userId) { mutableStateOf(editableGender(profile?.child?.gender)) }
+    var dateOfBirth by rememberSaveable(profile?.userId) { mutableStateOf(normalizeBackendDate(profile?.child?.dob)) }
     var formError by rememberSaveable(profile?.userId) { mutableStateOf<String?>(null) }
 
     fun validate(): Boolean {
-        val trimmedEmail = email.trim()
-        val trimmedAge = age.trim()
-        val trimmedPhone = phone.trim()
         formError = when {
-            trimmedEmail.isNotEmpty() && !trimmedEmail.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) ->
-                "Email không đúng định dạng."
-            trimmedAge.isNotEmpty() && (trimmedAge.toIntOrNull() == null || trimmedAge.toInt() !in 1..120) ->
-                "Tuổi phải là số hợp lệ từ 1 đến 120."
-            trimmedPhone.isNotEmpty() && !trimmedPhone.matches(Regex("^\\d{8,15}$")) ->
-                "Số điện thoại chỉ gồm số và dài 8-15 ký tự."
             dateOfBirth.trim().isNotEmpty() && !isValidBackendDate(dateOfBirth.trim()) ->
                 "Ngày sinh phải đúng định dạng yyyy-MM-dd và là ngày hợp lệ."
             else -> null
         }
         return formError == null
+    }
+
+    fun openDatePicker() {
+        val calendar = Calendar.getInstance()
+        parseBackendDate(dateOfBirth)?.let { calendar.time = it }
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                dateOfBirth = String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, dayOfMonth)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
     }
 
     Dialog(
@@ -939,35 +946,17 @@ private fun EditProfileDialogV2(
                     EditProfileHeader(saving = saving, onDismiss = onDismiss)
                     formError?.let { FormErrorBanner(it) }
 
-                    ProfileSectionCard(title = "Thông tin tài khoản") {
-                        if (twoColumns) {
-                            TwoColumnFields(
-                                first = { ProfileTextField(username, { username = it }, "Tên đăng nhập", "Nhập tên đăng nhập") },
-                                second = { ProfileTextField(email, { email = it }, "Email", "email@example.com", keyboardType = KeyboardType.Email) }
-                            )
-                        } else {
-                            ProfileTextField(username, { username = it }, "Tên đăng nhập", "Nhập tên đăng nhập")
-                            ProfileTextField(email, { email = it }, "Email", "email@example.com", keyboardType = KeyboardType.Email)
-                        }
-                    }
-
                     ProfileSectionCard(title = "Thông tin cá nhân") {
                         if (twoColumns) {
                             TwoColumnFields(
                                 first = { ProfileTextField(name, { name = it }, "Tên hiển thị", "Tên của bé") },
-                                second = { ProfileTextField(age, { input -> if (input.all(Char::isDigit) && input.length <= 3) age = input }, "Tuổi", "Ví dụ: 6", keyboardType = KeyboardType.Number) }
+                                second = { GenderDropdown(gender, onValueChange = { gender = it }) }
                             )
-                            TwoColumnFields(
-                                first = { GenderDropdown(gender, onValueChange = { gender = it }) },
-                                second = { ProfileTextField(dateOfBirth, { dateOfBirth = it.take(10) }, "Ngày sinh", "YYYY-MM-DD", trailing = "calendar") }
-                            )
-                            ProfileTextField(phone, { input -> if (input.all(Char::isDigit) && input.length <= 15) phone = input }, "Số điện thoại", "Nhập số điện thoại", keyboardType = KeyboardType.Phone)
+                            DatePickerField(dateOfBirth, onClick = ::openDatePicker)
                         } else {
                             ProfileTextField(name, { name = it }, "Tên hiển thị", "Tên của bé")
-                            ProfileTextField(age, { input -> if (input.all(Char::isDigit) && input.length <= 3) age = input }, "Tuổi", "Ví dụ: 6", keyboardType = KeyboardType.Number)
                             GenderDropdown(gender, onValueChange = { gender = it })
-                            ProfileTextField(dateOfBirth, { dateOfBirth = it.take(10) }, "Ngày sinh", "YYYY-MM-DD", trailing = "calendar")
-                            ProfileTextField(phone, { input -> if (input.all(Char::isDigit) && input.length <= 15) phone = input }, "Số điện thoại", "Nhập số điện thoại", keyboardType = KeyboardType.Phone)
+                            DatePickerField(dateOfBirth, onClick = ::openDatePicker)
                         }
                     }
 
@@ -980,12 +969,8 @@ private fun EditProfileDialogV2(
                                     onSave(
                                         UserProfileUpdateDto(
                                             name = name.trim().ifBlank { null },
-                                            username = username.trim().ifBlank { null },
-                                            email = email.trim().ifBlank { null },
-                                            age = age.trim().toIntOrNull(),
                                             gender = gender.trim().ifBlank { null },
-                                            dateOfBirth = dateOfBirth.trim().ifBlank { null },
-                                            phoneNumber = phone.trim().ifBlank { null }
+                                            dateOfBirth = dateOfBirth.trim().ifBlank { null }
                                         )
                                     )
                                 }
@@ -999,6 +984,36 @@ private fun EditProfileDialogV2(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DatePickerField(value: String, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .egTactileClick(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = EgDesign.card,
+        border = BorderStroke(1.dp, ProfileCardBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Ngày sinh", color = ProfileBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = value.ifBlank { "Chọn ngày sinh" },
+                    color = if (value.isBlank()) ProfileTextSecondary else ProfileTextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            EgVectorEmojiIcon("calendar", size = 20.dp, tint = ProfileBlue)
         }
     }
 }
@@ -1021,7 +1036,7 @@ private fun EditProfileHeader(saving: Boolean, onDismiss: () -> Unit) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("Chỉnh sửa hồ sơ", color = ProfileTextPrimary, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
             Text(
-                "Cập nhật thông tin cá nhân để đồng bộ với trang hồ sơ của bạn.",
+                "Cập nhật thông tin cá nhân của bé.",
                 color = ProfileTextSecondary,
                 fontSize = 13.sp,
                 lineHeight = 18.sp
@@ -1131,6 +1146,7 @@ private fun ProfileTextField(
 private fun GenderDropdown(value: String, onValueChange: (String) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val options = listOf("Nam", "Nữ", "Khác")
+    val displayValue = editableGender(value)
 
     Box {
         Surface(
@@ -1149,7 +1165,7 @@ private fun GenderDropdown(value: String, onValueChange: (String) -> Unit) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Giới tính", color = ProfileBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Text(
-                        text = value.ifBlank { "Chọn giới tính" },
+                        text = displayValue.ifBlank { "Chọn giới tính" },
                         color = if (value.isBlank()) ProfileTextSecondary else ProfileTextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
@@ -1284,11 +1300,15 @@ private fun fallback(value: String?): String {
 }
 
 private fun formatGender(value: String?): String {
+    return editableGender(value).ifBlank { "Chưa có" }
+}
+
+private fun editableGender(value: String?): String {
     return when (value?.trim()?.lowercase(Locale.US)) {
         "male", "nam" -> "Nam"
         "female", "nữ", "nu" -> "Nữ"
         "other", "khác", "khac" -> "Khác"
-        null, "" -> "Chưa có"
+        null, "" -> ""
         else -> value.trim()
     }
 }
@@ -1297,17 +1317,37 @@ private fun personalFallback(value: String?): String {
     return value?.takeIf { it.isNotBlank() } ?: "Chưa có"
 }
 
+private fun calculatedAgeText(value: String?): String {
+    val birthDate = parseBackendDate(value) ?: return "Chưa có"
+    val birth = Calendar.getInstance().apply { time = birthDate }
+    val today = Calendar.getInstance()
+    var age = today.get(Calendar.YEAR) - birth.get(Calendar.YEAR)
+    if (today.get(Calendar.DAY_OF_YEAR) < birth.get(Calendar.DAY_OF_YEAR)) {
+        age--
+    }
+    return if (age >= 0) "$age tuổi" else "Chưa có"
+}
+
 private fun formatPersonalDate(value: String?): String {
-    if (value.isNullOrBlank()) return "Chưa có"
-    val normalized = value.substringBefore("T").substringBefore(" ")
-    return runCatching {
-        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }.parse(normalized)
-        parsed?.let { SimpleDateFormat("dd/MM/yyyy", Locale.US).format(it) }
-    }.getOrNull() ?: normalized
+    val normalized = normalizeBackendDate(value)
+    if (normalized.isBlank()) return "Chưa có"
+    return parseBackendDate(normalized)
+        ?.let { SimpleDateFormat("dd/MM/yyyy", Locale.US).format(it) }
+        ?: normalized
 }
 
 private fun isValidBackendDate(value: String): Boolean {
+    return parseBackendDate(value) != null
+}
+
+private fun normalizeBackendDate(value: String?): String {
+    return value?.trim().orEmpty().substringBefore("T").substringBefore(" ")
+}
+
+private fun parseBackendDate(value: String?): java.util.Date? {
+    val normalized = normalizeBackendDate(value)
+    if (normalized.isBlank()) return null
     return runCatching {
-        SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }.parse(value)
-    }.getOrNull() != null
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }.parse(normalized)
+    }.getOrNull()
 }
