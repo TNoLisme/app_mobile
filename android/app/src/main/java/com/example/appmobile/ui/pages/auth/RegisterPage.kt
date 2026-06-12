@@ -2,6 +2,7 @@ package com.example.appmobile.ui.pages.auth
 
 import android.app.DatePickerDialog
 import android.widget.Toast
+import com.example.appmobile.notifications.NotificationUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -301,11 +302,11 @@ fun RegisterPage(onNavigateBack: () -> Unit) {
                                     if (success) {
                                         authHelper.auth.signOut()
                                         AppSession.clear(context)
-                                        Toast.makeText(
+                                        NotificationUtils.showAppNotification(
                                             context,
-                                            "Đăng ký thành công. Vui lòng đăng nhập.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
+                                            "Đăng ký thành công",
+                                            "Đăng ký thành công! Vui lòng đăng nhập để tiếp tục."
+                                        )
                                         onNavigateBack()
                                     } else {
                                         authHelper.auth.signOut()

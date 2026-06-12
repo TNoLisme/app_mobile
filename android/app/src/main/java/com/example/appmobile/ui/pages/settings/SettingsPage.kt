@@ -45,6 +45,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.width
 import androidx.core.content.ContextCompat
+import com.example.appmobile.notifications.InAppNotificationManager
+import com.example.appmobile.notifications.NotificationUtils
 import com.example.appmobile.notifications.ReminderScheduler
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -171,7 +173,7 @@ fun SettingsPage(
         if (notificationsEnabled) {
             AppSettingsState.setLearningReminderEnabled(context, true)
             ReminderScheduler.scheduleDailyReminder(context, learningReminderHour, learningReminderMinute)
-            Toast.makeText(context, "Đã bật nhắc nhở học tập.", Toast.LENGTH_SHORT).show()
+            NotificationUtils.showAppNotification(context, "Nhắc nhở học tập", "Đã bật nhắc nhở học tập thành công!")
         } else {
             AppSettingsState.setLearningReminderEnabled(context, false)
             Toast.makeText(context, "Chưa cấp quyền thông báo.", Toast.LENGTH_SHORT).show()
@@ -184,7 +186,7 @@ fun SettingsPage(
             if (notificationsEnabled) {
                 AppSettingsState.setLearningReminderEnabled(context, true)
                 ReminderScheduler.scheduleDailyReminder(context, learningReminderHour, learningReminderMinute)
-                Toast.makeText(context, "Đã bật nhắc nhở học tập.", Toast.LENGTH_SHORT).show()
+                NotificationUtils.showAppNotification(context, "Nhắc nhở học tập", "Đã bật nhắc nhở học tập thành công!")
             } else {
                 val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
                     putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
@@ -196,14 +198,26 @@ fun SettingsPage(
                         data = Uri.fromParts("package", context.packageName, null)
                     }
                     runCatching { notificationSettingsLauncher.launch(fallbackIntent) }.onFailure {
-                        Toast.makeText(context, "Không thể mở cài đặt. Hãy tự bật trong Cài đặt máy.", Toast.LENGTH_LONG).show()
+                        InAppNotificationManager.emit("Thông báo", "Không thể mở cài đặt. Hãy tự bật trong Cài đặt máy.")
                     }
                 }
             }
         } else {
+            // Tắt nhắc học: huỷ lịch hẹn và điều hướng sang Settings để tắt toàn bộ thông báo
             AppSettingsState.setLearningReminderEnabled(context, false)
             ReminderScheduler.cancelDailyReminder(context)
-            Toast.makeText(context, "Đã tắt nhắc nhở học tập.", Toast.LENGTH_SHORT).show()
+            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            }
+            runCatching {
+                notificationSettingsLauncher.launch(intent)
+            }.onFailure {
+                val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", context.packageName, null)
+                }
+                runCatching { notificationSettingsLauncher.launch(fallbackIntent) }.onFailure {
+                    InAppNotificationManager.emit("Thông báo", "Không thể mở cài đặt. Hãy tự tắt trong Cài đặt máy.")
+                }
         }
     }
 
@@ -214,11 +228,11 @@ fun SettingsPage(
                 AppSettingsState.setLearningReminderTime(context, hourOfDay, minute)
                 if (learningReminderEnabled) {
                     ReminderScheduler.scheduleDailyReminder(context, hourOfDay, minute)
-                    Toast.makeText(
+                    NotificationUtils.showAppNotification(
                         context,
-                        "Đã đổi giờ nhắc học sang ${formatReminderTime(hourOfDay, minute)}.",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                        "Nhắc nhở học tập",
+                        "Đã đổi giờ nhắc học sang ${formatReminderTime(hourOfDay, minute)}. ⏰"
+                    )
                 }
             },
             learningReminderHour,

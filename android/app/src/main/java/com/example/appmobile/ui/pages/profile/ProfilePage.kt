@@ -2,6 +2,7 @@ package com.example.appmobile.ui.pages.profile
 
 import android.app.DatePickerDialog
 import android.content.Intent
+import com.example.appmobile.notifications.NotificationUtils
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -154,7 +155,7 @@ fun ProfilePage(
                 )
             }
             UserAvatarState.save(context, userId, selectedUri.toString())
-            message = "Đã cập nhật ảnh đại diện."
+            NotificationUtils.showAppNotification(context, "Hồ sơ", "Đã cập nhật ảnh đại diện thành công!")
         }
     }
 
@@ -299,8 +300,8 @@ fun ProfilePage(
                     saving = false
                     if (updated != null) {
                         profile = updated
-                        message = "Cập nhật hồ sơ thành công."
                         showEdit = false
+                        NotificationUtils.showAppNotification(context, "Hồ sơ", "Cập nhật hồ sơ thành công!")
                     } else {
                         message = "Cập nhật hồ sơ chưa thành công."
                     }

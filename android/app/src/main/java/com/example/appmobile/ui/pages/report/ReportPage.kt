@@ -46,6 +46,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +61,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
+import com.example.appmobile.notifications.NotificationUtils
 import com.example.appmobile.ui.viewmodel.PdfState
 import com.example.appmobile.ui.viewmodel.ReportOneTimeEvent
 import com.example.appmobile.ui.viewmodel.ReportViewModel
@@ -89,10 +91,10 @@ fun ReportPage(
     viewModel: ReportViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var showSendConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showAddEmailGateDialog by rememberSaveable { mutableStateOf(false) }
-    var oneTimeMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
@@ -110,7 +112,9 @@ fun ReportPage(
                 ReportOneTimeEvent.ShowConfirmSendDialog -> showSendConfirmDialog = true
                 ReportOneTimeEvent.NavigateToAddParentEmail -> showAddEmailGateDialog = true
                 ReportOneTimeEvent.OpenReportPreview -> Unit
-                is ReportOneTimeEvent.ShowSnackbar -> oneTimeMessage = event.message
+                is ReportOneTimeEvent.ShowSnackbar -> NotificationUtils.showAppNotification(
+                    context, "Báo cáo", event.message
+                )
             }
         }
     }
@@ -222,13 +226,6 @@ fun ReportPage(
                 reports = state.sentReports,
                 onOpenReport = viewModel::onOpenReport
             )
-
-            oneTimeMessage?.let { message ->
-                OneTimeMessageCard(
-                    message = message,
-                    onDismiss = { oneTimeMessage = null }
-                )
-            }
         }
     }
 }

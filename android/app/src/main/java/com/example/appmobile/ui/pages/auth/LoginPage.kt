@@ -3,6 +3,7 @@ package com.example.appmobile.ui.pages.auth
 import android.app.Activity
 import android.content.Context
 import android.widget.Toast
+import com.example.appmobile.notifications.NotificationUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -143,7 +144,7 @@ fun LoginPage(
                         errorMessage = null
                         AppSession.clear(context)
                         profile.userId?.let { AppSession.saveBackendUserId(context, it) }
-                        Toast.makeText(context, "Đăng nhập Google thành công", Toast.LENGTH_SHORT).show()
+                        NotificationUtils.showAppNotification(context, "Đăng nhập", "Đăng nhập Google thành công!")
                         onLoginSuccess()
                     }.onFailure {
                         authHelper.auth.signOut()
@@ -277,7 +278,7 @@ fun LoginPage(
                                             errorMessage = null
                                             AppSession.clear(context)
                                             profile.userId?.let { AppSession.saveBackendUserId(context, it) }
-                                            Toast.makeText(context, "Đăng nhập thành công", Toast.LENGTH_SHORT).show()
+                                            NotificationUtils.showAppNotification(context, "Đăng nhập", "Đăng nhập thành công!")
                                             onLoginSuccess()
                                         }.onFailure {
                                             errorMessage = mapLoginError(it)
@@ -609,8 +610,8 @@ private fun ForgotPasswordDialog(
                     authHelper.resetPassword(email.trim()) { success, error ->
                         isSending = false
                         if (success) {
-                            Toast.makeText(context, "Đã gửi email đặt lại mật khẩu.", Toast.LENGTH_LONG).show()
-                            onDismiss()
+                            NotificationUtils.showAppNotification(context, "Đặt lại mật khẩu", "Đã gửi email đặt lại mật khẩu. Vui lòng kiểm tra hộp thư.")
+                                            onDismiss()
                         } else {
                             message = error ?: "Chưa gửi được email đặt lại mật khẩu."
                         }

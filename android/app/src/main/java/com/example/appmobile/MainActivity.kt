@@ -38,6 +38,7 @@ import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.DraggableAssistantBubble
 import com.example.appmobile.ui.components.EgDesign
+import com.example.appmobile.ui.components.InAppNotificationOverlay
 import com.example.appmobile.ui.components.LegalConsentDialog
 import com.example.appmobile.ui.components.LegalDocumentDialog
 import com.example.appmobile.ui.components.LegalDocumentType
@@ -159,6 +160,9 @@ private fun AppRoot() {
                 onDismiss = { showTermsOfUse = false }
             )
         }
+
+        // Popup thông báo in-app (hiện ở trên cùng, tự ẩn sau 3 giây)
+        InAppNotificationOverlay()
     }
 }
 

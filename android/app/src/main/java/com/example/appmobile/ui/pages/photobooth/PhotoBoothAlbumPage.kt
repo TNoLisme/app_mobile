@@ -39,6 +39,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.appmobile.notifications.NotificationUtils
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgSoftCard
@@ -98,11 +99,14 @@ class PhotoBoothAlbumViewModel(application: Application) : AndroidViewModel(appl
                     PhotoBoothGallerySaver.save(getApplication<Application>().applicationContext, selected.photoUri)
                 }
             }
-            _state.value = _state.value.copy(
-                isSaving = false,
-                savedToGalleryItemId = if (result.isSuccess) selected.id else _state.value.savedToGalleryItemId,
-                message = if (result.isSuccess) "Đã lưu ảnh photobooth vào máy." else "Chưa lưu được ảnh. Con thử lại nhé."
-            )
+            _state.value = _state.value.copy(isSaving = false, message = null)
+            val ctx = getApplication<Application>().applicationContext
+            if (result.isSuccess) {
+                _state.value = _state.value.copy(savedToGalleryItemId = selected.id)
+                NotificationUtils.showAppNotification(ctx, "Photobooth", "Đã lưu ảnh photobooth vào máy.")
+            } else {
+                NotificationUtils.showAppNotification(ctx, "Photobooth", "Chưa lưu được ảnh. Con thử lại nhé.")
+            }
         }
     }
 
@@ -121,8 +125,10 @@ class PhotoBoothAlbumViewModel(application: Application) : AndroidViewModel(appl
             _state.value = _state.value.copy(
                 selectedItem = null,
                 pendingDeleteItem = null,
-                message = "Đã xóa ảnh khỏi album."
+                message = null
             )
+            val ctx = getApplication<Application>().applicationContext
+            NotificationUtils.showAppNotification(ctx, "Photobooth", "Đã xóa ảnh khỏi album.")
             refresh()
         }
     }
