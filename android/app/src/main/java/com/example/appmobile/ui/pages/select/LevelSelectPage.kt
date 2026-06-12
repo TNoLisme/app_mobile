@@ -1062,6 +1062,7 @@ private fun loadCvStoryResumePreview(
             preferences.edit().remove(key).apply()
             return null
         }
+        if (results <= 0) return null
         CvStoryResumePreview(
             answeredCount = results.coerceAtLeast(0),
             totalCount = questions.coerceAtLeast(1)

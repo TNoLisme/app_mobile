@@ -817,7 +817,14 @@ fun CvTrainingGamePage(
             gameId = gameId,
             level = level
         )
-        if (checkpoint != null) {
+        if (checkpoint != null && checkpoint.results.isEmpty()) {
+            showStoryResumeDialog.value = false
+            pendingStoryCheckpoint.value = null
+            storyEntryDecisionResolved.value = true
+            shouldLoadSessionFromBackend.value = false
+            roundLoading.value = false
+            applyStoryCheckpoint(checkpoint)
+        } else if (checkpoint != null) {
             pendingStoryCheckpoint.value = checkpoint
             showStoryResumeDialog.value = true
             storyEntryDecisionResolved.value = false
