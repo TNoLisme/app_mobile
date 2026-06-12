@@ -85,6 +85,8 @@ fun EmotionsBoxPage(
     val learningEmotionId = remember(level) { mutableStateOf<String?>(null) }
     val pendingLearnEmotion = remember(level) { mutableStateOf<String?>(null) }
     val showExitConfirm = remember(level) { mutableStateOf(false) }
+    val pendingResumeCheckpoint = remember(level) { mutableStateOf<JSONObject?>(null) }
+    val resumeFromCheckpoint = remember(level) { mutableStateOf<Boolean?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val userId = remember(context) {
@@ -200,9 +202,16 @@ fun EmotionsBoxPage(
         if (hasProgress) showExitConfirm.value = true else onBack()
     }
 
-    LaunchedEffect(level, userId, replayCount.intValue) {
+    LaunchedEffect(level, userId, replayCount.intValue, resumeFromCheckpoint.value) {
         val checkpoint = loadClickGameCheckpointJson(context, userId, GameUiCatalog.GAME_RECOGNIZE_EMOTION, level)
+        if (checkpoint != null && resumeFromCheckpoint.value == null) {
+            pendingResumeCheckpoint.value = checkpoint
+            return@LaunchedEffect
+        }
         if (checkpoint != null) {
+            if (resumeFromCheckpoint.value == false) {
+                clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_RECOGNIZE_EMOTION, level)
+            } else {
             val restoredQuestions = recognizeQuestionsFromJson(checkpoint.optJSONArray("questions"))
             if (restoredQuestions.isNotEmpty()) {
                 questions.value = restoredQuestions
@@ -222,6 +231,7 @@ fun EmotionsBoxPage(
                 pendingLearnEmotion.value = null
                 questionStartMs.value = System.currentTimeMillis()
                 return@LaunchedEffect
+            }
             }
         }
         val started = repository.startGame(GameUiCatalog.GAME_RECOGNIZE_EMOTION, userId, level)
@@ -478,6 +488,23 @@ fun EmotionsBoxPage(
             onDismiss = { showExitConfirm.value = false },
             onSaveAndExit = { saveAndExit() },
             onExitWithoutSaving = { exitWithoutSaving() }
+        )
+    }
+    pendingResumeCheckpoint.value?.let { checkpoint ->
+        val totalCount = checkpoint.optJSONArray("questions")?.length() ?: 1
+        val answeredCount = checkpoint.optJSONArray("results")?.length() ?: 0
+        ClickGameResumeDialog(
+            answeredCount = answeredCount,
+            totalCount = totalCount,
+            onContinue = {
+                pendingResumeCheckpoint.value = null
+                resumeFromCheckpoint.value = true
+            },
+            onRestart = {
+                clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_RECOGNIZE_EMOTION, level)
+                pendingResumeCheckpoint.value = null
+                resumeFromCheckpoint.value = false
+            }
         )
     }
 }

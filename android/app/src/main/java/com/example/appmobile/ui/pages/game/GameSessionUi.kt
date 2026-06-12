@@ -247,6 +247,72 @@ fun answerResultsFromCheckpoint(root: JSONObject): List<AnswerResultDto> {
 }
 
 @Composable
+fun ClickGameResumeDialog(
+    answeredCount: Int,
+    totalCount: Int,
+    onContinue: () -> Unit,
+    onRestart: () -> Unit
+) {
+    Dialog(onDismissRequest = {}) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 360.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = EgDesign.card,
+            border = BorderStroke(1.dp, EgDesign.cardBorder),
+            shadowElevation = 10.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                EgVectorEmojiIcon("book", size = 28.dp, tint = EgDesign.primary)
+                Text(
+                    text = "Bé đang chơi dở",
+                    color = EgDesign.textPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 24.sp,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Bé đã làm ${answeredCount.coerceAtLeast(0)}/${totalCount.coerceAtLeast(1)} câu. Bé muốn chơi tiếp hay chơi lại từ đầu?",
+                    color = EgDesign.textSecondary,
+                    lineHeight = 20.sp,
+                    textAlign = TextAlign.Center
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onRestart,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(EgDesign.pillRadius),
+                        border = BorderStroke(1.dp, EgDesign.cardBorder)
+                    ) {
+                        Text("Chơi lại", color = EgDesign.blue, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = onContinue,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(EgDesign.pillRadius),
+                        colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primary)
+                    ) {
+                        Text("Chơi tiếp", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun ClickGameExitConfirmDialog(
     onDismiss: () -> Unit,
     onSaveAndExit: () -> Unit,

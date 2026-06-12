@@ -719,11 +719,8 @@ fun CvTrainingGamePage(
         currentConfidence.value = normalizedScore
         detectedConfidence.value = normalizedScore
         highestConfidence.value = maxOf(highestConfidence.value, normalizedScore)
-        completedTimeSeconds.intValue = if (success) {
-            ((System.currentTimeMillis() - questionStartMs.value) / 1000L).toInt().coerceAtLeast(1)
-        } else {
-            (roundSeconds - remainingSeconds.intValue).coerceAtLeast(0)
-        }
+        completedTimeSeconds.intValue = (roundSeconds - remainingSeconds.intValue)
+            .coerceIn(0, roundSeconds)
         detectedEmotion.value = if (success) reviewEmotion else answerEmotionId ?: detectedEmotion.value
         lastAttemptSuccess.value = success
         challengeStarted.value = false
@@ -1657,7 +1654,6 @@ fun CvTrainingGamePage(
                     countdownValue = countdownValue.intValue,
                     timerActive = timerActive,
                     completedTimeSeconds = completedTimeSeconds.intValue,
-                    highestConfidence = highestConfidence.value,
                     isStoryMode = isStoryMode,
                     storyScenarioTitle = null,
                     storyScenarioText = null,
@@ -3028,7 +3024,6 @@ private fun CvCameraFeedbackCard(
     countdownValue: Int,
     timerActive: Boolean,
     completedTimeSeconds: Int,
-    highestConfidence: Float,
     isStoryMode: Boolean,
     storyScenarioTitle: String?,
     storyScenarioText: String?,
@@ -3231,8 +3226,7 @@ private fun CvCameraFeedbackCard(
                         success = attemptSuccess == true,
                         message = feedback,
                         timedOut = challengeState == CvChallengeState.Timeout,
-                        timeUsedSeconds = completedTimeSeconds,
-                        highestConfidence = highestConfidence
+                        timeUsedSeconds = completedTimeSeconds
                     )
                 } else if (hasPermission && startRequested && feedback == null && cameraMessage == null) {
                     CvNativeEmotionCamera(
@@ -3523,8 +3517,7 @@ private fun StoryStageResultPanel(
     success: Boolean,
     message: String,
     timedOut: Boolean,
-    timeUsedSeconds: Int,
-    highestConfidence: Float
+    timeUsedSeconds: Int
 ) {
     Surface(
         modifier = Modifier
@@ -3575,17 +3568,12 @@ private fun StoryStageResultPanel(
             ) {
                 ResultStat(
                     label = "Điểm",
-                    value = if (success) "+10" else "+0",
+                    value = if (success) "+20" else "+0",
                     modifier = Modifier.weight(1f)
                 )
                 ResultStat(
                     label = "Thời gian",
                     value = "${timeUsedSeconds.coerceAtLeast(0)} giây",
-                    modifier = Modifier.weight(1f)
-                )
-                ResultStat(
-                    label = "Cao nhất",
-                    value = "${highestConfidence.roundToInt().coerceIn(0, 100)}%",
                     modifier = Modifier.weight(1f)
                 )
             }
