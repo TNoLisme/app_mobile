@@ -49,9 +49,7 @@ import com.example.appmobile.ui.components.EgTab
 import com.example.appmobile.ui.components.EgEmotionVectorIcon
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.egTactileClick
-import com.example.appmobile.ui.components.egEmotionDisplayName
 import com.example.appmobile.ui.viewmodel.HomeRecentGameUi
-import com.example.appmobile.ui.viewmodel.ReportSummary
 import com.example.appmobile.ui.viewmodel.HomeViewModel
 import kotlin.math.min
 
@@ -90,13 +88,6 @@ fun HomePage(
     val startLearningAction = {
         if (onNavigateToLearnEmotion != null) onNavigateToLearnEmotion(state.recommendedEmotionId) else onNavigateToLearn()
     }
-    val challengeAction = {
-        if (onStartEmotionChallenge != null) {
-            onStartEmotionChallenge(state.recommendedEmotionId)
-        } else {
-            onNavigateToLevel(GameUiCatalog.GAME_CV_REQUEST)
-        }
-    }
 
     EgCollapsibleMainScaffold(
         activeTab = EgTab.Home,
@@ -118,7 +109,6 @@ fun HomePage(
         TodayLearningCard(
             emotionId = state.recommendedEmotionId,
             onStartLearn = startLearningAction,
-            onStartChallenge = challengeAction,
             recentGames = state.recentGames,
             onPlayNow = { onNavigateToGame("all") },
             onOpenRecentGame = { game ->
@@ -136,7 +126,6 @@ fun HomePage(
         )
 
         ReportCtaCard(
-            reportSummary = state.reportSummary,
             actionText = state.reportActionText,
             onOpenReport = onNavigateToReport
         )
@@ -148,9 +137,6 @@ fun HomePage(
 @Composable
 private fun EmotionGardenCtaCard(summary: GardenHomeSummary?, onOpenGarden: () -> Unit) {
     val pending = summary?.pendingRewardCount ?: 0
-    val taskText = summary?.let {
-        "${it.todayTaskCount} nhiệm vụ hôm nay · ${it.pendingRewardCount} phần thưởng chờ nhận"
-    } ?: "Chăm vườn bằng nhiệm vụ học cảm xúc"
     val suggested = summary?.suggestedEmotionToCare?.let { "${GardenRepository.plantSpeciesName(it)} cần được chăm thêm." }
         ?: "Hôm nay mình chăm vườn cảm xúc nhé!"
 
@@ -195,17 +181,7 @@ private fun EmotionGardenCtaCard(summary: GardenHomeSummary?, onOpenGarden: () -
                     text = suggested,
                     color = HomeTextSecondary,
                     fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = taskText,
-                    color = HomeBlue,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    lineHeight = 18.sp
                 )
             }
             HomeActionPill("Chăm vườn", onOpenGarden, primary = true)
@@ -329,7 +305,6 @@ private fun GreetingSection(childName: String?) {
 private fun TodayLearningCard(
     emotionId: String,
     onStartLearn: () -> Unit,
-    onStartChallenge: () -> Unit,
     recentGames: List<HomeRecentGameUi>,
     onPlayNow: () -> Unit,
     onOpenRecentGame: (HomeRecentGameUi) -> Unit
@@ -352,28 +327,12 @@ private fun TodayLearningCard(
                 fontWeight = FontWeight.ExtraBold
             )
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 EgEmotionVectorIcon(emotionId, size = 42.dp)
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        text = "Cùng luyện cảm xúc ${egEmotionDisplayName(emotionId)}",
-                        color = HomeTextPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        text = "Xem mẫu cảm xúc rồi thử làm khuôn mặt trước camera nhé.",
-                        color = HomeTextSecondary,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HomeActionPill("Bắt đầu học", onStartLearn, Modifier.weight(1f), primary = true)
-                HomeActionPill("Chơi thử thách", onStartChallenge, Modifier.weight(1f), primary = false)
             }
             RecentGamesInsideTodayCard(
                 games = recentGames,
@@ -386,7 +345,6 @@ private fun TodayLearningCard(
 
 @Composable
 private fun ReportCtaCard(
-    reportSummary: ReportSummary?,
     actionText: String,
     onOpenReport: () -> Unit
 ) {
@@ -419,16 +377,6 @@ private fun ReportCtaCard(
                     fontSize = 13.sp,
                     lineHeight = 18.sp
                 )
-                reportSummary?.let { summary ->
-                    val scoreText = summary.averageScore?.let { "$it/100" } ?: "Chưa có điểm"
-                    Text(
-                        text = "${summary.sessionsCount} lượt luyện · $scoreText · ${summary.learnedEmotionCount}/${summary.totalEmotionCount} cảm xúc",
-                        color = HomeTextSecondary,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
             HomeActionPill(actionText, onOpenReport, primary = true)
         }
@@ -553,35 +501,6 @@ private fun HomeActionPill(
     }
 }
 
-@Composable
-private fun ErrorBanner(message: String, onRetry: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = HomeCardSoft,
-        border = BorderStroke(1.dp, HomeCardBorder),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            EgVectorEmojiIcon("warning", size = 16.dp)
-            Text(
-                text = message,
-                color = HomeTextPrimary,
-                modifier = Modifier.weight(1f),
-                fontSize = 12.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            TextButton(onClick = onRetry) {
-                Text("Thử lại", color = HomeBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
 private fun gameImageRes(game: HomeRecentGameUi): Int {
     val key = normalizeGameKey(game.gameType ?: game.name)
     return when {
@@ -612,3 +531,33 @@ private fun normalizeGameKey(value: String): String {
         .replace("_", "")
         .replace("-", "")
 }
+
+@Composable
+private fun ErrorBanner(message: String, onRetry: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = HomeCardSoft,
+        border = BorderStroke(1.dp, HomeCardBorder),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            EgVectorEmojiIcon("warning", size = 16.dp)
+            Text(
+                text = message,
+                color = HomeTextPrimary,
+                modifier = Modifier.weight(1f),
+                fontSize = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            TextButton(onClick = onRetry) {
+                Text("Thử lại", color = HomeBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+

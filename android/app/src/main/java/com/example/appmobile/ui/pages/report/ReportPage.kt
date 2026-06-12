@@ -236,15 +236,26 @@ fun ReportPage(
 @Composable
 private fun ReportHeader(onBack: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        AppBackButton(onClick = onBack, text = "← Quay lại")
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(42.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            AppBackButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart)
+            )
             Text(
                 text = "Báo cáo của bé",
                 fontWeight = FontWeight.ExtraBold,
                 color = ReportNavy,
-                fontSize = 28.sp,
-                lineHeight = 32.sp
+                fontSize = 22.sp,
+                lineHeight = 26.sp,
+                textAlign = TextAlign.Center
             )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 text = "Xem thành tích tuần này và gửi cho bố mẹ.",
                 color = ReportMuted,
@@ -379,9 +390,10 @@ private fun ChildMetricBox(icon: String, value: String, label: String, modifier:
                 text = value,
                 fontWeight = FontWeight.ExtraBold,
                 color = ReportBlue,
-                fontSize = 16.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                fontSize = 15.sp,
+                lineHeight = 17.sp,
+                maxLines = 2,
+                textAlign = TextAlign.Center
             )
             Text(
                 text = label,
