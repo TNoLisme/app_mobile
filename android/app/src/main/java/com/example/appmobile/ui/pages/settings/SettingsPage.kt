@@ -105,7 +105,8 @@ fun SettingsPage(
     onLogout: () -> Unit,
     onLogin: () -> Unit = {},
     openParentArea: Boolean = false,
-    openReportEmailEditor: Boolean = false
+    openReportEmailEditor: Boolean = false,
+    onReportEmailSaved: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -338,6 +339,7 @@ fun SettingsPage(
                         accountError = false
                         statusMessage = "Đã lưu email phụ huynh."
                         showReportEmailEditor = false
+                        onReportEmailSaved()
                     } else {
                         statusMessage = "Không lưu được email phụ huynh. Vui lòng thử lại."
                     }
