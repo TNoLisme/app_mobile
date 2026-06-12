@@ -73,6 +73,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -1704,37 +1705,42 @@ fun CvTrainingGamePage(
 
 @Composable
 private fun CvTopBar(title: String, progressText: String? = null, onBack: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AppBackButton(onClick = onBack)
-            progressText?.let { text ->
-                Spacer(modifier = Modifier.weight(1f))
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = EgDesign.card,
-                    border = BorderStroke(1.dp, EgDesign.cardBorder),
-                    shadowElevation = 1.dp
-                ) {
-                    Text(
-                        text = text,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        color = EgDesign.textPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+    ) {
+        AppBackButton(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.CenterStart)
+        )
         Text(
             text = title,
             color = EgDesign.textPrimary,
-            fontSize = 24.sp,
+            fontSize = 22.sp,
             fontWeight = FontWeight.ExtraBold,
-            lineHeight = 28.sp
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 72.dp)
         )
+        if (progressText != null) {
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = EgDesign.card,
+                border = BorderStroke(1.dp, EgDesign.cardBorder),
+                shadowElevation = 1.dp,
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) {
+                Text(
+                    text = progressText,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                    color = EgDesign.textPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
 

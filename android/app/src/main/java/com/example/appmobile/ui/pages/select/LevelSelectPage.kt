@@ -508,17 +508,24 @@ private fun CvEmotionSelectHeader(onBack: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AppBackButton(onClick = onBack)
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            AppBackButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart)
+            )
+            Text(
+                text = "Thử thách cảm xúc",
+                color = EgDesign.textPrimary,
+                fontSize = 23.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 56.dp)
+            )
         }
-        Text(
-            text = "Thử thách cảm xúc",
-            modifier = Modifier.fillMaxWidth(),
-            color = EgDesign.textPrimary,
-            fontSize = 23.sp,
-            fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center
-        )
         Text(
             text = "Chọn cảm xúc, rồi làm khuôn mặt giống vậy trước camera nhé.",
             modifier = Modifier.fillMaxWidth(),
@@ -536,19 +543,26 @@ private fun CvEmotionSelectTopBar(onBack: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AppBackButton(onClick = onBack)
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            AppBackButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart)
+            )
+            Text(
+                text = "Thử thách cảm xúc",
+                color = EgDesign.textPrimary,
+                fontSize = 23.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 56.dp)
+            )
         }
         Text(
-            text = "Thử thách cảm xúc",
-            modifier = Modifier.fillMaxWidth(),
-            color = EgDesign.textPrimary,
-            fontSize = 23.sp,
-            fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = "Chọn một cảm xúc để chơi",
+            text = "Chọn cảm xúc, rồi làm khuôn mặt giống vậy trước camera nhé.",
             modifier = Modifier.fillMaxWidth(),
             color = EgDesign.textSecondary,
             fontSize = 14.sp,

@@ -489,45 +489,45 @@ private fun SituationIllustration(emotion: EmotionUiItem) {
             )
         }
 
-        Surface(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(horizontal = 18.dp, vertical = 14.dp),
-            shape = RoundedCornerShape(999.dp),
-            color = EgDesign.card.copy(alpha = 0.88f),
-            border = BorderStroke(1.dp, EgDesign.cardBorder)
-        ) {
-            Text(
-                text = visual.sceneTitle,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                color = EgDesign.blue,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(horizontal = 18.dp, vertical = 14.dp)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            color = EgDesign.card.copy(alpha = 0.92f),
-            border = BorderStroke(1.dp, EgDesign.cardBorder)
-        ) {
-            Text(
-                text = visual.caption,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                color = EgDesign.textPrimary,
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+//        Surface(
+//            modifier = Modifier
+//                .align(Alignment.TopStart)
+//                .padding(horizontal = 18.dp, vertical = 14.dp),
+//            shape = RoundedCornerShape(999.dp),
+//            color = EgDesign.card.copy(alpha = 0.88f),
+//            border = BorderStroke(1.dp, EgDesign.cardBorder)
+//        ) {
+//            Text(
+//                text = visual.sceneTitle,
+//                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+//                color = EgDesign.blue,
+//                fontSize = 12.sp,
+//                fontWeight = FontWeight.ExtraBold,
+//                maxLines = 1,
+//                overflow = TextOverflow.Ellipsis
+//            )
+//        }
+//
+//        Surface(
+//            modifier = Modifier
+//                .align(Alignment.BottomStart)
+//                .padding(horizontal = 18.dp, vertical = 14.dp)
+//                .fillMaxWidth(),
+//            shape = RoundedCornerShape(16.dp),
+//            color = EgDesign.card.copy(alpha = 0.92f),
+//            border = BorderStroke(1.dp, EgDesign.cardBorder)
+//        ) {
+//            Text(
+//                text = visual.caption,
+//                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+//                color = EgDesign.textPrimary,
+//                fontSize = 13.sp,
+//                lineHeight = 18.sp,
+//                fontWeight = FontWeight.SemiBold,
+//                maxLines = 2,
+//                overflow = TextOverflow.Ellipsis
+//            )
+//        }
     }
 }
 
