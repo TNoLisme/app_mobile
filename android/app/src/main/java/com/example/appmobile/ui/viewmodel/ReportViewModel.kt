@@ -808,7 +808,7 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun buildReportSummaryLine(summary: WeeklySummary): String {
-        val score = summary.averageScore?.let { "$it/100" } ?: "Chưa có điểm"
+        val score = summary.averageScore?.let { "${it.coerceIn(0, 100)}/100" } ?: "Chưa có điểm"
         val emotionCount = summary.learnedEmotionCount?.let { "$it/6 cảm xúc" } ?: "Chưa rõ cảm xúc"
         return "${summary.sessionsCount} lượt luyện · $score · $emotionCount"
     }
@@ -933,7 +933,7 @@ fun buildWeeklySummaryText(summary: WeeklySummary?): String {
     if (summary == null) return "Chưa có dữ liệu báo cáo. Bé chơi một vài trò chơi để app tạo báo cáo tiến bộ nhé."
     if (summary.sessionsCount == 0) return buildProgressComment(summary)
 
-    val scoreText = summary.averageScore?.let { "$it/100" } ?: "chưa có"
+    val scoreText = summary.averageScore?.let { "${it.coerceIn(0, 100)}/100" } ?: "chưa có"
     val comparison = buildComparisonText(summary)
     return "Bé đã chơi ${summary.sessionsCount} lượt trong tuần này. Điểm trung bình là $scoreText. ${buildProgressComment(summary)}$comparison"
 }

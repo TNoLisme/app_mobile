@@ -801,7 +801,7 @@ private fun SendReportResultDialog(
                     EgVectorEmojiIcon(
                         if (result.isSuccess) "sparkle" else "warning",
                         size = 30.dp,
-                        tint = if (result.isSuccess) Color(0xFF3BC274) else Color(0xFFFF8D8D)
+                        tint = if (result.isSuccess) Color(0xFFF4B400) else Color(0xFFFF8D8D)
                     )
                 }
                 Text(
