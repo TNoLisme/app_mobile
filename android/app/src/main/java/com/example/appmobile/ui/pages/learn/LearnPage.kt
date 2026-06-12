@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -290,7 +292,30 @@ private fun EmotionGridItem(
     modifier: Modifier = Modifier
 ) {
     val key = egEmotionKey(emotion)
-    val backgroundColor = if (selected) EgEmotionCardSelectedBackground else EgEmotionCardBackground
+    val isDark = AppSettingsState.activeDarkTheme.value
+    
+    val unselectedBgColor = if (isDark) Color(0xFF1E293B) else EgEmotionCardBackground
+    val selectedBgColor = if (isDark) Color(0xFF1E293B) else EgEmotionCardSelectedBackground
+    val backgroundColor = if (selected) selectedBgColor else unselectedBgColor
+    
+    val unselectedBorderColor = if (isDark) Color(0xFF334155) else EgEmotionCardBorder
+    val selectedBorderColor = if (isDark) {
+        when (key) {
+            "happy" -> Color(0xFFF59E0B)
+            "sad" -> Color(0xFF3B82F6)
+            "angry" -> Color(0xFFEF4444)
+            "fear" -> Color(0xFF8B5CF6)
+            "surprise" -> Color(0xFF10B981)
+            "disgust" -> Color(0xFF84CC16)
+            else -> Color(0xFF3B82F6)
+        }
+    } else {
+        EgEmotionCardSelectedBorder
+    }
+    
+    val borderColor = if (selected) selectedBorderColor else unselectedBorderColor
+    val textColor = if (isDark) Color(0xFFF8FAFC) else (if (selected) EgEmotionCardSelectedText else EgEmotionCardText)
+
     Surface(
         modifier = modifier
             .height(72.dp)
@@ -299,7 +324,7 @@ private fun EmotionGridItem(
         color = backgroundColor,
         border = BorderStroke(
             if (selected) 2.dp else 1.dp,
-            if (selected) EgEmotionCardSelectedBorder else EgEmotionCardBorder
+            borderColor
         ),
         shadowElevation = if (selected) 2.dp else 1.dp
     ) {
@@ -315,10 +340,10 @@ private fun EmotionGridItem(
                         .size(20.dp),
                     shape = CircleShape,
                     color = Color.White,
-                    border = BorderStroke(1.dp, EgEmotionCardSelectedBorder.copy(alpha = 0.24f))
+                    border = BorderStroke(1.dp, borderColor.copy(alpha = 0.24f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        EgVectorEmojiIcon("check", size = 12.dp, tint = EgEmotionCardSelectedBorder)
+                        EgVectorEmojiIcon("check", size = 12.dp, tint = borderColor)
                     }
                 }
             }
@@ -330,7 +355,7 @@ private fun EmotionGridItem(
                 EgEmotionVectorIcon(key, size = 34.dp)
                 Text(
                     text = egEmotionDisplayName(emotion),
-                    color = if (selected) EgEmotionCardSelectedText else EgEmotionCardText,
+                    color = textColor,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 12.sp,
                     lineHeight = 15.sp,
@@ -862,11 +887,11 @@ private fun AssetVideoPlayer(
                 shadowElevation = 2.dp
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (isPlaying) "II" else ">",
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold
+                    androidx.compose.material3.Icon(
+                        imageVector = if (isPlaying) androidx.compose.material.icons.Icons.Rounded.Pause else androidx.compose.material.icons.Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
