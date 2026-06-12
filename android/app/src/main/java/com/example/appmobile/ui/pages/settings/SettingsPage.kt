@@ -218,6 +218,7 @@ fun SettingsPage(
                 runCatching { notificationSettingsLauncher.launch(fallbackIntent) }.onFailure {
                     InAppNotificationManager.emit("Thông báo", "Không thể mở cài đặt. Hãy tự tắt trong Cài đặt máy.")
                 }
+            }
         }
     }
 

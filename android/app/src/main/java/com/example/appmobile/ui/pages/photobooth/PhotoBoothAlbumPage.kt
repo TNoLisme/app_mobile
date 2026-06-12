@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
@@ -288,12 +290,23 @@ private fun AlbumPreviewDialog(
                     )
                 }
                 Text("Ngày chụp: ${formatPhotoDate(item.createdAt)}", color = EgDesign.textSecondary, fontSize = 13.sp)
-                TextButton(onClick = onDelete, enabled = !isSaving) {
-                    Text("Xóa ảnh", color = Color(0xFFE5484D), fontWeight = FontWeight.ExtraBold)
-                }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Đóng", color = EgDesign.primaryDark) } },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primaryDark, contentColor = Color.White),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("Đóng", fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            Button(
+                onClick = onDelete,
+                enabled = !isSaving,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("Xóa ảnh", fontWeight = FontWeight.Bold) }
+        },
         containerColor = EgDesign.card
     )
 }
@@ -305,14 +318,18 @@ private fun DeleteAlbumPhotoDialog(onDismiss: () -> Unit, onConfirm: () -> Unit)
         title = { Text("Xóa ảnh này?", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold) },
         text = { Text("Ảnh sẽ bị xóa khỏi album Photobooth.", color = EgDesign.textSecondary) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Xóa", color = Color(0xFFE5484D), fontWeight = FontWeight.ExtraBold)
-            }
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("Xóa", fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Hủy", color = EgDesign.primaryDark, fontWeight = FontWeight.ExtraBold)
-            }
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primaryDark, contentColor = Color.White),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("Hủy", fontWeight = FontWeight.Bold) }
         },
         containerColor = EgDesign.card
     )
