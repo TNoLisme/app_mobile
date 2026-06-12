@@ -23,7 +23,7 @@ try:
 except Exception:  # pragma: no cover - depends on runtime package
     REPORTLAB_AVAILABLE = False
 
-from app.services.report_data import ReportData, build_report_data
+from app.services.report_data import SCORE_MAX, ReportData, build_report_data
 
 
 class ReportPdfService:
@@ -200,7 +200,8 @@ class ReportPdfService:
     def _score_text(self, value: object) -> str:
         if value is None:
             return "Chưa có"
-        return f"{round(self._safe_float(value))}/100"
+        score = max(0, min(SCORE_MAX, round(self._safe_float(value))))
+        return f"{score}/{SCORE_MAX}"
 
     def _period_label(self, report_type: str) -> str:
         return {"weekly": "Tuần", "monthly": "Tháng", "daily": "Ngày"}.get(report_type, report_type.title())
@@ -755,10 +756,14 @@ class ReportPdfService:
     def _draw_metric_tile(self, c: "canvas.Canvas", x: float, y: float, w: float, h: float, value: str, label: str, accent: str) -> None:
         self._draw_round_rect(c, x, y, w, h, fill="#F7FBFF", stroke="#D4E7F7", radius=10)
         c.setFillColor(colors.HexColor(accent))
-        c.roundRect(x + 8, y + h - 18, 24, 5, 2.5, stroke=0, fill=1)
-        value_size = 16 if len(value) > 6 else 18
-        self._draw_right_text(c, value, x + w - 16, y + h - 16, value_size, "#0B3A6E", True)
-        self._draw_right_text(c, label, x + w - 16, y + 16, 8.5, "#62748A")
+        c.roundRect(x + 8, y + h - 10, 24, 5, 2.5, stroke=0, fill=1)
+        value_size = 14 if len(value) > 6 else 17
+        c.setFillColor(colors.HexColor("#0B3A6E"))
+        c.setFont(self.font_bold, value_size)
+        c.drawCentredString(x + w / 2, y + h - 25, value)
+        c.setFillColor(colors.HexColor("#62748A"))
+        c.setFont(self.font_regular, 8.3)
+        c.drawCentredString(x + w / 2, y + 10, label)
 
     def _draw_page1(self, c: "canvas.Canvas", report: ReportData, generated_time: datetime, parent_email: str | None, child_age: int | None, child_code: str | None) -> None:
         self._draw_page_base(c, 1)
@@ -791,7 +796,7 @@ class ReportPdfService:
         c.roundRect(track_x, track_y, track_w, track_h, 8, stroke=0, fill=1)
         score = report.average_score or 0
         c.setFillColor(colors.HexColor("#F39B3D" if score < 80 else "#1F8E4D"))
-        c.roundRect(track_x, track_y, max(4, track_w * score / 100), track_h, 8, stroke=0, fill=1)
+        c.roundRect(track_x, track_y, max(4, track_w * score / SCORE_MAX), track_h, 8, stroke=0, fill=1)
         focus = self._focus_emotions(report, 2)
         focus_text = ", ".join(item.name for item in focus) if focus else "các cảm xúc cần luyện"
         self._draw_paragraph(c, f"Nhận xét: Bé đang ở mức cần luyện thêm. Nên ưu tiên các trò chơi tình huống và biểu cảm với cảm xúc {focus_text}.", x + 16, y + 52, 230, 8.7, 12, "#62748A", max_h=42)

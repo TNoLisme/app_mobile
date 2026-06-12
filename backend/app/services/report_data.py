@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 
+SCORE_MAX = 100
 EMOTION_NAMES = ["Vui vẻ", "Buồn bã", "Tức giận", "Sợ hãi", "Ngạc nhiên", "Ghê tởm"]
 EMOTION_ALIASES = {
     "Vui vẻ": ("vui ve", "happy", "joy", "smile"),
@@ -70,7 +71,7 @@ class ReportData:
 
     @property
     def average_score_text(self) -> str:
-        return f"{self.average_score}/100" if self.average_score is not None else "Chưa có"
+        return f"{self.average_score}/{SCORE_MAX}" if self.average_score is not None else "Chưa có"
 
     @property
     def period_display(self) -> str:
@@ -108,6 +109,12 @@ def safe_int(value: Any, default: int = 0) -> int:
 def score_to_int(value: Any) -> int | None:
     if value is None:
         return None
+    return max(0, min(SCORE_MAX, round(safe_float(value))))
+
+
+def percent_to_int(value: Any) -> int | None:
+    if value is None:
+        return None
     return max(0, min(100, round(safe_float(value))))
 
 
@@ -129,7 +136,7 @@ def build_summary_text(sessions_count: int, average_score: int | None, period_ty
         return f"Bé chưa có lượt luyện nào {period_text}. Hãy bắt đầu với một trò chơi cảm xúc nhé."
     if average_score is None:
         return f"Bé đã luyện {sessions_count} lượt {period_text}. Bé cần chơi thêm vài màn để EmoGarden đánh giá chính xác hơn."
-    return f"Bé đã luyện {sessions_count} lượt {period_text}. Điểm trung bình là {average_score}/100. {progress_comment(average_score)}"
+    return f"Bé đã luyện {sessions_count} lượt {period_text}. Điểm trung bình là {average_score}/{SCORE_MAX}. {progress_comment(average_score)}"
 
 
 def _parse_data(raw: str | None) -> dict[str, Any]:
@@ -183,7 +190,7 @@ def _game_stats(raw_games: list[Any]) -> list[GameStat]:
             average_score=score_to_int(raw.get("avg_score")),
             best_score=score_to_int(raw.get("best_score")),
             current_level=safe_int(raw.get("level"), 0) or None,
-            progress_percent=score_to_int(raw.get("progress_percent", raw.get("progressPercent", raw.get("avg_score")))),
+            progress_percent=percent_to_int(raw.get("progress_percent", raw.get("progressPercent", raw.get("avg_score")))),
         )
         current = selected.get(game_id)
         if current is None or item.sessions > current.sessions:
