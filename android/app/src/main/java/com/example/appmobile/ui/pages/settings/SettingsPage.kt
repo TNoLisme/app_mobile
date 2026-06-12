@@ -674,7 +674,7 @@ private fun AboutAppSection(
     onOpenSupportContact: () -> Unit
 ) {
     SettingsSection(title = "Về ứng dụng", icon = "info") {
-        CompactValueRow("info", "Phiên bản ứng dụng", "1.0")
+        CompactValueRow("info", "Phiên bản ứng dụng", "2.1.9")
         ThinDivider()
         CompactValueRow(
             "document",
@@ -768,17 +768,21 @@ private fun ParentAreaBottomSheet(
                 border = BorderStroke(1.dp, EgDesign.cardBorder),
                 shadowElevation = 10.dp
             ) {
-                Column(
-                    modifier = Modifier
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    BottomSheetHeader(
-                        title = "Khu vực phụ huynh",
-                        subtitle = "Quản lý tài khoản, quyền riêng tư và dữ liệu của bé.",
-                        onDismiss = onDismiss
-                    )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)) {
+                        BottomSheetHeader(
+                            title = "Khu vực phụ huynh",
+                            subtitle = "Quản lý tài khoản, quyền riêng tư và dữ liệu của bé.",
+                            onDismiss = onDismiss
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState())
+                            .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
                     ParentAccountSection(
                         isLoggedIn = isLoggedIn,
                         loading = loading,
@@ -825,6 +829,7 @@ private fun ParentAreaBottomSheet(
                             danger = true,
                             fullWidthAction = true
                         )
+                    }
                     }
                 }
             }
