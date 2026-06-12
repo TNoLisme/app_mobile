@@ -205,8 +205,9 @@ fun AppNavigation(
         }
     }
 
-    fun goLearn() {
-        navController.navigate("learn") { launchSingleTop = true }
+    fun goLearn(emotionId: String? = null) {
+        val route = if (emotionId != null) "learn?emotion=$emotionId" else "learn"
+        navController.navigate(route) { launchSingleTop = true }
     }
 
     fun goGames() {
@@ -407,8 +408,16 @@ fun AppNavigation(
                 }
             }
         }
-        composable("learn") {
+        composable(
+            route = "learn?emotion={emotion}",
+            arguments = listOf(androidx.navigation.navArgument("emotion") { 
+                type = androidx.navigation.NavType.StringType
+                nullable = true 
+            })
+        ) { backStackEntry ->
+            val emotionId = backStackEntry.arguments?.getString("emotion")
             LearnPage(
+                initialEmotionId = emotionId,
                 onBack = { navController.popBackStack() },
                 onGoHome = ::goHome,
                 onOpenGames = ::goGames,
@@ -439,7 +448,7 @@ fun AppNavigation(
         composable("garden") {
             GardenPage(
                 onBack = { navController.popBackStack() },
-                onLearnEmotion = { emotionId -> navController.navigate("learn_detail/$emotionId") },
+                onLearnEmotion = { emotionId -> goLearn(emotionId) },
                 onOpenGames = ::goGames,
                 onOpenPhotoBooth = { navController.navigate("photobooth") },
                 onOpenReport = { navController.navigate("report") },

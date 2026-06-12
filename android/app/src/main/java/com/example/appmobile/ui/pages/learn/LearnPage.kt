@@ -105,6 +105,7 @@ private val LearnMediaArrowsVisible = mutableStateOf(true)
 
 @Composable
 fun LearnPage(
+    initialEmotionId: String? = null,
     onBack: () -> Unit,
     onGoHome: () -> Unit = onBack,
     onOpenGames: () -> Unit = {},
@@ -116,10 +117,17 @@ fun LearnPage(
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
     var emotions by remember { mutableStateOf(GameUiCatalog.emotions) }
-    var selectedEmotionId by remember { mutableStateOf(GameUiCatalog.emotions.first().id) }
+    var selectedEmotionId by remember { mutableStateOf(initialEmotionId ?: GameUiCatalog.emotions.first().id) }
     var pageIndex by remember { mutableIntStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
     var detailEmotionId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(initialEmotionId) {
+        if (initialEmotionId != null) {
+            selectedEmotionId = initialEmotionId
+            detailEmotionId = null
+        }
+    }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -376,8 +384,25 @@ private fun LearnMediaCarousel(
     onOpenDetail: () -> Unit
 ) {
     var videoControlsVisible by remember(emotion.id, pageIndex) { mutableStateOf(true) }
+    var videoEndedTime by remember(emotion.id, pageIndex) { mutableStateOf<Long?>(null) }
+    val autoTransitionEnabled by AppSettingsState.learnContentAutoTransitionEnabled
+
     LaunchedEffect(pageIndex, videoControlsVisible) {
         LearnMediaArrowsVisible.value = pageIndex != 0 || videoControlsVisible
+    }
+
+    LaunchedEffect(videoEndedTime) {
+        if (videoEndedTime != null) {
+            kotlinx.coroutines.delay(2000)
+            onNext()
+        }
+    }
+
+    LaunchedEffect(pageIndex, autoTransitionEnabled) {
+        if (pageIndex == 1 && autoTransitionEnabled) {
+            kotlinx.coroutines.delay(10000)
+            onNext()
+        }
     }
     EgSoftCard {
         Column(
@@ -414,7 +439,9 @@ private fun LearnMediaCarousel(
                 if (pageIndex == 0) {
                     AssetVideoPlayer(
                         emotionId = egEmotionKey(emotion),
-                        onControlsVisibleChange = { videoControlsVisible = it }
+                        onControlsVisibleChange = { videoControlsVisible = it },
+                        loop = !autoTransitionEnabled,
+                        onVideoEnded = { videoEndedTime = System.currentTimeMillis() }
                     )
                 } else {
                     SituationIllustration(emotion = emotion)
@@ -650,7 +677,9 @@ private fun MediaArrow(text: String, modifier: Modifier, onClick: () -> Unit) {
 private fun AssetVideoPlayer(
     emotionId: String,
     onControlsVisibleChange: (Boolean) -> Unit = {},
-    allowFullscreen: Boolean = true
+    allowFullscreen: Boolean = true,
+    loop: Boolean = true,
+    onVideoEnded: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val assetName = "${egEmotionKey(emotionId)}.mp4"
@@ -666,6 +695,14 @@ private fun AssetVideoPlayer(
     val mediaPlayer = remember(assetPath) { MediaPlayer() }
     val autoPlayEnabled by AppSettingsState.learnVideoAutoplayEnabled
     val soundEnabled by AppSettingsState.learnVideoSoundEnabled
+
+    LaunchedEffect(loop, isPrepared) {
+        if (isPrepared) {
+            runCatching {
+                mediaPlayer.isLooping = loop
+            }
+        }
+    }
 
     fun applyVideoFitTransform(textureView: TextureView) {
         val vw = textureView.width.toFloat()
@@ -725,7 +762,13 @@ private fun AssetVideoPlayer(
         runCatching {
             mediaPlayer.reset()
             mediaPlayer.setSurface(surface)
-            mediaPlayer.isLooping = true
+            mediaPlayer.isLooping = loop
+            mediaPlayer.setOnCompletionListener {
+                if (!loop) {
+                    isPlaying = false
+                    onVideoEnded()
+                }
+            }
             val volume = if (soundEnabled) 1f else 0f
             mediaPlayer.setVolume(volume, volume)
             mediaPlayer.setOnPreparedListener { player ->

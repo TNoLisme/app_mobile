@@ -149,6 +149,7 @@ fun SettingsPage(
 
     val assistantBubbleEnabled by AppSettingsState.assistantBubbleEnabled
     val autoPlayVideo by AppSettingsState.learnVideoAutoplayEnabled
+    val autoTransitionContent by AppSettingsState.learnContentAutoTransitionEnabled
     val videoSoundEnabled by AppSettingsState.learnVideoSoundEnabled
     val soundEffectsEnabled by AppSettingsState.soundEffectsEnabled
     val learningReminderEnabled by AppSettingsState.learningReminderEnabled
@@ -259,6 +260,7 @@ fun SettingsPage(
             dynamicColorEnabled = dynamicColorEnabled,
             assistantBubbleEnabled = assistantBubbleEnabled,
             autoPlayVideo = autoPlayVideo,
+            autoTransitionContent = autoTransitionContent,
             videoSoundEnabled = videoSoundEnabled,
             soundEffectsEnabled = soundEffectsEnabled,
             learningReminderEnabled = learningReminderEnabled,
@@ -271,6 +273,7 @@ fun SettingsPage(
             onDynamicColorChanged = { AppSettingsState.setDynamicColorEnabled(context, it) },
             onAssistantBubbleChanged = { AppSettingsState.setAssistantBubbleEnabled(context, it) },
             onAutoPlayVideoChanged = { AppSettingsState.setLearnVideoAutoplayEnabled(context, it) },
+            onAutoTransitionContentChanged = { AppSettingsState.setLearnContentAutoTransitionEnabled(context, it) },
             onVideoSoundChanged = { AppSettingsState.setLearnVideoSoundEnabled(context, it) },
             onSoundEffectsChanged = { AppSettingsState.setSoundEffectsEnabled(context, it) },
             onLearningReminderChanged = onLearningReminderChanged,
@@ -461,6 +464,7 @@ private fun SettingsScreen(
     dynamicColorEnabled: Boolean,
     assistantBubbleEnabled: Boolean,
     autoPlayVideo: Boolean,
+    autoTransitionContent: Boolean,
     videoSoundEnabled: Boolean,
     soundEffectsEnabled: Boolean,
     learningReminderEnabled: Boolean,
@@ -473,6 +477,7 @@ private fun SettingsScreen(
     onDynamicColorChanged: (Boolean) -> Unit,
     onAssistantBubbleChanged: (Boolean) -> Unit,
     onAutoPlayVideoChanged: (Boolean) -> Unit,
+    onAutoTransitionContentChanged: (Boolean) -> Unit,
     onVideoSoundChanged: (Boolean) -> Unit,
     onSoundEffectsChanged: (Boolean) -> Unit,
     onLearningReminderChanged: (Boolean) -> Unit,
@@ -501,11 +506,13 @@ private fun SettingsScreen(
         LearningExperienceSection(
             assistantBubbleEnabled = assistantBubbleEnabled,
             autoPlayVideo = autoPlayVideo,
+            autoTransitionContent = autoTransitionContent,
             videoSoundEnabled = videoSoundEnabled,
             soundEffectsEnabled = soundEffectsEnabled,
             learningReminderEnabled = learningReminderEnabled,
             onAssistantBubbleChanged = onAssistantBubbleChanged,
             onAutoPlayVideoChanged = onAutoPlayVideoChanged,
+            onAutoTransitionContentChanged = onAutoTransitionContentChanged,
             onVideoSoundChanged = onVideoSoundChanged,
             onSoundEffectsChanged = onSoundEffectsChanged,
             onLearningReminderChanged = onLearningReminderChanged,
@@ -564,11 +571,13 @@ private fun AppearanceSection(
 private fun LearningExperienceSection(
     assistantBubbleEnabled: Boolean,
     autoPlayVideo: Boolean,
+    autoTransitionContent: Boolean,
     videoSoundEnabled: Boolean,
     soundEffectsEnabled: Boolean,
     learningReminderEnabled: Boolean,
     onAssistantBubbleChanged: (Boolean) -> Unit,
     onAutoPlayVideoChanged: (Boolean) -> Unit,
+    onAutoTransitionContentChanged: (Boolean) -> Unit,
     onVideoSoundChanged: (Boolean) -> Unit,
     onSoundEffectsChanged: (Boolean) -> Unit,
     onLearningReminderChanged: (Boolean) -> Unit,
@@ -590,6 +599,14 @@ private fun LearningExperienceSection(
             description = "Video ở trang Học sẽ tự chạy khi mở cảm xúc.",
             checked = autoPlayVideo,
             onCheckedChange = onAutoPlayVideoChanged
+        )
+        ThinDivider()
+        SwitchSettingsRow(
+            icon = "refresh",
+            title = "Tự chuyển nội dung học",
+            description = "Tự động chuyển đổi giữa ảnh tĩnh và video trong thẻ học.",
+            checked = autoTransitionContent,
+            onCheckedChange = onAutoTransitionContentChanged
         )
         ThinDivider()
         SwitchSettingsRow(

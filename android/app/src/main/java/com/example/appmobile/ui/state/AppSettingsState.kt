@@ -22,6 +22,7 @@ object AppSettingsState {
     private const val PREF_NAME = "app_settings"
     private const val KEY_ASSISTANT_BUBBLE = "assistant_bubble_enabled"
     private const val KEY_LEARN_VIDEO_AUTOPLAY = "learn_video_autoplay_enabled"
+    private const val KEY_LEARN_CONTENT_AUTOTRANSITION = "learn_content_autotransition_enabled"
     private const val KEY_LEARN_VIDEO_SOUND = "learn_video_sound_enabled"
     private const val KEY_SOUND_EFFECTS = "sound_effects_enabled"
     private const val KEY_LEARNING_REMINDER = "learning_reminder_enabled"
@@ -36,6 +37,7 @@ object AppSettingsState {
 
     val assistantBubbleEnabled = mutableStateOf(true)
     val learnVideoAutoplayEnabled = mutableStateOf(true)
+    val learnContentAutoTransitionEnabled = mutableStateOf(false)
     val learnVideoSoundEnabled = mutableStateOf(true)
     val soundEffectsEnabled = mutableStateOf(true)
     val learningReminderEnabled = mutableStateOf(false)
@@ -53,6 +55,7 @@ object AppSettingsState {
         val preferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         assistantBubbleEnabled.value = preferences.getBoolean(KEY_ASSISTANT_BUBBLE, true)
         learnVideoAutoplayEnabled.value = preferences.getBoolean(KEY_LEARN_VIDEO_AUTOPLAY, true)
+        learnContentAutoTransitionEnabled.value = preferences.getBoolean(KEY_LEARN_CONTENT_AUTOTRANSITION, false)
         learnVideoSoundEnabled.value = preferences.getBoolean(KEY_LEARN_VIDEO_SOUND, true)
         soundEffectsEnabled.value = preferences.getBoolean(KEY_SOUND_EFFECTS, true)
         learningReminderEnabled.value = preferences.getBoolean(KEY_LEARNING_REMINDER, false)
@@ -78,6 +81,11 @@ object AppSettingsState {
     fun setLearnVideoAutoplayEnabled(context: Context, enabled: Boolean) {
         learnVideoAutoplayEnabled.value = enabled
         context.settingsEditor().putBoolean(KEY_LEARN_VIDEO_AUTOPLAY, enabled).apply()
+    }
+
+    fun setLearnContentAutoTransitionEnabled(context: Context, enabled: Boolean) {
+        learnContentAutoTransitionEnabled.value = enabled
+        context.settingsEditor().putBoolean(KEY_LEARN_CONTENT_AUTOTRANSITION, enabled).apply()
     }
 
     fun setLearnVideoSoundEnabled(context: Context, enabled: Boolean) {
