@@ -226,6 +226,12 @@ fun AppNavigation(
         navController.navigate("settings_parent_email") { launchSingleTop = true }
     }
 
+    fun returnToReportAfterEmailSaved() {
+        if (!navController.popBackStack("report", inclusive = false)) {
+            navController.navigate("report") { launchSingleTop = true }
+        }
+    }
+
     fun handleAssistantAction(action: ChatAction) {
         when (action.type) {
             ChatActionType.OPEN_LEARNING -> goLearn()
@@ -507,7 +513,8 @@ fun AppNavigation(
                 onLogout = ::logout,
                 onLogin = ::goLogin,
                 openParentArea = true,
-                openReportEmailEditor = true
+                openReportEmailEditor = true,
+                onReportEmailSaved = ::returnToReportAfterEmailSaved
             )
         }
     }
