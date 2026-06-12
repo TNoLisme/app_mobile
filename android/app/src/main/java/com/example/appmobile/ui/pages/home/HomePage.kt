@@ -104,13 +104,16 @@ fun HomePage(
         onLearn = onNavigateToLearn,
         onGames = { onNavigateToGame("all") },
         onProfile = onNavigateToProfile,
-        onSettings = onNavigateToSettings
-    ) {
-        state.errorMessage?.let { message ->
-            ErrorBanner(message = message, onRetry = vm::refresh)
+        onSettings = onNavigateToSettings,
+        topBar = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                state.errorMessage?.let { message ->
+                    ErrorBanner(message = message, onRetry = vm::refresh)
+                }
+                GreetingSection(childName = state.childName)
+            }
         }
-
-        GreetingSection(childName = state.childName)
+    ) {
 
         TodayLearningCard(
             emotionId = state.recommendedEmotionId,

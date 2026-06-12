@@ -250,7 +250,8 @@ fun SettingsPage(
         onGames = onOpenGames,
         onProfile = onOpenProfile,
         onSettings = null,
-        onBack = onBack
+        onBack = onBack,
+        topBar = { SettingsHeader() }
     ) {
         SettingsScreen(
             themeMode = themeMode,
@@ -489,7 +490,6 @@ private fun SettingsScreen(
             .padding(bottom = 10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SettingsHeader()
         statusMessage?.let { SettingsStatusBanner(it) }
         AppearanceSection(
             themeMode = themeMode,
@@ -1424,9 +1424,9 @@ private fun ChangePasswordDialog(
     SettingsDialog(onDismiss = onDismiss) {
         DialogHeader("lock", "Đổi mật khẩu", "Để bảo mật, app sẽ không hiển thị mật khẩu hiện tại.")
         error?.let { ErrorBanner(it) }
-        SettingsTextField(currentPassword, { currentPassword = it }, "Mật khẩu hiện tại", "Nhập mật khẩu hiện tại", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
-        SettingsTextField(newPassword, { newPassword = it }, "Mật khẩu mới", "Nhập mật khẩu mới", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
-        SettingsTextField(confirmPassword, { confirmPassword = it }, "Nhập lại mật khẩu mới", "Nhập lại mật khẩu mới", keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation())
+        SettingsTextField(currentPassword, { currentPassword = it }, "Mật khẩu hiện tại", "Nhập mật khẩu hiện tại", keyboardType = KeyboardType.Password, isPassword = true)
+        SettingsTextField(newPassword, { newPassword = it }, "Mật khẩu mới", "Nhập mật khẩu mới", keyboardType = KeyboardType.Password, isPassword = true)
+        SettingsTextField(confirmPassword, { confirmPassword = it }, "Nhập lại mật khẩu mới", "Nhập lại mật khẩu mới", keyboardType = KeyboardType.Password, isPassword = true)
         DialogActions(
             primaryText = if (saving) "Đang lưu..." else "Lưu thay đổi",
             primaryDanger = false,
@@ -1559,8 +1559,10 @@ private fun SettingsTextField(
     label: String,
     placeholder: String,
     keyboardType: KeyboardType = KeyboardType.Text,
-    visualTransformation: VisualTransformation = VisualTransformation.None
+    isPassword: Boolean = false
 ) {
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -1570,7 +1572,18 @@ private fun SettingsTextField(
         singleLine = true,
         shape = RoundedCornerShape(14.dp),
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        visualTransformation = visualTransformation,
+        visualTransformation = if (isPassword && !passwordVisible) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        trailingIcon = if (isPassword) {
+            {
+                androidx.compose.material3.IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    com.example.appmobile.ui.components.EgVectorEmojiIcon(
+                        value = if (passwordVisible) "eye_off" else "eye",
+                        size = 20.dp,
+                        tint = EgDesign.textSecondary
+                    )
+                }
+            }
+        } else null,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = EgDesign.primaryDark,
             unfocusedBorderColor = EgDesign.cardBorder,

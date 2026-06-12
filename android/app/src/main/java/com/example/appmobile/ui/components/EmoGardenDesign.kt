@@ -158,6 +158,7 @@ fun EgCollapsibleMainScaffold(
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     verticalSpacing: Dp = 12.dp,
     topPadding: Dp? = null,
+    topBar: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val scrollState = rememberScrollState()
@@ -211,21 +212,28 @@ fun EgCollapsibleMainScaffold(
                 )
             }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = topActionReserveDp)
-                .verticalScroll(scrollState)
-                .padding(horizontal = EgDesign.screenPadding),
-            verticalArrangement = Arrangement.spacedBy(verticalSpacing),
-            horizontalAlignment = horizontalAlignment
-        ) {
-            content()
-            Spacer(
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (topBar != null) {
+                Box(modifier = Modifier.padding(top = topActionReserveDp, start = EgDesign.screenPadding, end = EgDesign.screenPadding)) {
+                    topBar()
+                }
+            }
+            Column(
                 modifier = Modifier
-                    .height(navHeightDp + 18.dp)
-                    .navigationBarsPadding()
-            )
+                    .weight(1f)
+                    .padding(top = if (topBar == null) topActionReserveDp else 0.dp)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = EgDesign.screenPadding),
+                verticalArrangement = Arrangement.spacedBy(verticalSpacing),
+                horizontalAlignment = horizontalAlignment
+            ) {
+                content()
+                Spacer(
+                    modifier = Modifier
+                        .height(navHeightDp + 18.dp)
+                        .navigationBarsPadding()
+                )
+            }
         }
 
         EgMainBottomNavSurface(
