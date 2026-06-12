@@ -46,7 +46,9 @@ import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.SportsEsports
+import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.WbSunny
@@ -203,6 +205,7 @@ private fun egMaterialIcon(key: String): ImageVector = when (key) {
     "trophy" -> Icons.Rounded.EmojiEvents
     "microphone" -> Icons.Rounded.Mic
     "eye" -> Icons.Rounded.Visibility
+    "eye_off" -> Icons.Rounded.VisibilityOff
     "target" -> Icons.Rounded.GpsFixed
     "puzzle" -> Icons.Rounded.Extension
     "palette" -> Icons.Rounded.Palette

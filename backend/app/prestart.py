@@ -116,20 +116,23 @@ def _add_column_if_missing(connection, table_name: str, column_name: str, defini
 
 
 def _alter_column_if_exists(connection, table_name: str, column_name: str, definition: str) -> None:
-    connection.execute(
-        text(
-            f"""
-            IF COL_LENGTH('{table_name}', '{column_name}') IS NOT NULL
-            BEGIN
-                ALTER TABLE {table_name} ALTER COLUMN {column_name} {definition}
-            END
-            """
+    try:
+        connection.execute(
+            text(
+                f"""
+                IF COL_LENGTH('{table_name}', '{column_name}') IS NOT NULL
+                BEGIN
+                    ALTER TABLE {table_name} ALTER COLUMN {column_name} {definition}
+                END
+                """
+            )
         )
-    )
+    except Exception as e:
+        print(f"Warning: Could not alter column {table_name}.{column_name}: {e}")
 
 
 def apply_additive_migrations() -> None:
-    with engine.begin() as connection:
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
         _add_column_if_missing(connection, "users", "password", "NVARCHAR(255) NULL")
         _alter_column_if_exists(connection, "users", "username", "NVARCHAR(50) NULL")
         _alter_column_if_exists(connection, "users", "password", "NVARCHAR(255) NULL")
@@ -178,17 +181,6 @@ def apply_additive_migrations() -> None:
         _alter_column_if_exists(connection, "emotion_concepts", "video_path", "NVARCHAR(500) NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "image_path", "NVARCHAR(500) NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "audio_path", "NVARCHAR(500) NULL")
-        # Drop old FK referencing 'questions' table if it exists and add correct FK to game_content
-        connection.execute(text("""
-            DECLARE @fk_name NVARCHAR(128);
-            SELECT @fk_name = name FROM sys.foreign_keys
-            WHERE parent_object_id = OBJECT_ID('game_data_question')
-              AND referenced_object_id = OBJECT_ID('game_content');
-            IF @fk_name IS NULL
-            BEGIN
-                ALTER TABLE game_data_question ADD CONSTRAINT FK_game_data_question_content_id FOREIGN KEY (question_id) REFERENCES game_content(content_id);
-            END
-        """))
         # Backfill legacy rows so progress payload is always JSON-shaped for FE.
         connection.execute(
             text(

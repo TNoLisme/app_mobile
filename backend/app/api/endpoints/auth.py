@@ -256,17 +256,16 @@ async def register(user: ChildRegisterRequest, db: Session = Depends(get_db)):
     )
     db.add(new_user)
 
-    if user.role == "child":
-        db.add(
-            Child(
-                user_id=user_id,
-                age=user.age,
-                gender=user.gender,
-                date_of_birth=user.date_of_birth,
-                phone_number=user.phone_number,
-                report_preferences=user.report_preferences,
-            )
+    db.add(
+        Child(
+            user_id=user_id,
+            age=user.age,
+            gender=user.gender,
+            date_of_birth=user.date_of_birth,
+            phone_number=user.phone_number,
+            report_preferences=user.report_preferences,
         )
+    )
 
     db.commit()
     return {"status": "success", "message": "Đăng ký thành công", "data": {"user_id": user_id}}
@@ -319,7 +318,7 @@ async def get_profile(
     db: Session = Depends(get_db),
 ):
     user = _ensure_profile_user(db, user_id, email)
-    child = _ensure_child(db, user.user_id) if user.role == "child" else None
+    child = _ensure_child(db, user.user_id)
     db.commit()
     db.refresh(user)
     return _user_payload(user, child)
@@ -339,7 +338,7 @@ async def update_profile(payload: dict = Body(...), db: Session = Depends(get_db
         if update.get(field) not in [None, ""]:
             setattr(user, field, update[field])
 
-    child = _ensure_child(db, user.user_id) if user.role == "child" else None
+    child = _ensure_child(db, user.user_id)
 
     if child is not None:
         if update.get("report_preferences") not in [None, ""]:

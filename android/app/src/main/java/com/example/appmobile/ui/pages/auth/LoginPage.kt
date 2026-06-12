@@ -216,7 +216,7 @@ fun LoginPage(
                             errorMessage = null
                         },
                         label = "Tên đăng nhập hoặc email",
-                        placeholder = "Nhập tên đăng nhập hoặc email tài khoản",
+                        placeholder = "Nhập tên đăng nhập hoặc email",
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next
                     )
