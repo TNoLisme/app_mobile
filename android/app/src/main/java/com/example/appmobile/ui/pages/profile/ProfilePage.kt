@@ -1,5 +1,6 @@
 package com.example.appmobile.ui.pages.profile
 
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -95,6 +96,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 
 private val ProfileButtonGradient: Color get() = EgDesign.primary
@@ -877,13 +879,14 @@ private fun EditProfileDialogV2(
     onDismiss: () -> Unit,
     onSave: (UserProfileUpdateDto) -> Unit
 ) {
+    val context = LocalContext.current
     var name by rememberSaveable(profile?.userId) { mutableStateOf(profile?.name.orEmpty()) }
     var age by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.age?.toString().orEmpty()) }
     var gender by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.gender.orEmpty()) }
     var dateOfBirth by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.dob.orEmpty()) }
     var formError by rememberSaveable(profile?.userId) { mutableStateOf<String?>(null) }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
+
     val calendar = remember {
         java.util.Calendar.getInstance().apply {
             if (dateOfBirth.isNotEmpty()) {
@@ -929,6 +932,20 @@ private fun EditProfileDialogV2(
         return formError == null
     }
 
+    fun openDatePicker() {
+        val calendar = Calendar.getInstance()
+        parseBackendDate(dateOfBirth)?.let { calendar.time = it }
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                dateOfBirth = String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, dayOfMonth)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
     Dialog(
         onDismissRequest = { if (!saving) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -969,7 +986,7 @@ private fun EditProfileDialogV2(
                         if (twoColumns) {
                             TwoColumnFields(
                                 first = { ProfileTextField(name, { name = it }, "Tên hiển thị", "Tên của bé") },
-                                second = { ProfileTextField(age, { input -> if (input.all(Char::isDigit) && input.length <= 3) age = input }, "Tuổi", "Ví dụ: 6", keyboardType = KeyboardType.Number) }
+                                second = { GenderDropdown(gender, onValueChange = { gender = it }) }
                             )
                             TwoColumnFields(
                                 first = { GenderDropdown(gender, onValueChange = { gender = it }) },
@@ -977,7 +994,6 @@ private fun EditProfileDialogV2(
                             )
                         } else {
                             ProfileTextField(name, { name = it }, "Tên hiển thị", "Tên của bé")
-                            ProfileTextField(age, { input -> if (input.all(Char::isDigit) && input.length <= 3) age = input }, "Tuổi", "Ví dụ: 6", keyboardType = KeyboardType.Number)
                             GenderDropdown(gender, onValueChange = { gender = it })
                             ProfileTextField(dateOfBirth, { }, "Ngày sinh", "YYYY-MM-DD", trailing = "calendar", readOnly = true, onClick = { datePickerDialog.show() })
                         }
@@ -1016,6 +1032,36 @@ private fun EditProfileDialogV2(
 }
 
 @Composable
+private fun DatePickerField(value: String, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .egTactileClick(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = EgDesign.card,
+        border = BorderStroke(1.dp, ProfileCardBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Ngày sinh", color = ProfileBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = value.ifBlank { "Chọn ngày sinh" },
+                    color = if (value.isBlank()) ProfileTextSecondary else ProfileTextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            EgVectorEmojiIcon("calendar", size = 20.dp, tint = ProfileBlue)
+        }
+    }
+}
+
+@Composable
 private fun EditProfileHeader(saving: Boolean, onDismiss: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1033,7 +1079,7 @@ private fun EditProfileHeader(saving: Boolean, onDismiss: () -> Unit) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("Chỉnh sửa hồ sơ", color = ProfileTextPrimary, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
             Text(
-                "Cập nhật thông tin cá nhân để đồng bộ với trang hồ sơ của bạn.",
+                "Cập nhật thông tin cá nhân của bé.",
                 color = ProfileTextSecondary,
                 fontSize = 13.sp,
                 lineHeight = 18.sp
@@ -1151,6 +1197,7 @@ private fun ProfileTextField(
 private fun GenderDropdown(value: String, onValueChange: (String) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val options = listOf("Nam", "Nữ", "Khác")
+    val displayValue = editableGender(value)
 
     Box {
         Surface(
@@ -1169,7 +1216,7 @@ private fun GenderDropdown(value: String, onValueChange: (String) -> Unit) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Giới tính", color = ProfileBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Text(
-                        text = value.ifBlank { "Chọn giới tính" },
+                        text = displayValue.ifBlank { "Chọn giới tính" },
                         color = if (value.isBlank()) ProfileTextSecondary else ProfileTextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
@@ -1304,11 +1351,15 @@ private fun fallback(value: String?): String {
 }
 
 private fun formatGender(value: String?): String {
+    return editableGender(value).ifBlank { "Chưa có" }
+}
+
+private fun editableGender(value: String?): String {
     return when (value?.trim()?.lowercase(Locale.US)) {
         "male", "nam" -> "Nam"
         "female", "nữ", "nu" -> "Nữ"
         "other", "khác", "khac" -> "Khác"
-        null, "" -> "Chưa có"
+        null, "" -> ""
         else -> value.trim()
     }
 }
@@ -1317,17 +1368,37 @@ private fun personalFallback(value: String?): String {
     return value?.takeIf { it.isNotBlank() } ?: "Chưa có"
 }
 
+private fun calculatedAgeText(value: String?): String {
+    val birthDate = parseBackendDate(value) ?: return "Chưa có"
+    val birth = Calendar.getInstance().apply { time = birthDate }
+    val today = Calendar.getInstance()
+    var age = today.get(Calendar.YEAR) - birth.get(Calendar.YEAR)
+    if (today.get(Calendar.DAY_OF_YEAR) < birth.get(Calendar.DAY_OF_YEAR)) {
+        age--
+    }
+    return if (age >= 0) "$age tuổi" else "Chưa có"
+}
+
 private fun formatPersonalDate(value: String?): String {
-    if (value.isNullOrBlank()) return "Chưa có"
-    val normalized = value.substringBefore("T").substringBefore(" ")
-    return runCatching {
-        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }.parse(normalized)
-        parsed?.let { SimpleDateFormat("dd/MM/yyyy", Locale.US).format(it) }
-    }.getOrNull() ?: normalized
+    val normalized = normalizeBackendDate(value)
+    if (normalized.isBlank()) return "Chưa có"
+    return parseBackendDate(normalized)
+        ?.let { SimpleDateFormat("dd/MM/yyyy", Locale.US).format(it) }
+        ?: normalized
 }
 
 private fun isValidBackendDate(value: String): Boolean {
+    return parseBackendDate(value) != null
+}
+
+private fun normalizeBackendDate(value: String?): String {
+    return value?.trim().orEmpty().substringBefore("T").substringBefore(" ")
+}
+
+private fun parseBackendDate(value: String?): java.util.Date? {
+    val normalized = normalizeBackendDate(value)
+    if (normalized.isBlank()) return null
     return runCatching {
-        SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }.parse(value)
-    }.getOrNull() != null
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }.parse(normalized)
+    }.getOrNull()
 }
