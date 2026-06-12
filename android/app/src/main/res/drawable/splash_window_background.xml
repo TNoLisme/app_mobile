@@ -10,4 +10,10 @@
         android:height="156dp"
         android:gravity="center"
         android:drawable="@drawable/ic_emogarden_splash" />
+    <item
+        android:width="240dp"
+        android:height="60dp"
+        android:gravity="bottom|center_horizontal"
+        android:bottom="32dp"
+        android:drawable="@drawable/splash_branding_text" />
 </layer-list>
