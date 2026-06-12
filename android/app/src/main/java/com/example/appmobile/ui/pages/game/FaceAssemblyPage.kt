@@ -1,5 +1,6 @@
 package com.example.appmobile.ui.pages.game
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -71,6 +72,8 @@ import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import org.json.JSONArray
+import org.json.JSONObject
 
 private data class FaceEmotionUi(
     val id: String,
@@ -121,9 +124,15 @@ fun FaceAssemblyPage(
     val learnedEmotions   = remember(level) { mutableStateListOf<String>() }
     val learningEmotionId = remember(level) { mutableStateOf<String?>(null) }
     val pendingLearnEmotion = remember(level) { mutableStateOf<String?>(null) }
+    val showExitConfirm = remember(level) { mutableStateOf(false) }
     val context  = LocalContext.current
     val scope    = rememberCoroutineScope()
-    val userId   = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
+    val userId   = remember(context) {
+        FirebaseAuth.getInstance().currentUser?.uid
+            ?: AppSession.getBackendUserId(context)
+            ?: AppSession.currentBackendUserId()
+            ?: "local-player"
+    }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
@@ -144,20 +153,49 @@ fun FaceAssemblyPage(
                 }
                 if (response != null) {
                     summaryData.value = LevelSummaryData(
-                        passed = response.passed, score = response.score, totalScore = 50,
+                        passed = response.passed, score = response.score, totalScore = 100,
                         accuracy = response.accuracy,
                         correctCount = finalResults.count { it.isCorrect },
                         totalQuestions = finalResults.size
                     )
                     repository.invalidateProgressCache(GameUiCatalog.GAME_FACE_ASSEMBLY, userId)
-                    summary.value = "${if (response.passed) "Đã qua level" else "Chưa qua level"}. Điểm: ${response.score}/50."
+                    summary.value = "${if (response.passed) "Đã qua level" else "Chưa qua level"}. Điểm: ${response.score}/100."
                 } else {
-                    summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
+                    val correctCount = finalResults.count { it.isCorrect }
+                    val localScore = scoreFromCorrectAnswers(correctCount, finalResults.size)
+                    summaryData.value = LevelSummaryData(
+                        passed = localScore >= 80,
+                        score = localScore,
+                        totalScore = 100,
+                        accuracy = localScore.toFloat(),
+                        correctCount = correctCount,
+                        totalQuestions = finalResults.size
+                    )
+                    summary.value = "Hoàn thành. Điểm tạm tính: $localScore/100."
                 }
             } catch (_: Exception) {
-                summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
+                val correctCount = finalResults.count { it.isCorrect }
+                val localScore = scoreFromCorrectAnswers(correctCount, finalResults.size)
+                summaryData.value = LevelSummaryData(
+                    passed = localScore >= 80,
+                    score = localScore,
+                    totalScore = 100,
+                    accuracy = localScore.toFloat(),
+                    correctCount = correctCount,
+                    totalQuestions = finalResults.size
+                )
+                summary.value = "Hoàn thành. Điểm tạm tính: $localScore/100."
             } finally {
-                onGameCompleted(summaryData.value?.score ?: score.intValue)
+                clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_FACE_ASSEMBLY, level)
+                val completedScore = summaryData.value?.score ?: score.intValue
+                saveLocalUnlockedLevel(
+                    context = context,
+                    userId = userId,
+                    gameId = GameUiCatalog.GAME_FACE_ASSEMBLY,
+                    completedLevel = level,
+                    score = completedScore
+                )
+                onGameCompleted(completedScore)
                 isSubmitting.value = false
             }
         }
@@ -168,7 +206,6 @@ fun FaceAssemblyPage(
         val targetIdx = targetIndex(target.id)
         val isCorrect = selectedEyebrow.intValue == targetIdx &&
             selectedEyes.intValue == targetIdx && selectedMouth.intValue == targetIdx
-        if (isCorrect) score.intValue += 10
         val reviewEmotion = normalizeEmotionForLearning(target.id)
         if (!isCorrect) {
             emotionErrors[reviewEmotion] = (emotionErrors[reviewEmotion] ?: 0) + 1
@@ -185,9 +222,14 @@ fun FaceAssemblyPage(
         ) faceEmotions.getOrNull(selectedEyebrow.intValue)?.id ?: "unknown" else "mixed"
 
         val question = questions.value[currentIndex.intValue]
-        results.value = results.value + AnswerResultDto(
+        val updatedResults = results.value + AnswerResultDto(
             questionId = question.questionId, answer = selectedAnswer, isCorrect = isCorrect,
             responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
+        )
+        results.value = updatedResults
+        score.intValue = scoreFromCorrectAnswers(
+            updatedResults.count { it.isCorrect },
+            questions.value.size
         )
         feedback.value = if (isCorrect)
             "Đúng rồi! Con đã ghép khuôn mặt ${target.label}."
@@ -201,7 +243,62 @@ fun FaceAssemblyPage(
         resetCurrentQuestion()
     }
 
+    fun checkpointIndex(): Int {
+        val answeredCurrent = feedback.value != null &&
+            results.value.any { it.questionId == questions.value.getOrNull(currentIndex.intValue)?.questionId }
+        return if (answeredCurrent) {
+            (currentIndex.intValue + 1).coerceAtMost((questions.value.size - 1).coerceAtLeast(0))
+        } else {
+            currentIndex.intValue
+        }
+    }
+
+    fun saveAndExit() {
+        saveClickGameCheckpoint(
+            context = context,
+            userId = userId,
+            gameId = GameUiCatalog.GAME_FACE_ASSEMBLY,
+            level = level,
+            sessionId = sessionId.value,
+            score = score.intValue,
+            currentIndex = checkpointIndex(),
+            maxErrors = maxErrors.intValue,
+            results = results.value,
+            questions = assemblyQuestionsToJson(questions.value)
+        )
+        showExitConfirm.value = false
+        onBack()
+    }
+
+    fun exitWithoutSaving() {
+        clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_FACE_ASSEMBLY, level)
+        showExitConfirm.value = false
+        onBack()
+    }
+
+    fun requestExit() {
+        val hasProgress = summary.value == null && (results.value.isNotEmpty() || currentIndex.intValue > 0)
+        if (hasProgress) showExitConfirm.value = true else onBack()
+    }
+
     LaunchedEffect(level, userId, replayCount.intValue) {
+        val checkpoint = loadClickGameCheckpointJson(context, userId, GameUiCatalog.GAME_FACE_ASSEMBLY, level)
+        if (checkpoint != null) {
+            val restoredQuestions = assemblyQuestionsFromJson(checkpoint.optJSONArray("questions"))
+            if (restoredQuestions.isNotEmpty()) {
+                questions.value = restoredQuestions
+                sessionId.value = checkpoint.optString("session_id").takeIf { it.isNotBlank() && it != "null" }
+                maxErrors.intValue = checkpoint.optInt("max_errors", 3).coerceAtLeast(1)
+                currentIndex.intValue = checkpoint.optInt("current_index", 0).coerceIn(0, restoredQuestions.lastIndex)
+                score.intValue = checkpoint.optInt("score", 0).coerceIn(0, 100)
+                results.value = answerResultsFromCheckpoint(checkpoint)
+                summary.value = null; summaryData.value = null
+                emotionErrors.clear(); accumulatedErrors.clear()
+                learnedEmotions.clear(); learningEmotionId.value = null; pendingLearnEmotion.value = null
+                resetCurrentQuestion()
+                return@LaunchedEffect
+            }
+        }
         val started = repository.startGame(GameUiCatalog.GAME_FACE_ASSEMBLY, userId, level)
         sessionId.value = started?.sessionId
         maxErrors.intValue = started?.maxErrors ?: 3
@@ -234,19 +331,32 @@ fun FaceAssemblyPage(
     val canCheck    = selectedEyebrow.intValue >= 0 && selectedEyes.intValue >= 0 &&
                       selectedMouth.intValue >= 0 && !hasFeedback
 
+    BackHandler(enabled = summary.value == null) {
+        requestExit()
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     GameScreenShell(contentMaxWidth = 900, onOpenAssistant = onOpenAssistant,
         scrollEnabled = false, bottomSpacerHeight = 0.dp) {
 
-        Column(modifier = Modifier.fillMaxSize().background(EgDesign.card)) {
+        Column(modifier = Modifier.fillMaxSize().background(EgDesign.background)) {
 
             if (summary.value != null) {
-                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    Spacer(Modifier.height(16.dp))
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     GameLevelSummaryCard(
                         summaryData = summaryData.value,
                         summary = summary.value.orEmpty(),
-                        onBack = onBack, onReplay = { replayCount.intValue++ }
+                        onBack = {
+                            clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_FACE_ASSEMBLY, level)
+                            onBack()
+                        },
+                        onReplay = {
+                            clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_FACE_ASSEMBLY, level)
+                            replayCount.intValue++
+                        }
                     )
                 }
             } else {
@@ -259,7 +369,7 @@ fun FaceAssemblyPage(
                     currentQuestion = currentIndex.intValue + 1,
                     totalQuestions = totalQ,
                     score = score.intValue,
-                    onBack = onBack
+                    onBack = { requestExit() }
                 )
 
                 /* ═══ CARD 1 – Question only (blue, compact) ═══ */
@@ -285,17 +395,15 @@ fun FaceAssemblyPage(
                             .background(EgDesign.cardSoft),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (!question.mediaPath.isNullOrBlank()) {
-                            val assetPath = if (question.mediaPath.startsWith("/"))
-                                "file:///android_asset${question.mediaPath}"
-                            else "file:///android_asset/${question.mediaPath}"
-                            AsyncImage(
-                                model = assetPath, contentDescription = null,
+                        if (question.mediaPath.isNullOrBlank()) {
+                            EgEmotionVectorIcon(target.id, size = 68.dp)
+                        } else {
+                            GameQuestionMedia(
+                                mediaPath = question.mediaPath,
+                                fallbackRes = R.drawable.game_click_2,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
                             )
-                        } else {
-                            EgEmotionVectorIcon(target.id, size = 68.dp)
                         }
                     }
                 }
@@ -350,7 +458,7 @@ fun FaceAssemblyPage(
 
                 /* ═══ FEEDBACK strip (fixed height – does not shift layout) ═══ */
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(58.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
                     if (hasFeedback) GameFeedbackCard(feedback.value.orEmpty())
@@ -430,6 +538,14 @@ fun FaceAssemblyPage(
                 }
             }
         )
+
+        if (showExitConfirm.value) {
+            ClickGameExitConfirmDialog(
+                onDismiss = { showExitConfirm.value = false },
+                onSaveAndExit = { saveAndExit() },
+                onExitWithoutSaving = { exitWithoutSaving() }
+            )
+        }
     }
 }
 
@@ -518,4 +634,36 @@ private fun targetIndex(emotionId: String): Int = faceEmotions.indexOfFirst { it
 private fun nextEmotionIndex(current: Int): Int  = if (current < 0) 0 else (current + 1) % faceEmotions.size
 private fun resetSelections(eb: MutableIntState, ey: MutableIntState, mo: MutableIntState) {
     eb.intValue = -1; ey.intValue = -1; mo.intValue = -1
+}
+
+private fun assemblyQuestionsToJson(questions: List<AssemblyQuestionUi>): JSONArray {
+    return JSONArray().apply {
+        questions.forEach { question ->
+            put(JSONObject().apply {
+                put("question_id", question.questionId)
+                put("text", question.text)
+                put("target_emotion", question.targetEmotion)
+                put("media_path", question.mediaPath ?: JSONObject.NULL)
+                put("explanation", question.explanation ?: JSONObject.NULL)
+            })
+        }
+    }
+}
+
+private fun assemblyQuestionsFromJson(array: JSONArray?): List<AssemblyQuestionUi> {
+    if (array == null) return emptyList()
+    return buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            add(
+                AssemblyQuestionUi(
+                    questionId = item.optString("question_id"),
+                    text = item.optString("text", "Hình này thể hiện cảm xúc gì?"),
+                    targetEmotion = normalizeEmotionForLearning(item.optString("target_emotion")),
+                    mediaPath = item.optString("media_path").takeIf { it.isNotBlank() && it != "null" },
+                    explanation = item.optString("explanation").takeIf { it.isNotBlank() && it != "null" }
+                )
+            )
+        }
+    }
 }

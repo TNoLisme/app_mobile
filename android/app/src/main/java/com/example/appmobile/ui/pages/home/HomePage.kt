@@ -1,4 +1,4 @@
-package com.example.appmobile.ui.pages.home
+﻿package com.example.appmobile.ui.pages.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -457,8 +457,6 @@ private fun RecentGameCompactRow(game: HomeRecentGameUi, onClick: () -> Unit) {
                 color = HomeTextPrimary,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = if (game.lastPlayed.isNotBlank()) "Chơi gần đây" else "Tiếp tục",
@@ -551,8 +549,6 @@ private fun ErrorBanner(message: String, onRetry: () -> Unit) {
                 color = HomeTextPrimary,
                 modifier = Modifier.weight(1f),
                 fontSize = 12.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
             )
             TextButton(onClick = onRetry) {
                 Text("Thử lại", color = HomeBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)

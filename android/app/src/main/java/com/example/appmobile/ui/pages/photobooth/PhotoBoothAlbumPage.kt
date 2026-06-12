@@ -24,6 +24,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,6 +38,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -255,60 +257,116 @@ private fun AlbumPreviewDialog(
     onSaveToGallery: () -> Unit,
     onDelete: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Ảnh photobooth", color = EgDesign.textPrimary, fontWeight = FontWeight.ExtraBold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(0.92f),
+            shape = RoundedCornerShape(28.dp),
+            color = EgDesign.card,
+            border = BorderStroke(1.dp, EgDesign.cardBorder),
+            shadowElevation = 12.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            "Ảnh photobooth",
+                            color = EgDesign.textPrimary,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 22.sp,
+                            lineHeight = 26.sp
+                        )
+                        Text(
+                            formatPhotoDate(item.createdAt),
+                            color = EgDesign.textSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                    PhotoBoothDownloadButton(
+                        isBusy = isSaving,
+                        isSaved = isSavedToGallery,
+                        onClick = onSaveToGallery
+                    )
+                }
+
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(430.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(EgDesign.cardSoft)
+                        .height(390.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    color = EgDesign.cardSoft,
+                    border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     AsyncImage(
                         model = item.photoUri,
                         contentDescription = "Ảnh EmoGarden Photobooth",
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp)
+                            .clip(RoundedCornerShape(16.dp)),
                         contentScale = ContentScale.Fit
                     )
-                    PhotoBoothDownloadButton(
-                        isBusy = isSaving,
-                        isSaved = isSavedToGallery,
-                        onClick = onSaveToGallery,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(10.dp)
-                    )
                 }
+
                 if (item.emotionIds.isNotEmpty()) {
-                    Text(
-                        "Cảm xúc: " + item.emotionIds.joinToString(" · ") { PhotoBoothCatalog.emotionName(it) },
-                        color = EgDesign.textPrimary,
-                        fontSize = 13.sp
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(EgDesign.pillRadius),
+                        color = EgDesign.primary.copy(alpha = 0.09f),
+                        border = BorderStroke(1.dp, EgDesign.primary.copy(alpha = 0.16f))
+                    ) {
+                        Text(
+                            item.emotionIds.joinToString(" · ") { PhotoBoothCatalog.emotionName(it) },
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            color = EgDesign.primaryDark,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
                 }
-                Text("Ngày chụp: ${formatPhotoDate(item.createdAt)}", color = EgDesign.textSecondary, fontSize = 13.sp)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onDelete,
+                        enabled = !isSaving,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFFE8EA),
+                            contentColor = Color(0xFFD33C42),
+                            disabledContainerColor = EgDesign.cardSoft,
+                            disabledContentColor = EgDesign.textSecondary
+                        ),
+                        shape = RoundedCornerShape(EgDesign.pillRadius)
+                    ) {
+                        Text("Xóa", fontWeight = FontWeight.ExtraBold)
+                    }
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = EgDesign.primary,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(EgDesign.pillRadius)
+                    ) {
+                        Text("Đóng", fontWeight = FontWeight.ExtraBold)
+                    }
+                }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primaryDark, contentColor = Color.White),
-                shape = RoundedCornerShape(12.dp)
-            ) { Text("Đóng", fontWeight = FontWeight.Bold) }
-        },
-        dismissButton = {
-            Button(
-                onClick = onDelete,
-                enabled = !isSaving,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White),
-                shape = RoundedCornerShape(12.dp)
-            ) { Text("Xóa ảnh", fontWeight = FontWeight.Bold) }
-        },
-        containerColor = EgDesign.card
-    )
+        }
+    }
 }
 
 @Composable

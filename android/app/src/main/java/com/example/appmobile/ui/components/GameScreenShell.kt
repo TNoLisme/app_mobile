@@ -51,7 +51,7 @@ fun GameScreenShell(
                 shape = if (compactScreen) RectangleShape else MaterialTheme.shapes.extraLarge,
                 tonalElevation = if (compactScreen) 0.dp else 2.dp,
                 shadowElevation = if (compactScreen) 0.dp else 1.dp,
-                color = EgDesign.card
+                color = if (compactScreen) EgDesign.background else EgDesign.card
             ) {
                 Column(
                     modifier = Modifier

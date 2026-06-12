@@ -1,9 +1,7 @@
 package com.example.appmobile.ui.pages.game
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.layout.ContentScale
-import coil.compose.AsyncImage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,14 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -40,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,13 +43,12 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
-import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
-import com.example.appmobile.ui.components.EgEmotionVectorIcon
-import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 
 private data class DetectiveQuestionUi(
     val questionId: String,
@@ -93,9 +83,15 @@ fun DetectiveGamePage(
     val learnedEmotions = remember(level) { mutableStateListOf<String>() }
     val learningEmotionId = remember(level) { mutableStateOf<String?>(null) }
     val pendingLearnEmotion = remember(level) { mutableStateOf<String?>(null) }
+    val showExitConfirm = remember(level) { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
+    val userId = remember(context) {
+        FirebaseAuth.getInstance().currentUser?.uid
+            ?: AppSession.getBackendUserId(context)
+            ?: AppSession.currentBackendUserId()
+            ?: "local-player"
+    }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
@@ -114,22 +110,22 @@ fun DetectiveGamePage(
                     summaryData.value = LevelSummaryData(
                         passed = response.passed,
                         score = response.score,
-                        totalScore = 50,
+                        totalScore = 100,
                         accuracy = response.accuracy,
                         correctCount = finalResults.count { it.isCorrect },
                         totalQuestions = finalResults.size
                     )
                     repository.invalidateProgressCache(GameUiCatalog.GAME_DETECTIVE, userId)
                     val status = if (response.passed) "Đã qua level" else "Chưa qua level"
-                    summary.value = "$status. Điểm: ${response.score}/50."
+                    summary.value = "$status. Điểm: ${response.score}/100."
                 } else {
                     val totalQ = finalResults.size
                     val correctC = finalResults.count { it.isCorrect }
                     val acc = if (totalQ > 0) (correctC.toFloat() / totalQ) * 100f else 0f
                     summaryData.value = LevelSummaryData(
-                        passed = acc >= 50f,
+                        passed = acc >= 80f,
                         score = score.intValue,
-                        totalScore = totalQ * 10,
+                        totalScore = 100,
                         accuracy = acc,
                         correctCount = correctC,
                         totalQuestions = totalQ
@@ -141,22 +137,92 @@ fun DetectiveGamePage(
                 val correctC = finalResults.count { it.isCorrect }
                 val acc = if (totalQ > 0) (correctC.toFloat() / totalQ) * 100f else 0f
                 summaryData.value = LevelSummaryData(
-                    passed = acc >= 50f,
+                    passed = acc >= 80f,
                     score = score.intValue,
-                    totalScore = totalQ * 10,
+                    totalScore = 100,
                     accuracy = acc,
                     correctCount = correctC,
                     totalQuestions = totalQ
                 )
                 summary.value = "Hoàn thành."
             } finally {
-                onGameCompleted(summaryData.value?.score ?: score.intValue)
+                clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_DETECTIVE, level)
+                val completedScore = summaryData.value?.score ?: score.intValue
+                saveLocalUnlockedLevel(
+                    context = context,
+                    userId = userId,
+                    gameId = GameUiCatalog.GAME_DETECTIVE,
+                    completedLevel = level,
+                    score = completedScore
+                )
+                onGameCompleted(completedScore)
                 isSubmitting.value = false
             }
         }
     }
 
+    fun checkpointIndex(): Int {
+        val answeredCurrent = feedback.value != null &&
+            results.value.any { it.questionId == questions.value.getOrNull(currentIndex.intValue)?.questionId }
+        return if (answeredCurrent) {
+            (currentIndex.intValue + 1).coerceAtMost((questions.value.size - 1).coerceAtLeast(0))
+        } else {
+            currentIndex.intValue
+        }
+    }
+
+    fun saveAndExit() {
+        saveClickGameCheckpoint(
+            context = context,
+            userId = userId,
+            gameId = GameUiCatalog.GAME_DETECTIVE,
+            level = level,
+            sessionId = sessionId.value,
+            score = score.intValue,
+            currentIndex = checkpointIndex(),
+            maxErrors = maxErrors.intValue,
+            results = results.value,
+            questions = detectiveQuestionsToJson(questions.value)
+        )
+        showExitConfirm.value = false
+        onBack()
+    }
+
+    fun exitWithoutSaving() {
+        clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_DETECTIVE, level)
+        showExitConfirm.value = false
+        onBack()
+    }
+
+    fun requestExit() {
+        val hasProgress = summary.value == null && (results.value.isNotEmpty() || currentIndex.intValue > 0)
+        if (hasProgress) showExitConfirm.value = true else onBack()
+    }
+
     LaunchedEffect(level, userId, replayCount.intValue) {
+        val checkpoint = loadClickGameCheckpointJson(context, userId, GameUiCatalog.GAME_DETECTIVE, level)
+        if (checkpoint != null) {
+            val restoredQuestions = detectiveQuestionsFromJson(checkpoint.optJSONArray("questions"))
+            if (restoredQuestions.isNotEmpty()) {
+                questions.value = restoredQuestions
+                sessionId.value = checkpoint.optString("session_id").takeIf { it.isNotBlank() && it != "null" }
+                maxErrors.intValue = checkpoint.optInt("max_errors", 3).coerceAtLeast(1)
+                currentIndex.intValue = checkpoint.optInt("current_index", 0).coerceIn(0, restoredQuestions.lastIndex)
+                score.intValue = checkpoint.optInt("score", 0).coerceIn(0, 100)
+                selectedEmotionId.value = null
+                feedback.value = null
+                results.value = answerResultsFromCheckpoint(checkpoint)
+                summary.value = null
+                summaryData.value = null
+                emotionErrors.clear()
+                accumulatedErrors.clear()
+                learnedEmotions.clear()
+                learningEmotionId.value = null
+                pendingLearnEmotion.value = null
+                questionStartMs.value = System.currentTimeMillis()
+                return@LaunchedEffect
+            }
+        }
         val started = repository.startGame(GameUiCatalog.GAME_DETECTIVE, userId, level)
         sessionId.value = started?.sessionId
         maxErrors.intValue = started?.maxErrors ?: 3
@@ -193,6 +259,10 @@ fun DetectiveGamePage(
         questionStartMs.value = System.currentTimeMillis()
     }
 
+    BackHandler(enabled = summary.value == null) {
+        requestExit()
+    }
+
     val question = questions.value[currentIndex.intValue % questions.value.size]
     val hintShown = remember(currentIndex.intValue) { mutableStateOf(false) }
     val options = remember(question.questionId, question.optionEmotionIds) {
@@ -215,17 +285,26 @@ fun DetectiveGamePage(
                 currentQuestion = currentIndex.intValue + 1,
                 totalQuestions = questions.value.size,
                 score = score.intValue,
-                onBack = onBack
+                onBack = { requestExit() }
             )
 
             if (summary.value != null) {
-                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    Spacer(modifier = Modifier.height(20.dp))
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     GameLevelSummaryCard(
                         summaryData = summaryData.value,
                         summary = summary.value.orEmpty(),
-                        onBack = onBack,
-                        onReplay = { replayCount.intValue++ }
+                        onBack = {
+                            clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_DETECTIVE, level)
+                            onBack()
+                        },
+                        onReplay = {
+                            clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_DETECTIVE, level)
+                            replayCount.intValue++
+                        },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             } else {
@@ -242,28 +321,12 @@ fun DetectiveGamePage(
                                     .height(180.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                key(question.mediaPath) {
-                                    if (!question.mediaPath.isNullOrBlank()) {
-                                        val assetPath = if (question.mediaPath.startsWith("/"))
-                                            "file:///android_asset${question.mediaPath}"
-                                        else "file:///android_asset/${question.mediaPath}"
-                                        AsyncImage(
-                                            model = assetPath,
-                                            contentDescription = null,
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop,
-                                            error = painterResource(id = R.drawable.game_click_4),
-                                            fallback = painterResource(id = R.drawable.game_click_4)
-                                        )
-                                    } else {
-                                        Image(
-                                            painter = painterResource(id = R.drawable.game_click_4),
-                                            contentDescription = null,
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    }
-                                }
+                                GameQuestionMedia(
+                                    mediaPath = question.mediaPath,
+                                    fallbackRes = R.drawable.game_click_4,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
                             }
                     }
 
@@ -302,58 +365,20 @@ fun DetectiveGamePage(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         contentAlignment = Alignment.Center
                     ) {
                         if (feedback.value != null) {
                             GameFeedbackCard(feedback.value.orEmpty())
                         } else if (!question.explanation.isNullOrBlank()) {
                             if (hintShown.value) {
-                                Surface(
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                    color = Color(0xFFFFD66B),
-                                    border = BorderStroke(1.dp, Color(0xFFF59E0B))
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        EgVectorEmojiIcon("bulb", size = 20.dp, tint = Color(0xFFF59E0B))
-                                        Text(
-                                            text = question.explanation,
-                                            color = Color(0xFF92400E),
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
+                                GameHintCard(text = question.explanation)
                             } else {
-                                Surface(
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                    color = EgDesign.cardSoft,
-                                    border = BorderStroke(1.dp, EgDesign.cardBorder),
-                                    onClick = { hintShown.value = true }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        EgVectorEmojiIcon("bulb", size = 20.dp, tint = Color(0xFFF59E0B))
-                                        Text(
-                                            text = "Gợi ý",
-                                            color = EgDesign.textPrimary,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
+                                GameHintCard(onClick = { hintShown.value = true })
                             }
                         }
                     }
 
-                    // Dòng 3: Nút Trả lời / Câu tiếp theo (chiều cao cố định)
                     Box(
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                         contentAlignment = Alignment.Center
@@ -363,7 +388,6 @@ fun DetectiveGamePage(
                                 if (feedback.value == null) {
                                     val selected = selectedEmotionId.value ?: return@Button
                                     val isCorrect = selected == question.correctEmotion
-                                    if (isCorrect) score.intValue += 10
                                     val reviewEmotion = normalizeEmotionForLearning(question.correctEmotion)
                                     if (!isCorrect) {
                                         emotionErrors[reviewEmotion] = (emotionErrors[reviewEmotion] ?: 0) + 1
@@ -383,6 +407,10 @@ fun DetectiveGamePage(
                                         usedHint = hintShown.value
                                     )
                                     results.value = updatedResults
+                                    score.intValue = scoreFromCorrectAnswers(
+                                        updatedResults.count { it.isCorrect },
+                                        questions.value.size
+                                    )
                                     val targetName = GameUiCatalog.emotionById(question.correctEmotion)?.name
                                         ?: question.correctEmotion
                                     feedback.value = if (isCorrect) "Phá án đúng rồi." else "Chưa đúng. Đáp án là $targetName."
@@ -423,25 +451,77 @@ fun DetectiveGamePage(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
                 }
             }
-            EmotionLearningDialog(
-                emotionId = learningEmotionId.value,
-                onDismiss = {
-                    val emotion = learningEmotionId.value
-                    learningEmotionId.value = null
-                    pendingLearnEmotion.value = null
-                    if (emotion != null) {
-                        emotionErrors[emotion] = 0
-                        accumulatedErrors[emotion] = 0
-                        scope.launch {
-                            try {
-                                repository.resetReviewEmotions(GameUiCatalog.GAME_DETECTIVE, userId, listOf(emotion))
-                            } catch (_: Exception) {}
-                        }
+        }
+    }
+
+    EmotionLearningDialog(
+        emotionId = learningEmotionId.value,
+        onDismiss = {
+            val emotion = learningEmotionId.value
+            learningEmotionId.value = null
+            pendingLearnEmotion.value = null
+            if (emotion != null) {
+                emotionErrors[emotion] = 0
+                accumulatedErrors[emotion] = 0
+                scope.launch {
+                    try {
+                        repository.resetReviewEmotions(GameUiCatalog.GAME_DETECTIVE, userId, listOf(emotion))
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+    )
+
+    if (showExitConfirm.value) {
+        ClickGameExitConfirmDialog(
+            onDismiss = { showExitConfirm.value = false },
+            onSaveAndExit = { saveAndExit() },
+            onExitWithoutSaving = { exitWithoutSaving() }
+        )
+    }
+}
+
+private fun detectiveQuestionsToJson(questions: List<DetectiveQuestionUi>): JSONArray {
+    return JSONArray().apply {
+        questions.forEach { question ->
+            put(JSONObject().apply {
+                put("question_id", question.questionId)
+                put("story", question.story)
+                put("media_path", question.mediaPath ?: JSONObject.NULL)
+                put("correct_emotion", question.correctEmotion)
+                put("explanation", question.explanation ?: JSONObject.NULL)
+                put("options", JSONArray().apply {
+                    question.optionEmotionIds.forEach(::put)
+                })
+            })
+        }
+    }
+}
+
+private fun detectiveQuestionsFromJson(array: JSONArray?): List<DetectiveQuestionUi> {
+    if (array == null) return emptyList()
+    return buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val emotion = normalizeEmotionForLearning(item.optString("correct_emotion"))
+            val options = item.optJSONArray("options")?.let { optionArray ->
+                buildList {
+                    for (optionIndex in 0 until optionArray.length()) {
+                        optionArray.optString(optionIndex).takeIf { it.isNotBlank() }?.let(::add)
                     }
                 }
+            }.orEmpty()
+            add(
+                DetectiveQuestionUi(
+                    questionId = item.optString("question_id"),
+                    story = item.optString("story", "Cảm xúc nào đang ẩn giấu?"),
+                    correctEmotion = emotion,
+                    optionEmotionIds = options.ifEmpty { GameUiCatalog.emotions.map { it.id } },
+                    explanation = item.optString("explanation").takeIf { it.isNotBlank() && it != "null" },
+                    mediaPath = item.optString("media_path").takeIf { it.isNotBlank() && it != "null" }
+                )
             )
         }
     }

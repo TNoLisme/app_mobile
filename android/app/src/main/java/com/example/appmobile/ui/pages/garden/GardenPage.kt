@@ -14,10 +14,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -120,8 +123,6 @@ fun GardenPage(
                     text = "Chăm sóc cảm xúc mỗi ngày để vườn luôn tươi tốt nhé!",
                     color = EgDesign.textSecondary,
                     fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -150,7 +151,7 @@ fun GardenPage(
                     onDismiss = vm::clearMessage,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 70.dp)
+                        .padding(bottom = 86.dp)
                 )
             }
         }
@@ -281,8 +282,6 @@ private fun PendingRewardChip(text: String, active: Boolean) {
             color = if (active) Color(0xFF15803D) else EgDesign.textSecondary,
             fontSize = 11.sp,
             fontWeight = FontWeight.ExtraBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -298,7 +297,7 @@ private fun ResourceRow(inventory: GardenInventory) {
 @Composable
 private fun ResourceChip(label: String, value: Int, type: String, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier.height(42.dp),
+        modifier = modifier.heightIn(min = 42.dp),
         shape = RoundedCornerShape(16.dp),
         color = EgDesign.cardSoft,
         border = BorderStroke(1.dp, EgDesign.cardBorder)
@@ -312,7 +311,7 @@ private fun ResourceChip(label: String, value: Int, type: String, modifier: Modi
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(6.dp))
             Text(value.toString(), color = EgDesign.primaryDark, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(4.dp))
-            Text(label, color = EgDesign.textSecondary, fontSize = 12.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(label, color = EgDesign.textSecondary, fontSize = 12.sp)
         }
     }
 }
@@ -321,26 +320,46 @@ private fun ResourceChip(label: String, value: Int, type: String, modifier: Modi
 private fun GardenMessageCard(message: String, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier
-            .fillMaxWidth()
+            .widthIn(min = 250.dp, max = 326.dp)
+            .shadow(elevation = 10.dp, shape = RoundedCornerShape(18.dp))
             .clickable(onClick = onDismiss),
         shape = RoundedCornerShape(18.dp),
-        color = Color(0xFFDCFCE7).copy(alpha = if (EgDesign.background == Color(0xFF101820)) 0.18f else 1f),
-        border = BorderStroke(1.dp, Color(0xFF86D39E))
+        color = Color(0xEE1B2A3F)
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            EgVectorEmojiIcon("sparkle", size = 24.dp)
-            Text(
-                text = message,
-                color = EgDesign.textPrimary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f)
-            )
-            EgVectorEmojiIcon("close", size = 18.dp, tint = EgDesign.textSecondary)
+            Surface(
+                modifier = Modifier.size(32.dp),
+                shape = RoundedCornerShape(10.dp),
+                color = EgDesign.primary
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    EgVectorEmojiIcon("check", size = 20.dp, tint = Color.White)
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Vườn cảm xúc",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = message,
+                    color = Color(0xFFD7E2F0),
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
@@ -408,23 +427,17 @@ private fun PlantCard(plant: EmotionPlant, modifier: Modifier = Modifier, onClic
                 color = EgDesign.textPrimary,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = species.speciesName,
                 color = EgDesign.textPrimary,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "Lv. ${plant.level} · ${GardenRepository.plantStageName(plant.emotionId, plant.level)}",
                 color = EgDesign.textSecondary,
                 fontSize = 9.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
             GardenProgressBar(
                 progress = progress,
@@ -468,8 +481,6 @@ private fun GardenTaskLauncher(state: GardenUiState, onOpenTasks: () -> Unit) {
                     "$completedDaily/${state.dailyTasks.size} nhiệm vụ hôm nay · ${state.pendingRewardCount} phần thưởng chờ nhận",
                     color = EgDesign.textSecondary,
                     fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
             Surface(
@@ -601,7 +612,7 @@ private fun GardenTaskTab(
 ) {
     Surface(
         modifier = modifier
-            .height(42.dp)
+            .heightIn(min = 42.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         color = if (selected) EgDesign.primary else EgDesign.cardSoft,
@@ -642,8 +653,6 @@ private fun TaskCard(task: GardenTask, busy: Boolean, onAction: () -> Unit) {
                         color = EgDesign.textPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
                     if (waitingReward) {
@@ -655,8 +664,6 @@ private fun TaskCard(task: GardenTask, busy: Boolean, onAction: () -> Unit) {
                     color = EgDesign.textSecondary,
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "${task.progress.coerceAtMost(task.target)}/${task.target} · ${rewardText(task)}",
@@ -722,7 +729,6 @@ private fun TaskActionButton(task: GardenTask, busy: Boolean, onClick: () -> Uni
                 color = if (primary && enabled) Color.White else EgDesign.blue,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.ExtraBold,
-                maxLines = 1
             )
         }
     }
@@ -864,7 +870,7 @@ private fun GardenPill(
 ) {
     Surface(
         modifier = modifier
-            .height(height)
+            .heightIn(min = height)
             .alpha(if (enabled) 1f else 0.55f)
             .clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(999.dp),
@@ -885,8 +891,6 @@ private fun GardenPill(
                 color = if (primary && enabled) Color.White else EgDesign.blue,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
         }
     }

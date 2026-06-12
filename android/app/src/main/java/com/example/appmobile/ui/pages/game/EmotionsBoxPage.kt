@@ -1,7 +1,6 @@
 package com.example.appmobile.ui.pages.game
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,12 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,12 +32,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.appmobile.R
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
@@ -51,13 +43,12 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
-import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
-import com.example.appmobile.ui.components.EgEmotionVectorIcon
-import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 
 private data class RecognizeQuestionUi(
     val questionId: String,
@@ -93,9 +84,15 @@ fun EmotionsBoxPage(
     val learnedEmotions = remember(level) { mutableStateListOf<String>() }
     val learningEmotionId = remember(level) { mutableStateOf<String?>(null) }
     val pendingLearnEmotion = remember(level) { mutableStateOf<String?>(null) }
+    val showExitConfirm = remember(level) { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
+    val userId = remember(context) {
+        FirebaseAuth.getInstance().currentUser?.uid
+            ?: AppSession.getBackendUserId(context)
+            ?: AppSession.currentBackendUserId()
+            ?: "local-player"
+    }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
@@ -114,22 +111,22 @@ fun EmotionsBoxPage(
                     summaryData.value = LevelSummaryData(
                         passed = response.passed,
                         score = response.score,
-                        totalScore = 50,
+                        totalScore = 100,
                         accuracy = response.accuracy,
                         correctCount = finalResults.count { it.isCorrect },
                         totalQuestions = finalResults.size
                     )
                     repository.invalidateProgressCache(GameUiCatalog.GAME_RECOGNIZE_EMOTION, userId)
                     val status = if (response.passed) "Đã qua level" else "Chưa qua level"
-                    summary.value = "$status. Điểm: ${response.score}/50."
+                    summary.value = "$status. Điểm: ${response.score}/100."
                 } else {
                     val totalQ = finalResults.size
                     val correctC = finalResults.count { it.isCorrect }
                     val acc = if (totalQ > 0) (correctC.toFloat() / totalQ) * 100f else 0f
                     summaryData.value = LevelSummaryData(
-                        passed = acc >= 50f,
+                        passed = acc >= 80f,
                         score = score.intValue,
-                        totalScore = totalQ * 10,
+                        totalScore = 100,
                         accuracy = acc,
                         correctCount = correctC,
                         totalQuestions = totalQ
@@ -141,22 +138,92 @@ fun EmotionsBoxPage(
                 val correctC = finalResults.count { it.isCorrect }
                 val acc = if (totalQ > 0) (correctC.toFloat() / totalQ) * 100f else 0f
                 summaryData.value = LevelSummaryData(
-                    passed = acc >= 50f,
+                    passed = acc >= 80f,
                     score = score.intValue,
-                    totalScore = totalQ * 10,
+                    totalScore = 100,
                     accuracy = acc,
                     correctCount = correctC,
                     totalQuestions = totalQ
                 )
                 summary.value = "Hoàn thành."
             } finally {
-                onGameCompleted(summaryData.value?.score ?: score.intValue)
+                clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_RECOGNIZE_EMOTION, level)
+                val completedScore = summaryData.value?.score ?: score.intValue
+                saveLocalUnlockedLevel(
+                    context = context,
+                    userId = userId,
+                    gameId = GameUiCatalog.GAME_RECOGNIZE_EMOTION,
+                    completedLevel = level,
+                    score = completedScore
+                )
+                onGameCompleted(completedScore)
                 isSubmitting.value = false
             }
         }
     }
 
+    fun checkpointIndex(): Int {
+        val answeredCurrent = feedback.value != null &&
+            results.value.any { it.questionId == questions.value.getOrNull(currentIndex.intValue)?.questionId }
+        return if (answeredCurrent) {
+            (currentIndex.intValue + 1).coerceAtMost((questions.value.size - 1).coerceAtLeast(0))
+        } else {
+            currentIndex.intValue
+        }
+    }
+
+    fun saveAndExit() {
+        saveClickGameCheckpoint(
+            context = context,
+            userId = userId,
+            gameId = GameUiCatalog.GAME_RECOGNIZE_EMOTION,
+            level = level,
+            sessionId = sessionId.value,
+            score = score.intValue,
+            currentIndex = checkpointIndex(),
+            maxErrors = maxErrors.intValue,
+            results = results.value,
+            questions = recognizeQuestionsToJson(questions.value)
+        )
+        showExitConfirm.value = false
+        onBack()
+    }
+
+    fun exitWithoutSaving() {
+        clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_RECOGNIZE_EMOTION, level)
+        showExitConfirm.value = false
+        onBack()
+    }
+
+    fun requestExit() {
+        val hasProgress = summary.value == null && (results.value.isNotEmpty() || currentIndex.intValue > 0)
+        if (hasProgress) showExitConfirm.value = true else onBack()
+    }
+
     LaunchedEffect(level, userId, replayCount.intValue) {
+        val checkpoint = loadClickGameCheckpointJson(context, userId, GameUiCatalog.GAME_RECOGNIZE_EMOTION, level)
+        if (checkpoint != null) {
+            val restoredQuestions = recognizeQuestionsFromJson(checkpoint.optJSONArray("questions"))
+            if (restoredQuestions.isNotEmpty()) {
+                questions.value = restoredQuestions
+                sessionId.value = checkpoint.optString("session_id").takeIf { it.isNotBlank() && it != "null" }
+                maxErrors.intValue = checkpoint.optInt("max_errors", 3).coerceAtLeast(1)
+                currentIndex.intValue = checkpoint.optInt("current_index", 0).coerceIn(0, restoredQuestions.lastIndex)
+                score.intValue = checkpoint.optInt("score", 0).coerceIn(0, 100)
+                selectedEmotionId.value = null
+                feedback.value = null
+                results.value = answerResultsFromCheckpoint(checkpoint)
+                summary.value = null
+                summaryData.value = null
+                emotionErrors.clear()
+                accumulatedErrors.clear()
+                learnedEmotions.clear()
+                learningEmotionId.value = null
+                pendingLearnEmotion.value = null
+                questionStartMs.value = System.currentTimeMillis()
+                return@LaunchedEffect
+            }
+        }
         val started = repository.startGame(GameUiCatalog.GAME_RECOGNIZE_EMOTION, userId, level)
         sessionId.value = started?.sessionId
         maxErrors.intValue = started?.maxErrors ?: 3
@@ -198,6 +265,10 @@ fun EmotionsBoxPage(
     val options = GameUiCatalog.emotions
     val hintShown = remember(currentIndex.intValue) { mutableStateOf(false) }
 
+    BackHandler(enabled = summary.value == null) {
+        requestExit()
+    }
+
     GameScreenShell(
         contentMaxWidth = 800,
         onOpenAssistant = onOpenAssistant,
@@ -211,17 +282,26 @@ fun EmotionsBoxPage(
                 currentQuestion = currentIndex.intValue + 1,
                 totalQuestions = questions.value.size,
                 score = score.intValue,
-                onBack = onBack
+                onBack = { requestExit() }
             )
 
             if (summary.value != null) {
-                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    Spacer(modifier = Modifier.height(20.dp))
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     GameLevelSummaryCard(
                         summaryData = summaryData.value,
                         summary = summary.value.orEmpty(),
-                        onBack = onBack,
-                        onReplay = { replayCount.intValue++ }
+                        onBack = {
+                            clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_RECOGNIZE_EMOTION, level)
+                            onBack()
+                        },
+                        onReplay = {
+                            clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_RECOGNIZE_EMOTION, level)
+                            replayCount.intValue++
+                        },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             } else {
@@ -238,26 +318,12 @@ fun EmotionsBoxPage(
                                     .height(108.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (!currentQuestion.mediaPath.isNullOrBlank()) {
-                                    val assetPath = if (currentQuestion.mediaPath.startsWith("/")) {
-                                        "file:///android_asset${currentQuestion.mediaPath}"
-                                    } else {
-                                        "file:///android_asset/${currentQuestion.mediaPath}"
-                                    }
-                                    AsyncImage(
-                                        model = assetPath,
-                                        contentDescription = null,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Fit
-                                    )
-                                } else {
-                                    Image(
-                                        painter = painterResource(id = currentQuestion.imageRes),
-                                        contentDescription = null,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Fit
-                                    )
-                                }
+                                GameQuestionMedia(
+                                    mediaPath = currentQuestion.mediaPath,
+                                    fallbackRes = currentQuestion.imageRes,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit
+                                )
                             }
                     }
 
@@ -296,53 +362,16 @@ fun EmotionsBoxPage(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         contentAlignment = Alignment.Center
                     ) {
                         if (feedback.value != null) {
                             GameFeedbackCard(feedback.value.orEmpty())
                         } else if (!currentQuestion.explanation.isNullOrBlank()) {
                             if (hintShown.value) {
-                                Surface(
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                    color = Color(0xFFFFD66B),
-                                    border = BorderStroke(1.dp, Color(0xFFF59E0B))
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        EgVectorEmojiIcon("bulb", size = 20.dp, tint = Color(0xFFF59E0B))
-                                        Text(
-                                            text = currentQuestion.explanation,
-                                            color = Color(0xFF92400E),
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
+                                GameHintCard(text = currentQuestion.explanation)
                             } else {
-                                Surface(
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                    color = EgDesign.cardSoft,
-                                    border = BorderStroke(1.dp, EgDesign.cardBorder),
-                                    onClick = { hintShown.value = true }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        EgVectorEmojiIcon("bulb", size = 20.dp, tint = Color(0xFFF59E0B))
-                                        Text(
-                                            text = "Gợi ý",
-                                            color = EgDesign.textPrimary,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
+                                GameHintCard(onClick = { hintShown.value = true })
                             }
                         }
                     }
@@ -356,7 +385,6 @@ fun EmotionsBoxPage(
                                 if (feedback.value == null) {
                                     val selected = selectedEmotionId.value ?: return@Button
                                     val isCorrect = selected == currentQuestion.correctEmotion
-                                    if (isCorrect) score.intValue += 10
                                     val reviewEmotion = normalizeEmotionForLearning(currentQuestion.correctEmotion)
                                     if (!isCorrect) {
                                         emotionErrors[reviewEmotion] = (emotionErrors[reviewEmotion] ?: 0) + 1
@@ -376,6 +404,10 @@ fun EmotionsBoxPage(
                                         usedHint = false
                                     )
                                     results.value = updatedResults
+                                    score.intValue = scoreFromCorrectAnswers(
+                                        updatedResults.count { it.isCorrect },
+                                        questions.value.size
+                                    )
                                     val targetName = GameUiCatalog.emotionById(currentQuestion.correctEmotion)?.name
                                         ?: currentQuestion.correctEmotion
                                     feedback.value = if (isCorrect) "Đúng rồi." else "Chưa đúng. Đáp án là $targetName."
@@ -418,25 +450,78 @@ fun EmotionsBoxPage(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
                 }
             }
-            EmotionLearningDialog(
-                emotionId = learningEmotionId.value,
-                onDismiss = {
-                    val emotion = learningEmotionId.value
-                    learningEmotionId.value = null
-                    pendingLearnEmotion.value = null
-                    if (emotion != null) {
-                        emotionErrors[emotion] = 0
-                        accumulatedErrors[emotion] = 0
-                        scope.launch {
-                            try {
-                                repository.resetReviewEmotions(GameUiCatalog.GAME_RECOGNIZE_EMOTION, userId, listOf(emotion))
-                            } catch (_: Exception) {}
-                        }
+        }
+    }
+
+    EmotionLearningDialog(
+        emotionId = learningEmotionId.value,
+        onDismiss = {
+            val emotion = learningEmotionId.value
+            learningEmotionId.value = null
+            pendingLearnEmotion.value = null
+            if (emotion != null) {
+                emotionErrors[emotion] = 0
+                accumulatedErrors[emotion] = 0
+                scope.launch {
+                    try {
+                        repository.resetReviewEmotions(GameUiCatalog.GAME_RECOGNIZE_EMOTION, userId, listOf(emotion))
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+    )
+
+    if (showExitConfirm.value) {
+        ClickGameExitConfirmDialog(
+            onDismiss = { showExitConfirm.value = false },
+            onSaveAndExit = { saveAndExit() },
+            onExitWithoutSaving = { exitWithoutSaving() }
+        )
+    }
+}
+
+private fun recognizeQuestionsToJson(questions: List<RecognizeQuestionUi>): JSONArray {
+    return JSONArray().apply {
+        questions.forEach { question ->
+            put(JSONObject().apply {
+                put("question_id", question.questionId)
+                put("question_text", question.questionText)
+                put("media_path", question.mediaPath ?: JSONObject.NULL)
+                put("correct_emotion", question.correctEmotion)
+                put("explanation", question.explanation ?: JSONObject.NULL)
+                put("options", JSONArray().apply {
+                    question.optionEmotionIds.forEach(::put)
+                })
+            })
+        }
+    }
+}
+
+private fun recognizeQuestionsFromJson(array: JSONArray?): List<RecognizeQuestionUi> {
+    if (array == null) return emptyList()
+    return buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val emotion = normalizeEmotionForLearning(item.optString("correct_emotion"))
+            val options = item.optJSONArray("options")?.let { optionArray ->
+                buildList {
+                    for (optionIndex in 0 until optionArray.length()) {
+                        optionArray.optString(optionIndex).takeIf { it.isNotBlank() }?.let(::add)
                     }
                 }
+            }.orEmpty()
+            add(
+                RecognizeQuestionUi(
+                    questionId = item.optString("question_id"),
+                    questionText = item.optString("question_text", "Đây là cảm xúc gì?"),
+                    imageRes = emotionDrawableResource(emotion),
+                    mediaPath = item.optString("media_path").takeIf { it.isNotBlank() && it != "null" },
+                    correctEmotion = emotion,
+                    optionEmotionIds = options.ifEmpty { GameUiCatalog.emotions.map { it.id } },
+                    explanation = item.optString("explanation").takeIf { it.isNotBlank() && it != "null" }
+                )
             )
         }
     }

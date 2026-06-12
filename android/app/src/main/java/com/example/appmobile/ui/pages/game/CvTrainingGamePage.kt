@@ -111,7 +111,7 @@ import kotlin.random.Random
 import org.json.JSONArray
 import org.json.JSONObject
 
-private const val CvRoundSeconds = 30
+private const val CvRoundSeconds = 20
 private const val CvRequestRoundSeconds = 20
 private const val CvRequiredConfidence = 75f
 private const val CvRequiredHoldMs = 5_000L
@@ -245,7 +245,9 @@ fun CvTrainingGamePage(
     val completedTimeSeconds = remember(level, gameId) { mutableIntStateOf(0) }
     val detectedEmotion = remember(level, gameId) { mutableStateOf<String?>(null) }
     val faceDetected = remember(level, gameId) { mutableStateOf(false) }
+    val holdingEmotionId = remember(level, gameId) { mutableStateOf<String?>(null) }
     val holdProgressMs = remember(level, gameId) { mutableStateOf(0L) }
+    val heldEmotionDurationMs = remember(level, gameId) { mutableStateOf(0L) }
     val holdConfidenceWeightedSum = remember(level, gameId) { mutableStateOf(0f) }
     val roundConfidenceWeightedSum = remember(level, gameId) { mutableStateOf(0f) }
     val roundConfidenceDurationMs = remember(level, gameId) { mutableStateOf(0L) }
@@ -332,8 +334,10 @@ fun CvTrainingGamePage(
             highestConfidence.value = 0f
             completedTimeSeconds.intValue = 0
             detectedEmotion.value = null
+            holdingEmotionId.value = null
             faceDetected.value = false
             holdProgressMs.value = 0L
+            heldEmotionDurationMs.value = 0L
             holdConfidenceWeightedSum.value = 0f
             roundConfidenceWeightedSum.value = 0f
             roundConfidenceDurationMs.value = 0L
@@ -412,8 +416,10 @@ fun CvTrainingGamePage(
         highestConfidence.value = 0f
         completedTimeSeconds.intValue = 0
         detectedEmotion.value = null
+        holdingEmotionId.value = null
         faceDetected.value = false
         holdProgressMs.value = 0L
+        heldEmotionDurationMs.value = 0L
         holdConfidenceWeightedSum.value = 0f
         roundConfidenceWeightedSum.value = 0f
         roundConfidenceDurationMs.value = 0L
@@ -671,7 +677,7 @@ fun CvTrainingGamePage(
         }
     }
 
-    fun recordAttempt(success: Boolean, confidence: Float) {
+    fun recordAttempt(success: Boolean, confidence: Float, answerEmotionId: String? = null) {
         if (feedback.value != null || summary.value != null) return
         if (challengeCompleted.value) {
             Log.d(CvLogTag, "completeChallenge ignored because already completed sessionId=${challengeSessionId.value}")
@@ -685,11 +691,7 @@ fun CvTrainingGamePage(
         gardenRepository.onLearningEvent(LearningEvent.CameraChallengeCompleted(reviewEmotion, success))
         val targetMeta = cvEmotionMeta(reviewEmotion)
         val normalizedScore = confidence.coerceIn(0f, 100f)
-        if (isStoryMode) {
-            if (success) {
-                score.intValue += 10
-            }
-        } else {
+        if (!isStoryMode) {
             score.intValue = normalizedScore.roundToInt()
         }
         if (!success) {
@@ -702,12 +704,18 @@ fun CvTrainingGamePage(
         }
         val updatedResults = results.value + AnswerResultDto(
             questionId = question.questionId,
-            answer = if (success) question.prompt.correctAnswer else "not_matched",
+            answer = if (success) question.prompt.correctAnswer else answerEmotionId ?: detectedEmotion.value ?: "not_matched",
             isCorrect = success,
             responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt(),
             cvConfidence = normalizedScore
         )
         results.value = updatedResults
+        if (isStoryMode) {
+            score.intValue = scoreFromCorrectAnswers(
+                updatedResults.count { it.isCorrect },
+                questions.value.size
+            )
+        }
         currentConfidence.value = normalizedScore
         detectedConfidence.value = normalizedScore
         highestConfidence.value = maxOf(highestConfidence.value, normalizedScore)
@@ -716,14 +724,16 @@ fun CvTrainingGamePage(
         } else {
             (roundSeconds - remainingSeconds.intValue).coerceAtLeast(0)
         }
-        detectedEmotion.value = if (success) reviewEmotion else null
+        detectedEmotion.value = if (success) reviewEmotion else answerEmotionId ?: detectedEmotion.value
         lastAttemptSuccess.value = success
         challengeStarted.value = false
         startRequested.value = false
         cameraPreviewReady.value = false
         detectorReady.value = false
         correctHoldStartedAt.value = null
+        holdingEmotionId.value = null
         holdProgressMs.value = 0L
+        heldEmotionDurationMs.value = 0L
         holdConfidenceWeightedSum.value = 0f
         roundConfidenceWeightedSum.value = 0f
         roundConfidenceDurationMs.value = 0L
@@ -774,10 +784,12 @@ fun CvTrainingGamePage(
         val questionId = questions.value[currentIndex.intValue].questionId
         val lastResult = results.value.lastOrNull()
         if (lastResult?.questionId == questionId) {
-            results.value = results.value.dropLast(1)
-            if (lastResult.isCorrect) {
-                score.intValue = (score.intValue - 10).coerceAtLeast(0)
-            }
+            val updatedResults = results.value.dropLast(1)
+            results.value = updatedResults
+            score.intValue = scoreFromCorrectAnswers(
+                updatedResults.count { it.isCorrect },
+                questions.value.size
+            )
         }
         feedback.value = null
         lastAttemptSuccess.value = null
@@ -995,10 +1007,22 @@ fun CvTrainingGamePage(
     val cameraReady = cameraMayStart && cameraPreviewReady.value
     val detectorActive = cameraReady && detectorReady.value
     val timerActive = canShowCameraStep &&
-        detectorActive &&
-        (challengeState.value == CvChallengeState.Playing || challengeState.value == CvChallengeState.Detecting) &&
         feedback.value == null &&
-        summary.value == null
+        summary.value == null &&
+        if (isStoryMode) {
+            startRequested.value &&
+                detectionActive.value &&
+                challengeState.value in setOf(
+                    CvChallengeState.SearchingFace,
+                    CvChallengeState.FaceDetected,
+                    CvChallengeState.Countdown,
+                    CvChallengeState.Playing,
+                    CvChallengeState.Detecting
+                )
+        } else {
+            detectorActive &&
+                (challengeState.value == CvChallengeState.Playing || challengeState.value == CvChallengeState.Detecting)
+        }
     val isActiveRequestChallenge = challengeState.value in setOf(
         CvChallengeState.RequestingPermission,
         CvChallengeState.CameraStarting,
@@ -1085,6 +1109,27 @@ fun CvTrainingGamePage(
             summary.value == null
         ) {
             challengeState.value = CvChallengeState.CameraReady
+        }
+    }
+
+    LaunchedEffect(cameraMayStart, cameraPreviewReady.value, challengeState.value, feedback.value, summary.value) {
+        if (
+            cameraMayStart &&
+            !cameraPreviewReady.value &&
+            challengeState.value == CvChallengeState.CameraStarting &&
+            feedback.value == null &&
+            summary.value == null
+        ) {
+            delay(450L)
+            if (
+                cameraMayStart &&
+                !cameraPreviewReady.value &&
+                challengeState.value == CvChallengeState.CameraStarting &&
+                feedback.value == null &&
+                summary.value == null
+            ) {
+                cameraPreviewReady.value = true
+            }
         }
     }
 
@@ -1234,18 +1279,30 @@ fun CvTrainingGamePage(
         }
     }
 
-    LaunchedEffect(currentIndex.intValue, challengeState.value, feedback.value, summary.value) {
+    LaunchedEffect(currentIndex.intValue, challengeState.value, timerActive, feedback.value, summary.value) {
         if (!timerActive) return@LaunchedEffect
         while (
-            challengeState.value == CvChallengeState.Detecting &&
+            timerActive &&
             detectionActive.value &&
             !challengeCompleted.value &&
             feedback.value == null &&
             summary.value == null
         ) {
             delay(1000L)
+            val timerStillActive = if (isStoryMode) {
+                startRequested.value &&
+                    challengeState.value in setOf(
+                        CvChallengeState.SearchingFace,
+                        CvChallengeState.FaceDetected,
+                        CvChallengeState.Countdown,
+                        CvChallengeState.Playing,
+                        CvChallengeState.Detecting
+                    )
+            } else {
+                challengeState.value == CvChallengeState.Detecting
+            }
             if (
-                challengeState.value != CvChallengeState.Detecting ||
+                !timerStillActive ||
                 !detectionActive.value ||
                 challengeCompleted.value
             ) break
@@ -1322,6 +1379,12 @@ fun CvTrainingGamePage(
             if (challengeState.value == CvChallengeState.Detecting && withinStrongGrace) {
                 return
             }
+            holdProgressMs.value = 0L
+            heldEmotionDurationMs.value = 0L
+            holdConfidenceWeightedSum.value = 0f
+            holdingEmotionId.value = null
+            correctHoldStartedAt.value = null
+            sustainedConfidenceDuringHold.value = 0f
             if (
                 challengeState.value == CvChallengeState.Detecting ||
                 challengeState.value == CvChallengeState.Countdown ||
@@ -1343,16 +1406,35 @@ fun CvTrainingGamePage(
             return
         }
 
-        if (challengeState.value != CvChallengeState.Detecting) return
+        val canTrackHold = if (isStoryMode) {
+            challengeState.value == CvChallengeState.Detecting ||
+                challengeState.value == CvChallengeState.Playing
+        } else {
+            challengeState.value == CvChallengeState.Detecting
+        }
+        if (!canTrackHold) return
 
         val requiredHoldMs = if (isStoryMode) CvStoryRequiredHoldMs else CvRequiredHoldMs
-        val holdConfidenceScore = if (isTargetEmotion) effectiveTargetScore.coerceIn(0f, 100f) else 0f
+        val minHoldConfidence = if (isStoryMode) 30f else 50f
+        val heldEmotion = normalizedEmotion?.takeIf { normalizedConfidence >= minHoldConfidence }
+        val holdConfidenceScore = when {
+            heldEmotion == null -> 0f
+            heldEmotion == targetEmotion.id -> effectiveTargetScore.coerceIn(0f, 100f)
+            else -> normalizedConfidence.coerceIn(0f, 100f)
+        }
         if (isTargetEmotion) {
             roundConfidenceWeightedSum.value += holdConfidenceScore * deltaMs.toFloat()
             roundConfidenceDurationMs.value += deltaMs
         }
-        val isHoldingCorrectEmotion = isTargetEmotion && holdConfidenceScore >= CvRequiredConfidence
-        if (isHoldingCorrectEmotion) {
+        if (heldEmotion != null && holdConfidenceScore >= minHoldConfidence) {
+            if (holdingEmotionId.value != heldEmotion) {
+                holdingEmotionId.value = heldEmotion
+                holdProgressMs.value = 0L
+                heldEmotionDurationMs.value = 0L
+                holdConfidenceWeightedSum.value = 0f
+                correctHoldStartedAt.value = null
+                sustainedConfidenceDuringHold.value = 0f
+            }
             lastStrongTargetAtMs.value = now
             if (correctHoldStartedAt.value == null) {
                 correctHoldStartedAt.value = now
@@ -1370,55 +1452,35 @@ fun CvTrainingGamePage(
                 holdConfidenceWeightedSum.value += holdConfidenceScore * gainedHoldMs.toFloat()
             }
             holdProgressMs.value = nextHoldMs
-            if (holdProgressMs.value >= requiredHoldMs) {
+            heldEmotionDurationMs.value = (heldEmotionDurationMs.value + deltaMs)
+                .coerceAtMost(roundSeconds * 1000L)
+            if (holdProgressMs.value >= requiredHoldMs && (!isStoryMode || heldEmotion == targetEmotion.id)) {
                 val averageConfidence = if (holdProgressMs.value > 0L) {
                     (holdConfidenceWeightedSum.value / holdProgressMs.value.toFloat()).coerceIn(0f, 100f)
                 } else {
                     holdConfidenceScore
                 }
                 recordAttempt(
-                    success = true,
-                    confidence = averageConfidence
+                    success = heldEmotion == targetEmotion.id,
+                    confidence = averageConfidence,
+                    answerEmotionId = heldEmotion
                 )
             }
         } else {
-            if (isTargetEmotion && holdConfidenceScore >= 60f) {
-                val previousHoldMs = holdProgressMs.value
-                val partialHoldCap = (requiredHoldMs * 0.6f).toLong()
-                val nextHoldMs = (previousHoldMs + (deltaMs / 5)).coerceAtMost(partialHoldCap)
-                val gainedHoldMs = (nextHoldMs - previousHoldMs).coerceAtLeast(0L)
-                if (gainedHoldMs > 0L) {
-                    holdConfidenceWeightedSum.value += holdConfidenceScore * gainedHoldMs.toFloat()
-                }
-                holdProgressMs.value = nextHoldMs
-                return
-            }
-            val decay = if (withinStrongGrace && holdProgressMs.value > 0L) {
-                deltaMs / 8
-            } else if (isTargetEmotion && holdConfidenceScore >= 50f) {
-                deltaMs / 4
-            } else {
-                deltaMs / 2
-            }
-            val previousHoldMs = holdProgressMs.value
-            val nextHoldMs = (previousHoldMs - decay).coerceAtLeast(0L)
-            holdProgressMs.value = nextHoldMs
-            if (previousHoldMs > 0L && nextHoldMs > 0L) {
-                val retainRatio = nextHoldMs.toFloat() / previousHoldMs.toFloat()
-                holdConfidenceWeightedSum.value = (holdConfidenceWeightedSum.value * retainRatio).coerceAtLeast(0f)
-            }
-            if (holdProgressMs.value == 0L) {
-                correctHoldStartedAt.value = null
-                sustainedConfidenceDuringHold.value = 0f
-                holdConfidenceWeightedSum.value = 0f
-            }
+            holdProgressMs.value = 0L
+            heldEmotionDurationMs.value = 0L
+            holdConfidenceWeightedSum.value = 0f
+            holdingEmotionId.value = null
+            correctHoldStartedAt.value = null
+            sustainedConfidenceDuringHold.value = 0f
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         GameScreenShell(
             onOpenAssistant = onOpenAssistant,
-            bottomSpacerHeight = 24.dp
+            scrollEnabled = !isStoryMode || summary.value != null,
+            bottomSpacerHeight = if (isStoryMode && summary.value == null) 0.dp else 24.dp
         ) {
             CvTopBar(
                 title = displayCvTitle(title, gameId),
@@ -1441,27 +1503,27 @@ fun CvTrainingGamePage(
                 }
             )
 
+            if (isStoryMode && summary.value == null) {
+                CvStoryStatRow(
+                    level = level,
+                    currentStage = currentIndex.intValue + 1,
+                    totalStages = questions.value.size,
+                    score = score.intValue
+                )
+            }
+
             if (summary.value != null) {
-                if (isStoryMode) {
-                    CvStoryLevelSummaryCard(
-                        summary = summary.value.orEmpty(),
-                        onReplay = { replayCurrentLevel() },
-                        onBack = {
-                            abandonSessionIfNeeded {
-                                onBack()
-                            }
-                        }
-                    )
-                } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     GameLevelSummaryCard(
                         summaryData = null,
                         summary = summary.value.orEmpty(),
+                        onReplay = { replayCurrentLevel() },
                         onBack = {
-                            abandonSessionIfNeeded {
-                                onBack()
-                            }
-                        },
-                        onReplay = {
                             abandonSessionIfNeeded {
                                 onBack()
                             }
@@ -1575,6 +1637,7 @@ fun CvTrainingGamePage(
                 },
                 targetEmotion = targetEmotion,
                 detectedEmotionId = detectedEmotion.value,
+                holdingEmotionId = holdingEmotionId.value,
                 detectedConfidence = detectedConfidence.value,
                 confidence = currentConfidence.value,
                 feedback = feedback.value,
@@ -1582,6 +1645,7 @@ fun CvTrainingGamePage(
                 challengeState = challengeState.value,
                 faceDetected = faceDetected.value,
                 holdProgress = holdProgressMs.value.toFloat() / CvStoryRequiredHoldMs.toFloat(),
+                heldEmotionSeconds = heldEmotionDurationMs.value.toFloat() / 1000f,
                 cameraReady = cameraReady,
                 detectorReady = detectorReady.value,
                 challengeStarted = challengeStarted.value,
@@ -1715,7 +1779,7 @@ private fun CvTopBar(title: String, progressText: String? = null, onBack: () -> 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp)
+            .padding(bottom = 8.dp)
     ) {
         AppBackButton(
             onClick = onBack,
@@ -1724,14 +1788,17 @@ private fun CvTopBar(title: String, progressText: String? = null, onBack: () -> 
         Text(
             text = title,
             color = EgDesign.textPrimary,
-            fontSize = 22.sp,
+            fontSize = if (title.length > 18) 20.sp else 22.sp,
             fontWeight = FontWeight.ExtraBold,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .align(Alignment.Center)
-                .padding(horizontal = 72.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 48.dp)
         )
-        if (progressText != null) {
+        if (false && progressText != null) {
             Surface(
                 shape = RoundedCornerShape(999.dp),
                 color = EgDesign.card,
@@ -1747,6 +1814,27 @@ private fun CvTopBar(title: String, progressText: String? = null, onBack: () -> 
                     fontWeight = FontWeight.Bold
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CvStoryStatRow(
+    level: Int,
+    currentStage: Int,
+    totalStages: Int,
+    score: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            GameStatChip("Level $level")
+            GameStatChip("Màn $currentStage/$totalStages")
+            GameStatChip("Điểm $score")
         }
     }
 }
@@ -1929,7 +2017,7 @@ private fun CvRequestCameraPreviewBox(
         modifier = Modifier
             .fillMaxWidth()
             .height(334.dp),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF102A43)),
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -1976,7 +2064,7 @@ private fun CvRequestCameraPreviewBox(
             )
 
             val secondaryChipText = when {
-                timerActive -> formatCvTime(remainingSeconds)
+                timerActive || shouldShowCamera -> formatCvTime(remainingSeconds)
                 challengeState == CvChallengeState.FaceDetected ||
                     challengeState == CvChallengeState.Countdown -> "Sắp bắt đầu"
                 else -> null
@@ -2120,15 +2208,22 @@ private fun CountdownOverlay(value: Int) {
     Surface(
         modifier = Modifier.size(112.dp),
         shape = CircleShape,
-        color = EgDesign.card.copy(alpha = 0.94f),
-        border = BorderStroke(3.dp, EgDesign.primary)
+        color = Color.Transparent,
+        border = BorderStroke(3.dp, EgDesign.primary.copy(alpha = 0.82f))
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = value.toString(),
-                color = EgDesign.blue,
+                color = Color.White,
                 fontSize = 46.sp,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.ExtraBold,
+                style = androidx.compose.ui.text.TextStyle(
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = EgDesign.textPrimary.copy(alpha = 0.72f),
+                        offset = androidx.compose.ui.geometry.Offset(0f, 2.5f),
+                        blurRadius = 6f
+                    )
+                )
             )
         }
     }
@@ -2434,14 +2529,14 @@ private fun ChallengeErrorCard(message: String, onRetry: () -> Unit, onBack: () 
 
 @Composable
 private fun ConfirmExitDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    GameConfirmDialog(
+    GameExitConfirmDialog(
         icon = "pause",
         title = "Dừng thử thách?",
-        message = "Tiến độ hiện tại sẽ không được lưu.",
-        confirmText = "Dừng",
-        confirmColor = EgDesign.danger,
+        message = "Tiến độ hiện tại sẽ không được lưu. Con có chắc muốn dừng không?",
+        primaryText = "Dừng thử thách",
+        primaryColor = EgDesign.danger,
+        onPrimary = onConfirm,
         onDismiss = onDismiss,
-        onConfirm = onConfirm
     )
 }
 
@@ -2655,13 +2750,6 @@ private fun CvStoryStageIntroCard(
                 }
             }
 
-            Text(
-                text = "Bé hãy đọc tình huống rồi thể hiện cảm xúc phù hợp trước camera nhé.",
-                color = EgDesign.textSecondary,
-                fontSize = 15.sp,
-                lineHeight = 21.sp
-            )
-
             Button(
                 onClick = onStart,
                 modifier = Modifier
@@ -2670,64 +2758,6 @@ private fun CvStoryStageIntroCard(
                 colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primary)
             ) {
                 Text("Bắt đầu biểu hiện", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun CvStoryLevelSummaryCard(
-    summary: String,
-    onReplay: () -> Unit,
-    onBack: () -> Unit
-) {
-    val lines = summary.lineSequence().toList()
-    val title = lines.firstOrNull()?.takeIf { it.isNotBlank() } ?: "Hoàn thành cấp độ!"
-    val body = lines.drop(1).joinToString("\n").ifBlank { summary }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = EgDesign.card),
-        border = BorderStroke(1.dp, EgDesign.cardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            EgVectorEmojiIcon("sparkle", size = 42.dp)
-            Text(
-                text = title,
-                color = EgDesign.textPrimary,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = body,
-                color = EgDesign.textSecondary,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                textAlign = TextAlign.Center
-            )
-            Button(
-                onClick = onReplay,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = EgDesign.primary)
-            ) {
-                Text("Chơi lại cấp độ", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                border = BorderStroke(1.dp, EgDesign.cardBorder)
-            ) {
-                Text("Chọn cấp độ", color = EgDesign.blue, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -2746,52 +2776,16 @@ private fun CvStoryScenarioCard(
         border = BorderStroke(1.dp, EgDesign.cardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Box(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Surface(
-                    modifier = Modifier.size(52.dp),
-                    shape = CircleShape,
-                    color = EgDesign.cardSoft,
-                    border = BorderStroke(1.dp, EgDesign.cardBorder)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        EgVectorEmojiIcon("book", size = 28.dp, tint = EgDesign.primary)
-                    }
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    Text(
-                        text = promptLabel,
-                        color = EgDesign.blue,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (scenarioTitle.isNotBlank()) {
-                        Text(
-                            text = scenarioTitle,
-                            color = EgDesign.textPrimary,
-                            fontSize = 18.sp,
-                            lineHeight = 22.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                }
-            }
-
             Text(
-                text = scenarioText,
-                color = EgDesign.textSecondary,
-                fontSize = 14.sp,
-                lineHeight = 20.sp
+                text = scenarioTitle.takeIf { it.isNotBlank() } ?: scenarioText,
+                modifier = Modifier.fillMaxWidth(),
+                color = EgDesign.textPrimary,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -3014,6 +3008,7 @@ private fun CvCameraFeedbackCard(
     onCameraError: (Throwable) -> Unit,
     targetEmotion: CvEmotionMeta,
     detectedEmotionId: String?,
+    holdingEmotionId: String?,
     detectedConfidence: Float,
     confidence: Float,
     feedback: String?,
@@ -3021,6 +3016,7 @@ private fun CvCameraFeedbackCard(
     challengeState: CvChallengeState,
     faceDetected: Boolean,
     holdProgress: Float,
+    heldEmotionSeconds: Float,
     cameraReady: Boolean,
     detectorReady: Boolean,
     challengeStarted: Boolean,
@@ -3049,9 +3045,15 @@ private fun CvCameraFeedbackCard(
     onExit: () -> Unit
 ) {
     val detectedMeta = detectedEmotionId?.let(::cvEmotionMeta)
+    val heldMeta = holdingEmotionId?.let(::cvEmotionMeta)
     val hasCameraError = !cameraMessage.isNullOrBlank()
     val cameraOpening = startRequested && hasPermission && !cameraReady && !hasCameraError
     val detectorPreparing = startRequested && cameraReady && !detectorReady && !hasCameraError
+    val storyDetectionRunning = isStoryMode &&
+        startRequested &&
+        (challengeState == CvChallengeState.Playing || challengeState == CvChallengeState.Detecting)
+    val visibleDetectedMeta = detectedMeta.takeIf { storyDetectionRunning && faceDetected }
+    val visibleHeldMeta = heldMeta.takeIf { storyDetectionRunning && heldEmotionSeconds > 0f }
     val title = when {
         hasCameraError -> "Không mở được camera"
         roundLoading -> "Đang chuẩn bị lượt..."
@@ -3103,38 +3105,38 @@ private fun CvCameraFeedbackCard(
             hasCameraError -> cameraMessage.orEmpty()
             roundLoading -> "Đợi một chút để tải lượt chơi."
             isRequestingCameraPermission -> "Vui lòng cấp quyền camera để bắt đầu."
-            !startRequested -> "Bé hãy đọc tình huống rồi làm khuôn mặt phù hợp nhé."
+            !startRequested -> "Sẵn sàng bắt đầu."
             cameraOpening -> "Đợi một chút để camera sẵn sàng."
             detectorPreparing -> "Camera đã mở, bé giữ khuôn mặt trong khung nhé."
             !cameraReady -> "Hãy cấp quyền camera để bắt đầu."
             attemptSuccess == true -> feedback ?: "Bé đã thể hiện đúng cảm xúc trong tình huống."
             attemptSuccess == false -> feedback ?: "Hãy thử lại biểu cảm."
-            !challengeStarted -> "Bé hãy đọc tình huống rồi làm khuôn mặt phù hợp nhé."
+            !challengeStarted -> "Sẵn sàng bắt đầu."
             confidence >= CvRequiredConfidence -> "Giữ biểu cảm thêm chút nữa."
             else -> "Hãy giữ khuôn mặt trong khung hình."
         }
     } else {
         subtitle
     }
-    val cameraHeight = if (isStoryMode) 334.dp else 280.dp
+    val cameraHeight = if (isStoryMode) 302.dp else 280.dp
     val activeLamp = cvConfidenceLamp(confidence = confidence, attemptSuccess = attemptSuccess)
     val childFeedbackLevel = when {
         isStoryMode && (attemptSuccess == true || challengeState == CvChallengeState.Success) -> "Tốt lắm!"
         isStoryMode && (challengeState == CvChallengeState.Failed || challengeState == CvChallengeState.Ended) -> "Mình thử lại nhé"
         isStoryMode && (challengeState == CvChallengeState.LoadingCamera || challengeState == CvChallengeState.LoadingModel ||
             challengeState == CvChallengeState.CameraReady || challengeState == CvChallengeState.Countdown) -> "Đang chuẩn bị"
-        isStoryMode && challengeState == CvChallengeState.SearchingFace -> "Đưa mặt vào giữa khung nhé"
+        isStoryMode && challengeState == CvChallengeState.SearchingFace -> "Đang tìm khuôn mặt"
         isStoryMode && challengeState == CvChallengeState.FaceDetected -> "Đã thấy khuôn mặt"
         isStoryMode && challengeState !in setOf(CvChallengeState.Playing, CvChallengeState.Detecting) -> "Đọc tình huống"
-        isStoryMode && !faceDetected -> "Đưa mặt vào giữa khung nhé"
-        isStoryMode && detectedMeta != null -> "${detectedMeta.label} ${detectedConfidence.toInt()}%"
+        isStoryMode && !faceDetected -> "Đang tìm khuôn mặt"
+        isStoryMode && visibleDetectedMeta != null -> "${visibleDetectedMeta.label} ${detectedConfidence.toInt()}%"
         isStoryMode -> "Con thử thể hiện rõ hơn nhé"
         attemptSuccess == true || challengeState == CvChallengeState.Success -> "Đúng rồi!"
         challengeState == CvChallengeState.Failed || challengeState == CvChallengeState.Ended -> "Thử lại"
         challengeState == CvChallengeState.LoadingCamera || challengeState == CvChallengeState.LoadingModel ||
             challengeState == CvChallengeState.CameraReady || challengeState == CvChallengeState.Countdown -> "Đang chuẩn bị"
         challengeState != CvChallengeState.Playing -> "Bắt đầu"
-        !faceDetected -> "Đưa mặt vào giữa khung nhé"
+        !faceDetected -> "Đang tìm khuôn mặt"
         confidence >= CvRequiredConfidence -> "Đúng rồi!"
         confidence >= CvRequiredConfidence * 0.55f -> "Gần đúng rồi"
         else -> "Mình thử lại nhé"
@@ -3148,10 +3150,10 @@ private fun CvCameraFeedbackCard(
         challengeState == CvChallengeState.LoadingModel || detectorPreparing -> if (isStoryMode) "Đang chuẩn bị camera..." else "Đang tải bộ nhận diện..."
         challengeState == CvChallengeState.Success -> "Tuyệt vời!"
         challengeState == CvChallengeState.Failed || challengeState == CvChallengeState.Ended -> "Mình thử lại nhé"
-        isStoryMode && challengeState == CvChallengeState.SearchingFace -> "Đưa mặt vào giữa khung nhé"
+        isStoryMode && challengeState == CvChallengeState.SearchingFace -> "Đang tìm khuôn mặt"
         isStoryMode && challengeState == CvChallengeState.FaceDetected -> "Đã thấy khuôn mặt"
-        isStoryMode && challengeState == CvChallengeState.Detecting -> if (!faceDetected) "Đưa mặt vào giữa khung nhé" else "Đang nhận diện"
-        isStoryMode && challengeState == CvChallengeState.Playing -> if (!faceDetected) "Đưa mặt vào giữa khung nhé" else "Đang nhận diện"
+        isStoryMode && challengeState == CvChallengeState.Detecting -> if (!faceDetected) "Đang tìm khuôn mặt" else "Đang nhận diện"
+        isStoryMode && challengeState == CvChallengeState.Playing -> if (!faceDetected) "Đang tìm khuôn mặt" else "Đang nhận diện"
         challengeState == CvChallengeState.Playing -> childFeedbackLevel
         else -> if (isStoryMode) "Đọc tình huống" else "Sẵn sàng"
     }
@@ -3165,21 +3167,20 @@ private fun CvCameraFeedbackCard(
         detectorPreparing -> "Camera đã mở, đang chuẩn bị nhận diện."
         challengeState == CvChallengeState.Success -> feedback ?: "Con làm tốt lắm!"
         challengeState == CvChallengeState.Failed || challengeState == CvChallengeState.Ended -> feedback ?: "Con đã cố gắng rất tốt."
-        (challengeState == CvChallengeState.Playing || challengeState == CvChallengeState.Detecting) && !faceDetected -> "Đưa mặt vào giữa khung nhé."
-        (challengeState == CvChallengeState.Playing || challengeState == CvChallengeState.Detecting) && isStoryMode && detectedMeta != null ->
-            if (detectedEmotionId == targetEmotion.id) {
-                "Đúng rồi, bé giữ cảm xúc thêm một chút nhé."
-            } else {
-                "Chưa đúng cảm xúc rồi, bé thử biểu hiện khác nhé."
-            }
+        (challengeState == CvChallengeState.Playing || challengeState == CvChallengeState.Detecting) && !faceDetected -> "Đang tìm khuôn mặt."
+        (challengeState == CvChallengeState.Playing || challengeState == CvChallengeState.Detecting) && isStoryMode && visibleHeldMeta != null ->
+            "Bé đang giữ biểu cảm ${visibleHeldMeta.label}."
+        (challengeState == CvChallengeState.Playing || challengeState == CvChallengeState.Detecting) && isStoryMode && visibleDetectedMeta != null ->
+            "Camera đang thấy biểu cảm ${visibleDetectedMeta.label}."
         (challengeState == CvChallengeState.Playing || challengeState == CvChallengeState.Detecting) && isStoryMode -> "Con thử thể hiện rõ cảm xúc trong tình huống nhé."
         challengeState == CvChallengeState.Playing -> cvEmotionGuidance(targetEmotion.id)
-        isStoryMode -> "Bé hãy đọc tình huống rồi làm khuôn mặt phù hợp nhé."
+        isStoryMode -> "Con thử thể hiện rõ cảm xúc trong tình huống nhé."
         else -> "Con hãy làm mặt ${targetEmotion.shortLabel} nhé"
     }
     val childFeedbackIcon = when {
-        isStoryMode && detectedMeta != null -> detectedMeta.emoji
-        isStoryMode -> "palette"
+        isStoryMode && visibleHeldMeta != null -> visibleHeldMeta.emoji
+        isStoryMode && visibleDetectedMeta != null -> visibleDetectedMeta.emoji
+        isStoryMode -> "camera"
         else -> targetEmotion.emoji
     }
     val childActiveLamp = when {
@@ -3193,8 +3194,8 @@ private fun CvCameraFeedbackCard(
             .fillMaxWidth()
             .height(
                 when {
-                    isStoryMode && storyScenarioText.isNullOrBlank() -> 548.dp
-                    isStoryMode -> 560.dp
+                    isStoryMode && storyScenarioText.isNullOrBlank() -> 502.dp
+                    isStoryMode -> 514.dp
                     else -> 462.dp
                 }
             ),
@@ -3206,8 +3207,8 @@ private fun CvCameraFeedbackCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(if (isStoryMode) 10.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (isStoryMode) 7.dp else 10.dp)
         ) {
             if (isStoryMode && !storyScenarioText.isNullOrBlank()) {
                 StoryScenarioInsideChallenge(
@@ -3220,7 +3221,7 @@ private fun CvCameraFeedbackCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(cameraHeight)
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(if (isStoryMode) 16.dp else 20.dp))
                     .background(Color(0xFF102A43)),
                 contentAlignment = Alignment.Center
             ) {
@@ -3290,15 +3291,17 @@ private fun CvCameraFeedbackCard(
                         searchingFaceLong = searchingFaceLong,
                         holdProgress = holdProgress
                     )
-                    ChallengeStatusChip(
-                        text = cvChallengeStatusLabelV2(challengeState, faceDetected, searchingFaceLong),
-                        color = cvChallengeStatusColorV2(challengeState, faceDetected),
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(10.dp)
-                    )
+                    if (faceDetected || challengeState == CvChallengeState.Detecting || challengeState == CvChallengeState.Playing) {
+                        ChallengeStatusChip(
+                            text = "Đang nhận diện",
+                            color = cvChallengeStatusColorV2(challengeState, faceDetected),
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(10.dp)
+                        )
+                    }
                     val secondaryChipText = when {
-                        timerActive -> formatCvTime(remainingSeconds)
+                        timerActive || startRequested -> formatCvTime(remainingSeconds)
                         challengeState == CvChallengeState.FaceDetected ||
                             challengeState == CvChallengeState.Countdown -> "Sắp bắt đầu"
                         else -> null
@@ -3369,26 +3372,26 @@ private fun CvCameraFeedbackCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(74.dp),
+                    .height(if (isStoryMode) 58.dp else 74.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(if (isStoryMode) 10.dp else 12.dp)
             ) {
                 Surface(
-                    modifier = Modifier.size(58.dp),
+                    modifier = Modifier.size(if (isStoryMode) 48.dp else 58.dp),
                     shape = CircleShape,
                     color = EgDesign.cardSoft,
                     border = BorderStroke(1.dp, EgDesign.cardBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        EgVectorEmojiIcon(childFeedbackIcon, size = 30.dp, tint = EgDesign.primary)
+                        EgVectorEmojiIcon(childFeedbackIcon, size = if (isStoryMode) 24.dp else 30.dp, tint = EgDesign.primary)
                     }
                 }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (isStoryMode) 2.dp else 4.dp)) {
                     if (startRequested) {
                         Text(
                             childDisplayTitle,
                             color = EgDesign.textPrimary,
-                            fontSize = 17.sp,
+                            fontSize = if (isStoryMode) 15.sp else 17.sp,
                             fontWeight = FontWeight.ExtraBold,
                             maxLines = 1
                         )
@@ -3396,8 +3399,8 @@ private fun CvCameraFeedbackCard(
                     Text(
                         text = childDisplaySubtitle,
                         color = EgDesign.textSecondary,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
+                        fontSize = if (isStoryMode) 12.sp else 13.sp,
+                        lineHeight = if (isStoryMode) 16.sp else 18.sp,
                         maxLines = 2
                     )
                     if (!isStoryMode) {
@@ -3432,12 +3435,47 @@ private fun CvCameraFeedbackCard(
                 }
             }
 
-            if (!isStoryMode) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                val requiredHoldSeconds = if (isStoryMode) {
+                    CvStoryRequiredHoldMs / 1000f
+                } else {
+                    CvRequiredHoldMs / 1000f
+                }
+                val holdSeconds = if (isStoryMode) {
+                    heldEmotionSeconds.coerceAtLeast(0f)
+                } else {
+                    holdProgress.coerceIn(0f, 1f) * requiredHoldSeconds
+                }
+                val holdLabel = if (isStoryMode) {
+                    visibleHeldMeta
+                        ?.let { "Đang giữ ${it.label}: %.1f giây".format(holdSeconds) }
+                        ?: "Chưa giữ biểu cảm nào: %.1f giây".format(0f)
+                } else {
+                    "Giữ biểu cảm: %.1f / %.1f giây".format(holdSeconds, requiredHoldSeconds)
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = holdLabel,
+                        color = EgDesign.textPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    if (!isStoryMode && (timerActive || challengeState == CvChallengeState.Playing || challengeState == CvChallengeState.Detecting)) {
+                        Text(
+                            text = "Còn ${remainingSeconds.coerceAtLeast(0)} giây",
+                            color = EgDesign.textSecondary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
                 LinearProgressIndicator(
                     progress = {
                         when {
                             challengeState == CvChallengeState.Success -> 1f
-                            challengeState == CvChallengeState.Playing -> holdProgress.coerceIn(0f, 1f)
+                            challengeState == CvChallengeState.Playing || challengeState == CvChallengeState.Detecting -> holdProgress.coerceIn(0f, 1f)
                             else -> 0f
                         }
                     },
@@ -4229,8 +4267,8 @@ private fun cvChallengeStatusLabel(
         CvChallengeState.CameraStarting -> "Đang mở camera"
         CvChallengeState.SearchingFace -> when {
             faceDetected -> "Đã thấy khuôn mặt"
-            searchingFaceLong -> "Đưa mặt vào khung"
-            else -> "Giữ mặt trong khung"
+            searchingFaceLong -> "Đang tìm khuôn mặt"
+            else -> "Đang tìm khuôn mặt"
         }
         CvChallengeState.FaceDetected -> "Đã thấy khuôn mặt"
         CvChallengeState.Countdown -> "Chuẩn bị bắt đầu"
@@ -4267,13 +4305,13 @@ private fun cvChallengeStatusLabelV2(
         CvChallengeState.CameraStarting -> "Đang mở camera"
         CvChallengeState.SearchingFace -> when {
             faceDetected -> "Đã thấy khuôn mặt"
-            searchingFaceLong -> "Đưa mặt vào khung"
-            else -> "Giữ mặt trong khung"
+            searchingFaceLong -> "Đang tìm khuôn mặt"
+            else -> "Đang tìm khuôn mặt"
         }
         CvChallengeState.FaceDetected -> "Đã thấy khuôn mặt"
         CvChallengeState.Countdown -> "Chuẩn bị bắt đầu"
         CvChallengeState.Detecting,
-        CvChallengeState.Playing -> if (faceDetected) "Đang nhận diện" else "Đưa mặt vào khung"
+        CvChallengeState.Playing -> if (faceDetected) "Đang nhận diện" else "Đang tìm khuôn mặt"
         CvChallengeState.Success -> "Hoàn thành"
         CvChallengeState.Timeout -> "Thử lại nhé"
         CvChallengeState.Error -> "Cần thử lại"
@@ -4515,7 +4553,7 @@ private fun CvChallengeActionRow(
                 }
             }
         } else {
-            val showRetry = isStoryMode && attemptSuccess == false
+            val showRetry = false
             if (showRetry) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -56,7 +57,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -430,8 +430,6 @@ fun EgHeroCard(
                 color = EgDesign.blue,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
             Box(
                 modifier = Modifier
@@ -477,7 +475,7 @@ fun EgGradientPill(
 ) {
     Surface(
         modifier = modifier
-            .height(height)
+            .heightIn(min = height)
             .egTactileClick(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(EgDesign.pillRadius),
         color = Color.Transparent,
@@ -494,8 +492,6 @@ fun EgGradientPill(
                 color = if (enabled) Color.White else EgDesign.textSecondary,
                 fontSize = fontSize.sp,
                 fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
         }
     }

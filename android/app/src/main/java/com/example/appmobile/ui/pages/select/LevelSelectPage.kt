@@ -50,6 +50,7 @@ import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.repository.GameRepository
+import com.example.appmobile.notifications.InAppNotificationManager
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.catalog.LevelUiItem
 import com.example.appmobile.ui.components.AppBackButton
@@ -67,6 +68,8 @@ import com.example.appmobile.ui.components.GameScreenShell
 import com.example.appmobile.ui.components.egEmotionDisplayName
 import com.example.appmobile.ui.components.egEmotionKey
 import com.example.appmobile.ui.components.egEmotionRouteValue
+import com.example.appmobile.ui.pages.game.loadClickGameResumePreview
+import com.example.appmobile.ui.pages.game.loadLocalUnlockedLevel
 import com.google.firebase.auth.FirebaseAuth
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -107,6 +110,7 @@ private data class CvStoryResumePreview(
 @Composable
 fun LevelSelectPage(
     gameId: String,
+    refreshSignal: Long = 0L,
     onBack: () -> Unit,
     onStartGame: (String) -> Unit,
     onOpenAssistant: () -> Unit = {}
@@ -156,8 +160,6 @@ fun LevelSelectPage(
             }
         )
     }
-    var lockedLevelMessage by remember(gameId) { mutableStateOf<String?>(null) }
-
     suspend fun loadLevelProgress(forceRefresh: Boolean, showLoading: Boolean) {
         if (showLoading) {
             isLoading = true
@@ -225,9 +227,24 @@ fun LevelSelectPage(
         val progress = repository.getGameProgress(gameId, userId, forceRefresh = forceRefresh)
         val progressLevel = progress?.level ?: 0
         val progressScore = progress?.score ?: 0
+        val resumeByLevel = if (isClickGame) {
+            levels.associate { level ->
+                level.id to loadClickGameResumePreview(
+                    context = context,
+                    userId = userId,
+                    gameId = gameId,
+                    level = level.id
+                )
+            }
+        } else {
+            emptyMap()
+        }
         val completedCurrent = !isClickGame && progressLevel > 0 && progressScore >= passThreshold(gameId, progressLevel)
         val unlockedLevel = if (isClickGame) {
-            (progress?.level ?: 1).coerceIn(1, levels.size.coerceAtLeast(1))
+            maxOf(
+                progress?.level ?: 1,
+                loadLocalUnlockedLevel(context, userId, gameId)
+            ).coerceIn(1, levels.size.coerceAtLeast(1))
         } else {
             when {
                 progressLevel <= 0 -> 1
@@ -238,17 +255,26 @@ fun LevelSelectPage(
 
         levelStates = levels.map { level ->
             val score = if (level.id == progressLevel) progressScore else null
+            val resume = resumeByLevel[level.id]
             val available = availabilityByLevel[level.id] ?: true
             val completed = if (isClickGame) level.id < unlockedLevel else level.id < unlockedLevel || (level.id == progressLevel && completedCurrent)
             LevelProgressUi(
                 level = level,
-                unlocked = level.id <= unlockedLevel && available,
+                unlocked = (level.id <= unlockedLevel || resume != null) && available,
                 completed = completed,
                 score = score,
                 available = available,
                 current = level.id == unlockedLevel && !completed,
-                completedScenes = if (completed) 5 else 0,
-                totalScenes = 5
+                completedScenes = when {
+                    completed -> 5
+                    resume != null -> resume.answeredCount.coerceIn(0, resume.totalCount)
+                    else -> 0
+                },
+                totalScenes = resume?.totalCount?.coerceAtLeast(1) ?: 5,
+                resumable = resume != null,
+                resumeProgressText = resume?.let {
+                    "${it.answeredCount.coerceAtLeast(0)}/${it.totalCount.coerceAtLeast(1)} câu"
+                }
             )
         }
         progressText = if (gameId.equals(GameUiCatalog.GAME_CV_STORY, ignoreCase = true)) {
@@ -259,15 +285,11 @@ fun LevelSelectPage(
         isLoading = false
     }
 
-    LaunchedEffect(gameId, userId) {
-        loadLevelProgress(forceRefresh = false, showLoading = !hasCachedProgress)
-    }
-
-    LaunchedEffect(lockedLevelMessage) {
-        if (lockedLevelMessage != null) {
-            kotlinx.coroutines.delay(2500L)
-            lockedLevelMessage = null
-        }
+    LaunchedEffect(gameId, userId, refreshSignal) {
+        loadLevelProgress(
+            forceRefresh = refreshSignal != 0L,
+            showLoading = !hasCachedProgress && refreshSignal == 0L
+        )
     }
 
     DisposableEffect(lifecycleOwner, gameId, userId) {
@@ -306,27 +328,6 @@ fun LevelSelectPage(
             Spacer(modifier = Modifier.height(20.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                val currentLevel = levelStates.firstOrNull { it.current }
-                    ?: levelStates.lastOrNull { it.completed }
-                    ?: levelStates.firstOrNull()
-                currentLevel?.let { state ->
-                    CurrentLevelSummary(state = state)
-                }
-                lockedLevelMessage?.let { message ->
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = EgDesign.cardSoft,
-                        border = BorderStroke(1.dp, EgDesign.cardBorder)
-                    ) {
-                        Text(
-                            text = message,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                            color = EgDesign.textPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
                 if (isLoading) {
                     Surface(
                         shape = RoundedCornerShape(999.dp),
@@ -357,7 +358,10 @@ fun LevelSelectPage(
                         state = state,
                         onStartGame = onStartGame,
                         onLockedClick = {
-                            lockedLevelMessage = "Hãy hoàn thành cấp độ trước để mở khóa nhé."
+                            InAppNotificationManager.emit(
+                                title = "Cấp độ đang khóa",
+                                message = "Hãy hoàn thành cấp độ trước để mở khóa nhé."
+                            )
                         }
                     )
                 }
@@ -982,60 +986,6 @@ private fun LevelCard(
     }
 }
 
-@Composable
-private fun CurrentLevelSummary(state: LevelProgressUi) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(EgDesign.cardRadius),
-        color = EgDesign.card,
-        border = BorderStroke(1.dp, EgDesign.cardBorder)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(EgDesign.primary.copy(alpha = 0.16f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = state.level.id.toString(),
-                    color = EgDesign.primaryDark,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    text = if (state.completed) "Cấp độ vừa hoàn thành" else "Cấp độ hiện tại",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = EgDesign.textSecondary
-                )
-                Text(
-                    text = state.level.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = EgDesign.textPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = if (state.resumable) {
-                        "Tiếp tục ${state.completedScenes}/${state.totalScenes} tình huống"
-                    } else if (state.completed) {
-                        "Đã hoàn thành ${state.totalScenes}/${state.totalScenes} tình huống"
-                    } else {
-                        "Sắp chơi tình huống ${state.completedScenes + 1}/${state.totalScenes}"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = EgDesign.blue
-                )
-            }
-        }
-    }
-}
-
 private fun cvStoryCheckpointKey(userId: String, gameId: String, level: Int): String {
     return "$userId::$gameId::$level"
 }
@@ -1071,24 +1021,17 @@ private fun loadCvStoryResumePreview(
 }
 
 private fun passThreshold(gameId: String, level: Int): Int {
-    return when (gameId.lowercase()) {
-        GameUiCatalog.GAME_RECOGNIZE_EMOTION.lowercase() -> 70
-        GameUiCatalog.GAME_FACE_ASSEMBLY.lowercase() -> 70
-        GameUiCatalog.GAME_EMOTION_MATCH.lowercase() -> 75
-        GameUiCatalog.GAME_DETECTIVE.lowercase() -> 75
-        else -> {
-            val gameType = GameUiCatalog.gameById(gameId)?.type
-            if (gameType != "camera_game") return 30
-            when (level) {
-                1 -> 40
-                2 -> 50
-                3 -> 60
-                4 -> 70
-                5 -> 80
-                else -> 90
-            }
+    if (gameId.equals(GameUiCatalog.GAME_CV_REQUEST, ignoreCase = true)) {
+        return when (level) {
+            1 -> 40
+            2 -> 50
+            3 -> 60
+            4 -> 70
+            5 -> 80
+            else -> 90
         }
     }
+    return 80
 }
 
 private fun cvEmotionProgress(scores: Map<String, Float>, emotionId: String): Float {

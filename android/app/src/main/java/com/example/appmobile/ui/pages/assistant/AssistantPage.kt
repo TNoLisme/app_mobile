@@ -24,8 +24,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -64,7 +66,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.data.local.AppSession
@@ -355,9 +356,13 @@ fun AssistantPage(
             .fillMaxSize()
             .background(EgDesign.background)
             .statusBarsPadding()
-            .navigationBarsPadding()
-            .imePadding()
-            .padding(horizontal = EgDesign.screenPadding, vertical = 12.dp),
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(
+                start = EgDesign.screenPadding,
+                end = EgDesign.screenPadding,
+                top = 12.dp,
+                bottom = 6.dp
+            ),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         AssistantHeader(onBack = onBack, onClear = { showClearConfirm = true })
@@ -527,8 +532,8 @@ private fun SuggestionRow(
         items(suggestions) { suggestion ->
             Surface(
                 modifier = Modifier
-                    .height(42.dp)
-                    .widthIn(min = 116.dp)
+                    .heightIn(min = 42.dp)
+                    .widthIn(min = 116.dp, max = 220.dp)
                     .egTactileClick(enabled = enabled) { onSuggestionClick(suggestion) },
                 shape = RoundedCornerShape(EgDesign.pillRadius),
                 color = EgDesign.cardSoft,
@@ -540,8 +545,6 @@ private fun SuggestionRow(
                         color = EgDesign.blue,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -594,7 +597,7 @@ private fun AssistantBubble(
                                     Surface(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(34.dp)
+                                            .heightIn(min = 34.dp)
                                             .egTactileClick { onActionClick(action) },
                                         shape = RoundedCornerShape(EgDesign.pillRadius),
                                         color = EgDesign.cardSoft,
@@ -609,8 +612,6 @@ private fun AssistantBubble(
                                                 color = EgDesign.blue,
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.ExtraBold,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
@@ -685,15 +686,10 @@ private fun AssistantInputRow(
         OutlinedTextField(
             value = input,
             onValueChange = onInputChange,
-            modifier = Modifier.weight(1f),
-            placeholder = {
-                Text(
-                    "Hỏi Mầm Mầm về cảm xúc hoặc cách chơi...",
-                    color = EgDesign.textSecondary
-                )
-            },
-            minLines = 1,
-            maxLines = 3,
+            modifier = Modifier
+                .weight(1f)
+                .height(54.dp),
+            singleLine = true,
             shape = RoundedCornerShape(18.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = EgDesign.primary,

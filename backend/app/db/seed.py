@@ -20,7 +20,7 @@ GAMES = [
         "level": 8,
         "difficulty_level": "normal",
         "max_errors": 3,
-        "level_threshold": 70,
+        "level_threshold": 80,
         "time_limit": None,
     },
     {
@@ -30,7 +30,7 @@ GAMES = [
         "level": 8,
         "difficulty_level": "normal",
         "max_errors": 3,
-        "level_threshold": 70,
+        "level_threshold": 80,
         "time_limit": None,
     },
     {
@@ -40,7 +40,7 @@ GAMES = [
         "level": 8,
         "difficulty_level": "normal",
         "max_errors": 3,
-        "level_threshold": 75,
+        "level_threshold": 80,
         "time_limit": None,
     },
     {
@@ -50,7 +50,7 @@ GAMES = [
         "level": 8,
         "difficulty_level": "normal",
         "max_errors": 3,
-        "level_threshold": 75,
+        "level_threshold": 80,
         "time_limit": None,
     },
     {
@@ -60,7 +60,7 @@ GAMES = [
         "level": 5,
         "difficulty_level": "normal",
         "max_errors": 2,
-        "level_threshold": 40,
+        "level_threshold": 80,
         "time_limit": 30,
     },
     {
@@ -536,21 +536,10 @@ GAME_CONTENT = [
         "level": 1,
         "content_type": "text",
         "media_path": None,
-        "question_text": "Bé được tặng món quà yêu thích. Cảm xúc nào phù hợp?",
-        "correct_answer": "happy",
+        "question_text": "An được cô giáo khen vì biết chia sẻ đồ chơi. Bạn nào đang vui?",
+        "correct_answer": "An",
         "emotion": "happy",
-        "explanation": "Được tặng quà thường làm mình vui.",
-    },
-    {
-        "content_id": "match-angry-2",
-        "game_id": GAME_EMOTION_MATCH,
-        "level": 2,
-        "content_type": "text",
-        "media_path": None,
-        "question_text": "Bạn giật đồ chơi khỏi tay bé. Cảm xúc nào có thể xuất hiện?",
-        "correct_answer": "angry",
-        "emotion": "angry",
-        "explanation": "Bị giật đồ bất ngờ có thể làm mình tức giận.",
+        "explanation": "Được khen khi làm điều tốt thường khiến mình vui vẻ.",
     },
     {
         "content_id": "match-sad-1",
@@ -558,10 +547,21 @@ GAME_CONTENT = [
         "level": 1,
         "content_type": "text",
         "media_path": None,
-        "question_text": "Bé làm rơi cây kem yêu thích. Cảm xúc nào phù hợp?",
-        "correct_answer": "sad",
+        "question_text": "Mai làm rơi cây kem yêu thích xuống đất. Bạn nào đang buồn?",
+        "correct_answer": "Mai",
         "emotion": "sad",
-        "explanation": "Mất món đồ yêu thích có thể làm mình buồn.",
+        "explanation": "Mất món đồ mình thích có thể khiến mình buồn.",
+    },
+    {
+        "content_id": "match-angry-1",
+        "game_id": GAME_EMOTION_MATCH,
+        "level": 1,
+        "content_type": "text",
+        "media_path": None,
+        "question_text": "Bình đang xếp tháp thì bạn khác chạy tới làm đổ. Bạn nào đang tức giận?",
+        "correct_answer": "Bình",
+        "emotion": "angry",
+        "explanation": "Khi công sức bị phá hỏng, mình có thể thấy tức giận.",
     },
     {
         "content_id": "match-fear-1",
@@ -569,10 +569,10 @@ GAME_CONTENT = [
         "level": 1,
         "content_type": "text",
         "media_path": None,
-        "question_text": "Bé nghe tiếng sấm rất to ngoài trời. Cảm xúc nào phù hợp?",
-        "correct_answer": "fear",
+        "question_text": "Minh nghe tiếng sấm rất to và ôm chặt mẹ. Bạn nào đang sợ hãi?",
+        "correct_answer": "Minh",
         "emotion": "fear",
-        "explanation": "Âm thanh lớn bất ngờ có thể làm mình sợ hãi.",
+        "explanation": "Tiếng động lớn bất ngờ có thể khiến mình sợ hãi.",
     },
     {
         "content_id": "match-surprise-1",
@@ -580,10 +580,65 @@ GAME_CONTENT = [
         "level": 1,
         "content_type": "text",
         "media_path": None,
-        "question_text": "Bé mở hộp quà và thấy món đồ chơi bất ngờ. Cảm xúc nào phù hợp?",
-        "correct_answer": "surprise",
+        "question_text": "Nam mở hộp quà và thấy món đồ chơi bất ngờ. Bạn nào đang ngạc nhiên?",
+        "correct_answer": "Nam",
         "emotion": "surprise",
-        "explanation": "Điều bất ngờ thường làm mình ngạc nhiên.",
+        "explanation": "Điều xảy ra bất ngờ thường làm mình ngạc nhiên.",
+    },
+    {
+        "content_id": "match-disgust-1",
+        "game_id": GAME_EMOTION_MATCH,
+        "level": 2,
+        "content_type": "text",
+        "media_path": None,
+        "question_text": "Lan ngửi thấy mùi rác trong sân trường và nhăn mũi. Bạn nào đang ghê tởm?",
+        "correct_answer": "Lan",
+        "emotion": "disgust",
+        "explanation": "Mùi khó chịu có thể khiến mình nhăn mặt và muốn tránh xa.",
+    },
+    {
+        "content_id": "match-happy-2",
+        "game_id": GAME_EMOTION_MATCH,
+        "level": 2,
+        "content_type": "text",
+        "media_path": None,
+        "question_text": "Huy hoàn thành bức tranh và được cả lớp vỗ tay. Bạn nào đang vui?",
+        "correct_answer": "Huy",
+        "emotion": "happy",
+        "explanation": "Được ghi nhận thành quả thường khiến mình vui.",
+    },
+    {
+        "content_id": "match-angry-2",
+        "game_id": GAME_EMOTION_MATCH,
+        "level": 2,
+        "content_type": "text",
+        "media_path": None,
+        "question_text": "Khoa đang chơi thì bạn giật mất xe đồ chơi mà không xin phép. Bạn nào đang tức giận?",
+        "correct_answer": "Khoa",
+        "emotion": "angry",
+        "explanation": "Bị lấy đồ mà không xin phép có thể khiến mình tức giận.",
+    },
+    {
+        "content_id": "match-sad-2",
+        "game_id": GAME_EMOTION_MATCH,
+        "level": 2,
+        "content_type": "text",
+        "media_path": None,
+        "question_text": "Vy phải tạm biệt người bạn thân sau buổi chơi. Bạn nào đang buồn?",
+        "correct_answer": "Vy",
+        "emotion": "sad",
+        "explanation": "Phải rời xa người mình quý có thể khiến mình buồn.",
+    },
+    {
+        "content_id": "match-fear-2",
+        "game_id": GAME_EMOTION_MATCH,
+        "level": 2,
+        "content_type": "text",
+        "media_path": None,
+        "question_text": "Phúc thấy một chú chó lớn chạy lại gần nên nép sau bố. Bạn nào đang sợ hãi?",
+        "correct_answer": "Phúc",
+        "emotion": "fear",
+        "explanation": "Gặp điều làm mình lo lắng có thể khiến mình muốn tìm người lớn.",
     },
     {
         "content_id": "detective-fear-3",
@@ -744,6 +799,7 @@ GAME_CONTENT = [
 
 OBSOLETE_GAME_CONTENT_IDS = [
     "cv-request-surprise-3",
+    "detective-fear-3",
 ]
 
 
@@ -779,7 +835,7 @@ def _upsert(db: Session, model: type, key_name: str, rows: list[dict]) -> None:
 
 def seed_static_content(db: Session) -> None:
     if OBSOLETE_GAME_CONTENT_IDS:
-        obs_ids = [_str_to_uuid(i) for i in OBSOLETE_GAME_CONTENT_IDS]
+        obs_ids = list({item for i in OBSOLETE_GAME_CONTENT_IDS for item in (i, _str_to_uuid(i))})
         db.query(GameContent).filter(GameContent.content_id.in_(obs_ids)).delete(synchronize_session=False)
     _upsert(db, Game, "game_id", GAMES)
     _upsert(db, EmotionConcept, "concept_id", EMOTION_CONCEPTS)

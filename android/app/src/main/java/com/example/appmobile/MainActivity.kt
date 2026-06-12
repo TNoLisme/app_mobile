@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -330,8 +331,12 @@ fun AppNavigation(
         }
         composable("level_select/{gameId}") { backStackEntry ->
             val id = backStackEntry.arguments?.getString("gameId") ?: ""
+            val refreshSignal by backStackEntry.savedStateHandle
+                .getStateFlow("level_progress_refresh", 0L)
+                .collectAsState()
             LevelSelectPage(
                 gameId = id,
+                refreshSignal = refreshSignal,
                 onBack = { navController.popBackStack() },
                 onStartGame = { lvl -> navController.navigate("game/$id/$lvl") },
                 onOpenAssistant = { navController.navigate(assistantRoute("level_select")) }
@@ -351,39 +356,61 @@ fun AppNavigation(
             val id = backStackEntry.arguments?.getString("gameId") ?: ""
             val level = backStackEntry.arguments?.getString("level")?.toIntOrNull() ?: 1
             val emotion = backStackEntry.arguments?.getString("emotion")?.takeIf { it.isNotBlank() }
+            val notifyLevelProgressChanged = {
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set("level_progress_refresh", System.currentTimeMillis())
+            }
+            val backToLevelSelect = {
+                notifyLevelProgressChanged()
+                navController.popBackStack()
+                Unit
+            }
             when (id.lowercase()) {
                 // Các game Nhận diện
                 GameUiCatalog.GAME_RECOGNIZE_EMOTION,
                 "3bcb2108-721c-4a15-a585-31f3084ed000",
                 "6695AFE0-6414-40A3-B688-B08A98CD2B61" -> EmotionsBoxPage(
                     level = level,
-                    onBack = { navController.popBackStack() },
+                    onBack = backToLevelSelect,
                     onOpenAssistant = { navController.navigate(assistantRoute("emotions_box", level)) },
-                    onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
+                    onGameCompleted = { score ->
+                        notifyLevelProgressChanged()
+                        recordGardenGameCompleted(id, emotionId = null, score = score)
+                    }
                 )
 
                 GameUiCatalog.GAME_FACE_ASSEMBLY,
                 "EEA09E6C-8C2F-4DF1-A361-F5EDC89D8281" -> FaceAssemblyPage(
                     level = level,
-                    onBack = { navController.popBackStack() },
+                    onBack = backToLevelSelect,
                     onOpenAssistant = { navController.navigate(assistantRoute("face_assembly", level)) },
-                    onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
+                    onGameCompleted = { score ->
+                        notifyLevelProgressChanged()
+                        recordGardenGameCompleted(id, emotionId = null, score = score)
+                    }
                 )
 
                 GameUiCatalog.GAME_EMOTION_MATCH,
                 "AFA91963-F75A-4D92-BCF4-72E4E53C84D2" -> EmotionMatchPage(
                     level = level,
-                    onBack = { navController.popBackStack() },
+                    onBack = backToLevelSelect,
                     onOpenAssistant = { navController.navigate(assistantRoute("emotion_match", level)) },
-                    onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
+                    onGameCompleted = { score ->
+                        notifyLevelProgressChanged()
+                        recordGardenGameCompleted(id, emotionId = null, score = score)
+                    }
                 )
 
                 GameUiCatalog.GAME_DETECTIVE,
                 "17C0CC09-CEC9-48DC-BF06-E574CF8BF303" -> DetectiveGamePage(
                     level = level,
-                    onBack = { navController.popBackStack() },
+                    onBack = backToLevelSelect,
                     onOpenAssistant = { navController.navigate(assistantRoute("detective_game", level)) },
-                    onGameCompleted = { score -> recordGardenGameCompleted(id, emotionId = null, score = score) }
+                    onGameCompleted = { score ->
+                        notifyLevelProgressChanged()
+                        recordGardenGameCompleted(id, emotionId = null, score = score)
+                    }
                 )
 
                 // Các game Biểu cảm

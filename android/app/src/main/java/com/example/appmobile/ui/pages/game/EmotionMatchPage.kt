@@ -1,5 +1,6 @@
 package com.example.appmobile.ui.pages.game
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,9 +25,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,13 +50,11 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import coil.compose.AsyncImage
 import com.example.appmobile.R
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
@@ -65,12 +62,12 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
 import com.example.appmobile.ui.catalog.GameUiCatalog
-import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
-import com.example.appmobile.ui.components.EgVectorEmojiIcon
 import com.example.appmobile.ui.components.GameScreenShell
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 
 private data class MatchQuestionUi(
     val questionId: String,
@@ -122,9 +119,15 @@ fun EmotionMatchPage(
     val emotionErrors = remember(level) { mutableStateMapOf<String, Int>() }
     val learnedEmotions = remember(level) { mutableStateListOf<String>() }
     val learningEmotionId = remember(level) { mutableStateOf<String?>(null) }
+    val showExitConfirm = remember(level) { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: AppSession.currentBackendUserId() ?: "local-player" }
+    val userId = remember(context) {
+        FirebaseAuth.getInstance().currentUser?.uid
+            ?: AppSession.getBackendUserId(context)
+            ?: AppSession.currentBackendUserId()
+            ?: "local-player"
+    }
     val repository = remember {
         GameRepository(AppDatabase.getDatabase(context).gameContentDao(), NetworkClient.apiService)
     }
@@ -165,44 +168,90 @@ fun EmotionMatchPage(
                     repository.endLevel(it, finalResults, learnedEmotions.distinct())
                 }
                 if (response != null) {
-                    val correctRounds = rounds.count { round ->
-                        round.all { q -> finalResults.find { it.questionId == q.questionId }?.isCorrect == true }
-                    }
                     summaryData = LevelSummaryData(
                         passed = response.passed,
-                        score = response.score / 2,
-                        totalScore = 50,
-                        accuracy = if (rounds.isNotEmpty()) (correctRounds.toFloat() / rounds.size * 100) else 0f,
-                        correctCount = correctRounds,
-                        totalQuestions = rounds.size
+                        score = response.score,
+                        totalScore = 100,
+                        accuracy = response.accuracy,
+                        correctCount = finalResults.count { it.isCorrect },
+                        totalQuestions = finalResults.size
                     )
                     repository.invalidateProgressCache(GameUiCatalog.GAME_EMOTION_MATCH, userId)
                     val status = if (response.passed) "Đã qua level" else "Chưa qua level"
-                    summary.value = "$status. Điểm: ${response.score / 2}/50."
+                    summary.value = "$status. Điểm: ${response.score}/100."
                 } else {
-                    summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
+                    val correctCount = finalResults.count { it.isCorrect }
+                    val localScore = scoreFromCorrectAnswers(correctCount, finalResults.size)
+                    summaryData = LevelSummaryData(
+                        passed = localScore >= 80,
+                        score = localScore,
+                        totalScore = 100,
+                        accuracy = localScore.toFloat(),
+                        correctCount = correctCount,
+                        totalQuestions = finalResults.size
+                    )
+                    summary.value = "Hoàn thành. Điểm tạm tính: $localScore/100."
                 }
             } catch (_: Exception) {
-                summary.value = "Hoàn thành. Điểm tạm tính: ${score.intValue}."
+                val correctCount = finalResults.count { it.isCorrect }
+                val localScore = scoreFromCorrectAnswers(correctCount, finalResults.size)
+                summaryData = LevelSummaryData(
+                    passed = localScore >= 80,
+                    score = localScore,
+                    totalScore = 100,
+                    accuracy = localScore.toFloat(),
+                    correctCount = correctCount,
+                    totalQuestions = finalResults.size
+                )
+                summary.value = "Hoàn thành. Điểm tạm tính: $localScore/100."
             } finally {
-                onGameCompleted(summaryData?.score ?: score.intValue)
+                clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_EMOTION_MATCH, level)
+                val completedScore = summaryData?.score ?: score.intValue
+                saveLocalUnlockedLevel(
+                    context = context,
+                    userId = userId,
+                    gameId = GameUiCatalog.GAME_EMOTION_MATCH,
+                    completedLevel = level,
+                    score = completedScore
+                )
+                onGameCompleted(completedScore)
                 isSubmitting.value = false
             }
         }
     }
 
     LaunchedEffect(level, userId, replayCount.intValue) {
+        val checkpoint = loadClickGameCheckpointJson(context, userId, GameUiCatalog.GAME_EMOTION_MATCH, level)
+        if (checkpoint != null) {
+            val restoredQuestions = matchQuestionsFromJson(checkpoint.optJSONArray("questions"))
+            if (restoredQuestions.isNotEmpty()) {
+                questions.value = restoredQuestions
+                sessionId.value = checkpoint.optString("session_id").takeIf { it.isNotBlank() && it != "null" }
+                maxErrors.intValue = checkpoint.optInt("max_errors", 3).coerceAtLeast(1)
+                score.intValue = checkpoint.optInt("score", 0).coerceIn(0, 100)
+                results.value = answerResultsFromCheckpoint(checkpoint)
+                summary.value = null
+                summaryData = null
+                emotionErrors.clear()
+                learnedEmotions.clear()
+                learningEmotionId.value = null
+                val restoredRoundCount = restoredQuestions.chunked(chunkSize).size.coerceAtLeast(1)
+                currentRoundIndex.intValue = checkpoint.optInt("current_index", 0).coerceIn(0, restoredRoundCount - 1)
+                questionStartMs.value = System.currentTimeMillis()
+                return@LaunchedEffect
+            }
+        }
         val started = repository.startGame(GameUiCatalog.GAME_EMOTION_MATCH, userId, level)
         sessionId.value = started?.sessionId
         maxErrors.intValue = started?.maxErrors ?: 3
         val backendQuestions = started?.questions
             ?.mapNotNull { content ->
-                val emotionKey = normalizeEmotionForLearning(content.emotion ?: "vui vẻ")
-                val emotionName = GameUiCatalog.emotionById(emotionKey)?.name ?: content.emotion ?: "vui vẻ"
+                val emotionKey = normalizeEmotionForLearning(content.emotion ?: content.correctAnswer ?: "happy")
+                val emotionName = GameUiCatalog.emotionById(emotionKey)?.name ?: content.emotion ?: "Vui vẻ"
                 MatchQuestionUi(
                     questionId = content.contentId,
                     text = content.questionText ?: "",
-                    correctName = content.correctAnswer ?: "Bé",
+                    correctName = matchTokenLabel(content.correctAnswer, emotionKey),
                     emotionKey = emotionKey,
                     emotionName = emotionName,
                     imagePath = content.mediaPath ?: ""
@@ -222,6 +271,46 @@ fun EmotionMatchPage(
         questionStartMs.value = System.currentTimeMillis()
     }
 
+    fun checkpointIndex(): Int {
+        return if (feedback.value != null) {
+            (currentRoundIndex.intValue + 1).coerceAtMost((rounds.size - 1).coerceAtLeast(0))
+        } else {
+            currentRoundIndex.intValue
+        }
+    }
+
+    fun saveAndExit() {
+        saveClickGameCheckpoint(
+            context = context,
+            userId = userId,
+            gameId = GameUiCatalog.GAME_EMOTION_MATCH,
+            level = level,
+            sessionId = sessionId.value,
+            score = score.intValue,
+            currentIndex = checkpointIndex(),
+            maxErrors = maxErrors.intValue,
+            results = results.value,
+            questions = matchQuestionsToJson(questions.value)
+        )
+        showExitConfirm.value = false
+        onBack()
+    }
+
+    fun exitWithoutSaving() {
+        clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_EMOTION_MATCH, level)
+        showExitConfirm.value = false
+        onBack()
+    }
+
+    fun requestExit() {
+        val hasProgress = summary.value == null && (results.value.isNotEmpty() || currentRoundIndex.intValue > 0)
+        if (hasProgress) showExitConfirm.value = true else onBack()
+    }
+
+    BackHandler(enabled = summary.value == null) {
+        requestExit()
+    }
+
     GameScreenShell(
         contentMaxWidth = 800, onOpenAssistant = onOpenAssistant,
         scrollEnabled = false, bottomSpacerHeight = 0.dp
@@ -233,24 +322,35 @@ fun EmotionMatchPage(
                 currentQuestion = currentRoundIndex.intValue + 1,
                 totalQuestions = rounds.size,
                 score = score.intValue,
-                onBack = onBack
+                onBack = { requestExit() }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             if (summary.value != null) {
-                GameLevelSummaryCard(
-                    summaryData = summaryData,
-                    summary = summary.value.orEmpty(),
-                    onBack = onBack,
-                    onReplay = { replayCount.intValue++ }
-                )
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    GameLevelSummaryCard(
+                        summaryData = summaryData,
+                        summary = summary.value.orEmpty(),
+                        onBack = {
+                            clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_EMOTION_MATCH, level)
+                            onBack()
+                        },
+                        onReplay = {
+                            clearClickGameCheckpoint(context, userId, GameUiCatalog.GAME_EMOTION_MATCH, level)
+                            replayCount.intValue++
+                        }
+                    )
+                }
                 return@GameScreenShell
             }
 
             ClickGameInstructionCard(
-                title = "Kéo tên vào đúng ảnh",
-                description = "Đọc tình huống rồi đặt tên bạn nhỏ vào khung phù hợp.",
+                title = "Kéo thẻ vào đúng ảnh",
+                description = "Đọc tình huống rồi đặt thẻ phù hợp vào khung.",
                 iconKey = "puzzle"
             ) {
                     currentRound.forEachIndexed { index, question ->
@@ -303,15 +403,11 @@ fun EmotionMatchPage(
                                 border = BorderStroke(1.dp, EgDesign.cardBorder),
                                 modifier = Modifier.fillMaxWidth().height(142.dp)
                             ) {
-                                val cleanPath = question.imagePath.replace(Regex("^/fe/"), "/")
-                                val imgUrl = "file:///android_asset/fe$cleanPath"
-                                AsyncImage(
-                                    model = imgUrl,
-                                    contentDescription = null,
+                                GameQuestionMedia(
+                                    mediaPath = question.imagePath,
+                                    fallbackRes = matchSceneResource(question.emotionKey),
                                     modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop,
-                                    error = painterResource(id = R.drawable.game_click_3),
-                                    fallback = painterResource(id = R.drawable.game_click_3)
+                                    contentScale = ContentScale.Crop
                                 )
                             }
                             Spacer(modifier = Modifier.height(12.dp))
@@ -368,7 +464,7 @@ fun EmotionMatchPage(
                                         }
                                     }
                                 } else {
-                                    Text("Thả tên vào đây", color = EgDesign.textSecondary, fontSize = 13.sp)
+                                    Text("Thả thẻ vào đây", color = EgDesign.textSecondary, fontSize = 13.sp)
                                 }
                             }
                         }
@@ -380,7 +476,7 @@ fun EmotionMatchPage(
 
             // CHIPS ROW HOẶC FEEDBACK
             Box(
-                modifier = Modifier.fillMaxWidth().height(80.dp),
+                modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
                 if (feedback.value != null) {
@@ -433,12 +529,10 @@ fun EmotionMatchPage(
                                 responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
                             )
                         }
-                        val earnedScore = if (currentRound.size <= 2) {
-                            if (correctCount == 2) 10 else if (correctCount == 1) 5 else 0
-                        } else {
-                            if (correctCount == 3) 10 else if (correctCount >= 1) 5 else 0
-                        }
-                        score.intValue += earnedScore
+                        score.intValue = scoreFromCorrectAnswers(
+                            results.value.count { it.isCorrect },
+                            questions.value.size
+                        )
                         feedback.value = if (correctCount == currentRound.size) "Chính xác tuyệt đối!" else "Chưa đúng hoàn toàn. Hãy xem lại đáp án."
                         return@Button
                     }
@@ -487,6 +581,48 @@ fun EmotionMatchPage(
                 }
             }
         )
+
+        if (showExitConfirm.value) {
+            ClickGameExitConfirmDialog(
+                onDismiss = { showExitConfirm.value = false },
+                onSaveAndExit = { saveAndExit() },
+                onExitWithoutSaving = { exitWithoutSaving() }
+            )
+        }
+    }
+}
+
+private fun matchQuestionsToJson(questions: List<MatchQuestionUi>): JSONArray {
+    return JSONArray().apply {
+        questions.forEach { question ->
+            put(JSONObject().apply {
+                put("question_id", question.questionId)
+                put("text", question.text)
+                put("correct_name", question.correctName)
+                put("emotion_key", question.emotionKey)
+                put("emotion_name", question.emotionName)
+                put("image_path", question.imagePath)
+            })
+        }
+    }
+}
+
+private fun matchQuestionsFromJson(array: JSONArray?): List<MatchQuestionUi> {
+    if (array == null) return emptyList()
+    return buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            add(
+                MatchQuestionUi(
+                    questionId = item.optString("question_id"),
+                    text = item.optString("text"),
+                    correctName = item.optString("correct_name"),
+                    emotionKey = normalizeEmotionForLearning(item.optString("emotion_key")),
+                    emotionName = item.optString("emotion_name"),
+                    imagePath = item.optString("image_path")
+                )
+            )
+        }
     }
 }
 
@@ -562,11 +698,34 @@ fun DraggableNameChip(
 
 private fun fallbackMatchQuestions(): List<MatchQuestionUi> {
     return listOf(
-        MatchQuestionUi("fallback-match-happy", "", "Bình", "happy", "Vui vẻ", ""),
-        MatchQuestionUi("fallback-match-angry", "", "Lan", "angry", "Tức giận", ""),
-        MatchQuestionUi("fallback-match-sad", "", "Mai", "sad", "Buồn bã", ""),
-        MatchQuestionUi("fallback-match-fear", "", "Minh", "fear", "Sợ hãi", ""),
-        MatchQuestionUi("fallback-match-surprise", "", "Nam", "surprise", "Ngạc nhiên", ""),
-        MatchQuestionUi("fallback-match-disgust", "", "An", "disgust", "Ghê tởm", "")
+        MatchQuestionUi("fallback-match-happy", "An được cô giáo khen vì biết chia sẻ đồ chơi. Bạn nào đang vui?", "An", "happy", "Vui vẻ", ""),
+        MatchQuestionUi("fallback-match-sad", "Mai làm rơi cây kem yêu thích xuống đất. Bạn nào đang buồn?", "Mai", "sad", "Buồn bã", ""),
+        MatchQuestionUi("fallback-match-angry", "Bình đang xếp tháp thì bạn khác chạy tới làm đổ. Bạn nào đang tức giận?", "Bình", "angry", "Tức giận", ""),
+        MatchQuestionUi("fallback-match-fear", "Minh nghe tiếng sấm rất to và ôm chặt mẹ. Bạn nào đang sợ hãi?", "Minh", "fear", "Sợ hãi", ""),
+        MatchQuestionUi("fallback-match-surprise", "Nam mở hộp quà và thấy món đồ chơi bất ngờ. Bạn nào đang ngạc nhiên?", "Nam", "surprise", "Ngạc nhiên", ""),
+        MatchQuestionUi("fallback-match-disgust", "Lan ngửi thấy mùi rác trong sân trường và nhăn mũi. Bạn nào đang ghê tởm?", "Lan", "disgust", "Ghê tởm", "")
     )
+}
+
+private fun matchTokenLabel(rawAnswer: String?, emotionKey: String): String {
+    val raw = rawAnswer?.trim().orEmpty()
+    val lower = raw.lowercase()
+    return when {
+        raw.isBlank() -> GameUiCatalog.emotionById(emotionKey)?.name ?: emotionKey
+        lower in setOf("happy", "sad", "angry", "fear", "surprise", "disgust") ->
+            GameUiCatalog.emotionById(normalizeEmotionForLearning(raw))?.name ?: raw
+        else -> raw
+    }
+}
+
+private fun matchSceneResource(emotionKey: String): Int {
+    return when (normalizeEmotionForLearning(emotionKey)) {
+        "happy" -> R.drawable.learn_scene_happy
+        "sad" -> R.drawable.learn_scene_sad
+        "angry" -> R.drawable.learn_scene_angry
+        "fear" -> R.drawable.learn_scene_fear
+        "surprise" -> R.drawable.learn_scene_surprise
+        "disgust" -> R.drawable.learn_scene_disgust
+        else -> R.drawable.game_click_3
+    }
 }

@@ -44,7 +44,6 @@ import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.catalog.GameUiItem
 import com.example.appmobile.ui.components.EgCollapsibleMainScaffold
 import com.example.appmobile.ui.components.EgDesign
-import com.example.appmobile.ui.components.EgGradientPill
 import com.example.appmobile.ui.components.EgSoftCard
 import com.example.appmobile.ui.components.EgTab
 import com.example.appmobile.ui.components.EgVectorEmojiIcon
@@ -153,8 +152,6 @@ private fun GameCategorySection(category: GameCategoryUi, onOpenLevel: (String) 
                     color = EgDesign.blue,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -188,7 +185,7 @@ private fun GameBlock(
 ) {
     Card(
         modifier = modifier
-            .height(248.dp)
+            .height(190.dp)
             .egTactileClick(onClick = onClick),
         shape = RoundedCornerShape(EgDesign.radiusLarge),
         colors = CardDefaults.cardColors(containerColor = EgDesign.card),
@@ -204,17 +201,16 @@ private fun GameBlock(
                 contentDescription = displayGameTitle(game),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(116.dp)
+                    .height(104.dp)
                     .clip(RoundedCornerShape(topStart = EgDesign.radiusLarge, topEnd = EgDesign.radiusLarge)),
                 contentScale = ContentScale.Crop
             )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .padding(horizontal = 9.dp, vertical = 9.dp),
+                    .padding(horizontal = 10.dp, vertical = 9.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(5.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     displayGameTitle(game),
@@ -222,26 +218,18 @@ private fun GameBlock(
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 13.sp,
                     lineHeight = 17.sp,
+                    textAlign = TextAlign.Center,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     displayGameDescription(game),
                     color = EgDesign.textSecondary,
                     fontSize = 11.sp,
                     lineHeight = 15.sp,
+                    textAlign = TextAlign.Center,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                EgGradientPill(
-                    text = displayGameActionText(game),
-                    onClick = onClick,
-                    modifier = Modifier.fillMaxWidth(),
-                    height = 40.dp,
-                    fontSize = 12
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

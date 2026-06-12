@@ -368,8 +368,6 @@ private fun CaptureSequenceScreen(
                 color = EgDesign.textPrimary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
             Surface(
                 shape = RoundedCornerShape(EgDesign.pillRadius),
@@ -659,9 +657,9 @@ private fun PhotoBoothPlainScreen(content: @Composable () -> Unit) {
 
 @Composable
 private fun EmotionPickerGrid(state: PhotoBoothUiState, onToggle: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         PhotoBoothCatalog.emotions.chunked(2).forEach { rowItems ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 rowItems.forEach { emotion ->
                     val order = state.selectedEmotionIds.indexOf(emotion.id).takeIf { it >= 0 }?.plus(1)
                     EmotionSelectCard(
@@ -687,9 +685,9 @@ private fun EmotionSelectCard(
     val selected = order != null
     Card(
         modifier = modifier
-            .height(140.dp)
+            .height(108.dp)
             .egTactileClick(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(15.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) EgEmotionCardSelectedBackground else EgEmotionCardBackground
         ),
@@ -699,23 +697,27 @@ private fun EmotionSelectCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 1.dp)
     ) {
-        Box(Modifier.fillMaxSize().padding(12.dp)) {
+        Box(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 9.dp)) {
             Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                EgEmotionVectorIcon(emotion.id, size = 54.dp)
+                EgEmotionVectorIcon(emotion.id, size = 40.dp)
                 Text(
                     emotion.name,
                     color = if (selected) EgEmotionCardSelectedText else EgEmotionCardText,
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 16.sp
+                    fontSize = 14.sp,
+                    lineHeight = 17.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             order?.let {
                 Surface(
-                    modifier = Modifier.align(Alignment.TopEnd).size(26.dp),
+                    modifier = Modifier.align(Alignment.TopEnd).size(22.dp),
                     shape = CircleShape,
                     color = Color.White,
                     border = BorderStroke(1.dp, EgEmotionCardSelectedBorder.copy(alpha = 0.24f))
@@ -725,7 +727,7 @@ private fun EmotionSelectCard(
                             "$it",
                             color = EgEmotionCardSelectedBorder,
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 12.sp
+                            fontSize = 11.sp
                         )
                     }
                 }
@@ -1160,8 +1162,6 @@ private fun OutlinePill(
                     color = if (enabled) EgDesign.textPrimary else EgDesign.textSecondary,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

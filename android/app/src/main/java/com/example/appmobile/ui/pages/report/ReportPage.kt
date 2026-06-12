@@ -50,7 +50,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -340,13 +339,13 @@ private fun ChildWeeklySummaryCard(
                     modifier = Modifier.weight(1f)
                 )
                 ChildMetricBox(
-                    icon = "star",
+                    icon = "target",
                     value = averageScoreText(summary?.averageScore),
                     label = "Điểm trung bình",
                     modifier = Modifier.weight(1f)
                 )
                 ChildMetricBox(
-                    icon = "sparkle",
+                    icon = "book",
                     value = "$learnedEmotionCount/$totalEmotionCount",
                     label = "Đã học cảm xúc",
                     modifier = Modifier.weight(1f)
@@ -567,8 +566,6 @@ private fun SentReportHistoryCard(
                                         color = ReportNavy,
                                         fontWeight = FontWeight.ExtraBold,
                                         fontSize = 15.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
                                         text = report.weekRange,
@@ -799,9 +796,9 @@ private fun SendReportResultDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     EgVectorEmojiIcon(
-                        if (result.isSuccess) "sparkle" else "warning",
+                        if (result.isSuccess) "mail" else "warning",
                         size = 30.dp,
-                        tint = if (result.isSuccess) Color(0xFFF4B400) else Color(0xFFFF8D8D)
+                        tint = if (result.isSuccess) EgDesign.success else Color(0xFFFF8D8D)
                     )
                 }
                 Text(

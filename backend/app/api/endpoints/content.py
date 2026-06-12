@@ -66,7 +66,8 @@ CLICK_GAME_IDS = {
 }
 CLICK_MAX_LEVEL = 8
 CLICK_QUESTION_COUNT = 5
-CLICK_PASS_SCORE = 30
+LEVEL_UNLOCK_SCORE = 80
+CLICK_PASS_SCORE = LEVEL_UNLOCK_SCORE
 EMOTION_KEYS = ["happy", "sad", "angry", "fear", "surprise", "disgust"]
 EMOTION_ALIASES = {
     "happy": "happy",
@@ -218,6 +219,33 @@ def _ensure_progress(db: Session, user_id: str, game_id: str) -> ChildProgress:
         else:
             progress.review_emotions = json.dumps(_normalized_review(progress.review_emotions), ensure_ascii=False)
     return progress
+
+
+def _repair_unlocked_level_from_completed_session(
+    db: Session,
+    progress: ChildProgress,
+    game_id: str,
+    max_level: int,
+) -> None:
+    if game_id == CV_REQUEST_GAME_ID:
+        return
+    current_level = max(1, int(progress.level or 1))
+    if current_level >= max_level:
+        return
+    latest_current_level_session = (
+        db.query(PlaySession)
+        .filter(
+            PlaySession.user_id == progress.child_id,
+            PlaySession.game_id == game_id,
+            PlaySession.level == current_level,
+            PlaySession.end_time.isnot(None),
+        )
+        .order_by(PlaySession.end_time.desc())
+        .first()
+    )
+    if latest_current_level_session and int(latest_current_level_session.score or 0) >= LEVEL_UNLOCK_SCORE:
+        progress.level = min(current_level + 1, max_level)
+        progress.score = max(int(progress.score or 0), int(latest_current_level_session.score or 0))
 
 
 def _progress_payload(progress: ChildProgress, review: dict[str, int] | None = None) -> dict:
@@ -407,13 +435,13 @@ def _select_questions_for_run(db: Session, game_id: str, level: int, user_id: st
 
 
 def _threshold_for_level(game: Game, level: int) -> float:
-    if game.game_type != "camera_game":
-        return float(game.level_threshold or 70)
-    return {1: 40, 2: 50, 3: 60, 4: 70, 5: 80}.get(level, 90)
+    if game.game_id == CV_REQUEST_GAME_ID:
+        return {1: 40, 2: 50, 3: 60, 4: 70, 5: 80}.get(level, 90)
+    return float(LEVEL_UNLOCK_SCORE)
 
 
 def _click_pass_threshold(game: Game) -> float:
-    return float(game.level_threshold or CLICK_PASS_SCORE)
+    return float(CLICK_PASS_SCORE)
 
 
 def _question_option(content: GameContent) -> dict:
@@ -534,6 +562,9 @@ def get_game_progress(game_id: str, user_id: str = Query(...), db: Session = Dep
     game_id = game_id.lower()
     _ensure_user(db, user_id)
     progress = _ensure_progress(db, user_id, game_id)
+    game = db.get(Game, game_id)
+    max_level = int(game.level or 1) if game else 1
+    _repair_unlocked_level_from_completed_session(db, progress, game_id, max_level)
     shared_review = _merge_click_review_emotions(db, user_id) if game_id in CLICK_GAME_IDS else None
     db.commit()
     return _progress_payload(progress, shared_review)
@@ -685,6 +716,13 @@ def abandon_session(body: AbandonSessionRequest, db: Session = Depends(get_db)):
 def get_cv_completed_levels(user_id: str, db: Session = Depends(get_db)):
     max_level = CV_STORY_MAX_LEVEL
     progress = _ensure_progress(db, user_id, CV_STORY_GAME_ID)
+    _repair_unlocked_level_from_completed_session(
+        db,
+        progress,
+        CV_STORY_GAME_ID,
+        max_level,
+    )
+    db.commit()
     unlocked_level = max(1, min(int(progress.level or 1), max_level))
     latest_score = int(progress.score or 0)
     levels = []
@@ -730,6 +768,8 @@ def start_game(game_id: str, body: StartGameRequest, db: Session = Depends(get_d
             raise HTTPException(status_code=400, detail=f"Level must be between 1 and {CLICK_MAX_LEVEL}")
 
     progress = _ensure_progress(db, body.user_id, game_id)
+    max_level = int(game.level or 1)
+    _repair_unlocked_level_from_completed_session(db, progress, game_id, max_level)
     if game_id in CLICK_GAME_IDS and body.level > int(progress.level or 1):
         raise HTTPException(
             status_code=403,
@@ -812,7 +852,7 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
     elif session.game_id == CV_STORY_GAME_ID:
         score = int(round(accuracy))
     else:
-        score = correct * 10
+        score = int(round(accuracy))
     emotion_errors: dict[str, int] = {}
 
     for result in filtered_results:
@@ -860,12 +900,10 @@ def end_level(body: EndLevelRequest, db: Session = Depends(get_db)):
         if emotion in EMOTION_KEYS and count >= max_errors
     ]
 
-    if session.game_id in CLICK_GAME_IDS:
-        passed = score >= float(session.level_threshold or CLICK_PASS_SCORE)
-    elif session.game_id == CV_REQUEST_GAME_ID:
+    if session.game_id == CV_REQUEST_GAME_ID:
         passed = score >= float(session.level_threshold or 40)
     else:
-        passed = accuracy >= float(session.level_threshold or 70)
+        passed = score >= float(LEVEL_UNLOCK_SCORE)
     unlocked_level = int(progress.level or 1)
     if session.game_id in CLICK_GAME_IDS and passed and int(session.level or 1) >= unlocked_level:
         unlocked_level = min(int(session.level or 1) + 1, CLICK_MAX_LEVEL)

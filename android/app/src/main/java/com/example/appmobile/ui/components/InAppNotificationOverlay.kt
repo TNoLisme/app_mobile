@@ -10,13 +10,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,97 +31,116 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.notifications.InAppNotification
 import com.example.appmobile.notifications.InAppNotificationManager
 import kotlinx.coroutines.delay
 
-/**
- * Overlay toàn màn hình để hiển thị popup thông báo in-app.
- * Đặt composable này ở mức cao nhất trong UI hierarchy (trong AppRoot).
- * Popup xuất hiện từ trên xuống, tự biến mất sau 3 giây.
- */
 @Composable
 fun InAppNotificationOverlay() {
     var current by remember { mutableStateOf<InAppNotification?>(null) }
     var visible by remember { mutableStateOf(false) }
 
-    // Lắng nghe flow thông báo
     LaunchedEffect(Unit) {
-        InAppNotificationManager.flow.collect { notif ->
-            // Nếu đang hiển thị một cái khác thì ẩn trước
+        InAppNotificationManager.flow.collect { notification ->
             if (visible) {
                 visible = false
-                delay(300) // chờ animation ẩn
+                delay(180)
             }
-            current = notif
+            current = notification
             visible = true
-            delay(3000) // hiển thị 3 giây
+            delay(2600)
             visible = false
         }
     }
 
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        contentAlignment = Alignment.TopCenter
+            .fillMaxSize()
+            .navigationBarsPadding()
+            .padding(start = 22.dp, end = 22.dp, bottom = 86.dp),
+        contentAlignment = Alignment.BottomCenter
     ) {
         AnimatedVisibility(
             visible = visible,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { -it })
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 })
         ) {
-            current?.let { notif ->
-                InAppNotificationBanner(title = notif.title, message = notif.message)
+            current?.let { notification ->
+                InAppNotificationToast(
+                    title = notification.title,
+                    message = notification.message
+                )
             }
         }
     }
 }
 
 @Composable
-private fun InAppNotificationBanner(title: String, message: String) {
+private fun InAppNotificationToast(title: String, message: String) {
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .shadow(elevation = 8.dp, shape = RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF1E293B)) // Dark navy
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .widthIn(max = 326.dp)
+            .heightIn(min = 54.dp)
+            .shadow(
+                elevation = 10.dp,
+                shape = RoundedCornerShape(18.dp),
+                ambientColor = Color(0x551E293B),
+                spotColor = Color(0x661E293B)
+            )
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xEE1B2A3F))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon app nhỏ
         Box(
             modifier = Modifier
-                .size(38.dp)
+                .size(32.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF3B82F6)),
+                .background(Color(0xFF2F80ED)),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "🌱",
-                fontSize = 20.sp
+            EgVectorEmojiIcon(
+                value = iconForNotification(title),
+                size = 20.dp,
+                tint = Color.White
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(10.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                lineHeight = 16.sp
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold,
+                lineHeight = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = message,
-                color = Color(0xFFCBD5E1),
-                fontSize = 13.sp,
-                lineHeight = 18.sp
+                color = Color(0xFFD7E2F0),
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+private fun iconForNotification(title: String): String {
+    val lower = title.lowercase()
+    return when {
+        "khóa" in lower || "khoa" in lower || "locked" in lower || "lock" in lower -> "lock"
+        "nhắc" in lower || "reminder" in lower -> "bell"
+        "hồ sơ" in lower || "profile" in lower -> "user"
+        "báo cáo" in lower || "report" in lower -> "report"
+        "đăng nhập" in lower || "login" in lower -> "check"
+        else -> "check"
     }
 }

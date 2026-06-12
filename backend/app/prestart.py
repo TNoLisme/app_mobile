@@ -138,36 +138,17 @@ def apply_additive_migrations() -> None:
         _alter_column_if_exists(connection, "users", "password", "NVARCHAR(255) NULL")
         _alter_column_if_exists(connection, "users", "role", "NVARCHAR(20) NULL")
         _alter_column_if_exists(connection, "users", "name", "NVARCHAR(100) NULL")
+        _add_column_if_missing(
+            connection,
+            "children",
+            "created_at",
+            "DATETIME2 DEFAULT (GETUTCDATE()) NULL",
+        )
+        _add_column_if_missing(connection, "children", "last_login", "DATETIME2 NULL")
+        _add_column_if_missing(connection, "children", "last_played", "DATETIME2 NULL")
         _add_column_if_missing(connection, "session_questions", "question_id", "NVARCHAR(64) NULL")
         _add_column_if_missing(connection, "session_questions", "used_hint", "INT NULL")
         _add_column_if_missing(connection, "game_data", "created_at", "DATETIME2 DEFAULT (GETUTCDATE()) NULL")
-        # Drop FK from session_questions to sessions if exists
-        connection.execute(text("""
-            IF OBJECT_ID('FK__session_q__sessi__7E37BEF6') IS NOT NULL
-                ALTER TABLE session_questions DROP CONSTRAINT FK__session_q__sessi__7E37BEF6;
-        """))
-        # Recreate sessions table to match ORM model ordering
-        connection.execute(text("""
-            IF OBJECT_ID('sessions', 'U') IS NOT NULL DROP TABLE sessions;
-            CREATE TABLE sessions (
-                session_id UNIQUEIDENTIFIER PRIMARY KEY,
-                user_id VARCHAR(128) NOT NULL,
-                game_id UNIQUEIDENTIFIER NOT NULL,
-                start_time DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-                end_time DATETIME2 NULL,
-                state VARCHAR(30) NOT NULL DEFAULT ('playing'),
-                score INT NOT NULL DEFAULT (0),
-                level INT NOT NULL DEFAULT (1),
-                emotion_errors NVARCHAR(MAX) NULL,
-                max_errors INT NOT NULL DEFAULT (3),
-                level_threshold FLOAT NOT NULL DEFAULT (70.0),
-                ratio NVARCHAR(MAX) NULL,
-                time_limit INT NULL,
-                question_ids NVARCHAR(MAX) NULL,
-                CONSTRAINT FK_sessions_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-                CONSTRAINT FK_sessions_game FOREIGN KEY (game_id) REFERENCES games(game_id) ON DELETE CASCADE
-            );
-        """))
         _alter_column_if_exists(connection, "games", "difficulty_level", "NVARCHAR(50) NULL")
         _alter_column_if_exists(connection, "game_content", "content_type", "NVARCHAR(50) NOT NULL")
         _alter_column_if_exists(connection, "game_content", "media_path", "NVARCHAR(500) NULL")
@@ -181,6 +162,49 @@ def apply_additive_migrations() -> None:
         _alter_column_if_exists(connection, "emotion_concepts", "video_path", "NVARCHAR(500) NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "image_path", "NVARCHAR(500) NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "audio_path", "NVARCHAR(500) NULL")
+        # Older databases linked question_id directly to game_content. The
+        # current domain model creates Question rows first, so keep the join
+        # table aligned with questions.question_id.
+        connection.execute(text("""
+            DECLARE @legacy_fk_name NVARCHAR(128);
+
+            SELECT TOP 1 @legacy_fk_name = fk.name
+            FROM sys.foreign_keys fk
+            JOIN sys.foreign_key_columns fkc
+              ON fkc.constraint_object_id = fk.object_id
+            WHERE fk.parent_object_id = OBJECT_ID('game_data_question')
+              AND COL_NAME(fkc.parent_object_id, fkc.parent_column_id) = 'question_id'
+              AND fk.referenced_object_id <> OBJECT_ID('questions');
+
+            IF @legacy_fk_name IS NOT NULL
+            BEGIN
+                DECLARE @drop_fk_sql NVARCHAR(MAX);
+                SET @drop_fk_sql = N'ALTER TABLE game_data_question DROP CONSTRAINT '
+                    + QUOTENAME(@legacy_fk_name) + N';';
+                EXEC sp_executesql @drop_fk_sql;
+            END;
+
+            DELETE link
+            FROM game_data_question AS link
+            LEFT JOIN questions AS question
+              ON question.question_id = link.question_id
+            WHERE question.question_id IS NULL;
+
+            IF NOT EXISTS (
+                SELECT 1
+                FROM sys.foreign_keys fk
+                JOIN sys.foreign_key_columns fkc
+                  ON fkc.constraint_object_id = fk.object_id
+                WHERE fk.parent_object_id = OBJECT_ID('game_data_question')
+                  AND COL_NAME(fkc.parent_object_id, fkc.parent_column_id) = 'question_id'
+                  AND fk.referenced_object_id = OBJECT_ID('questions')
+            )
+            BEGIN
+                ALTER TABLE game_data_question
+                ADD CONSTRAINT FK_game_data_question_question
+                FOREIGN KEY (question_id) REFERENCES questions(question_id);
+            END;
+        """))
         # Backfill legacy rows so progress payload is always JSON-shaped for FE.
         connection.execute(
             text(
@@ -202,6 +226,76 @@ def apply_additive_migrations() -> None:
                 """
             ),
             {"review_emotions": json.dumps({"happy": 0, "sad": 0, "angry": 0, "fear": 0, "surprise": 0, "disgust": 0})},
+        )
+        # Normalize legacy click-game scores from the old 10-points-per-answer
+        # scale to the shared 0-100 scale. Recompute from answers so this stays
+        # safe to run on every startup.
+        connection.execute(
+            text(
+                """
+                IF OBJECT_ID('sessions') IS NOT NULL
+                   AND OBJECT_ID('session_questions') IS NOT NULL
+                   AND OBJECT_ID('games') IS NOT NULL
+                BEGIN
+                    ;WITH click_scores AS (
+                        SELECT
+                            s.session_id,
+                            CAST(ROUND(
+                                SUM(CASE WHEN sq.is_correct = 1 THEN 1 ELSE 0 END) * 100.0
+                                / NULLIF(COUNT(sq.id), 0),
+                                0
+                            ) AS INT) AS normalized_score
+                        FROM sessions AS s
+                        JOIN games AS g
+                          ON g.game_id = s.game_id
+                        JOIN session_questions AS sq
+                          ON sq.session_id = s.session_id
+                        WHERE g.game_type = 'click_game'
+                          AND s.end_time IS NOT NULL
+                        GROUP BY s.session_id
+                    )
+                    UPDATE s
+                    SET s.score = cs.normalized_score
+                    FROM sessions AS s
+                    JOIN click_scores AS cs
+                      ON cs.session_id = s.session_id;
+                END
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                IF OBJECT_ID('child_progress') IS NOT NULL
+                   AND OBJECT_ID('sessions') IS NOT NULL
+                   AND OBJECT_ID('games') IS NOT NULL
+                BEGIN
+                    ;WITH latest_click_session AS (
+                        SELECT
+                            s.user_id,
+                            s.game_id,
+                            s.score,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY s.user_id, s.game_id
+                                ORDER BY s.end_time DESC, s.start_time DESC
+                            ) AS rn
+                        FROM sessions AS s
+                        JOIN games AS g
+                          ON g.game_id = s.game_id
+                        WHERE g.game_type = 'click_game'
+                          AND s.end_time IS NOT NULL
+                          AND s.score IS NOT NULL
+                    )
+                    UPDATE cp
+                    SET cp.score = latest.score
+                    FROM child_progress AS cp
+                    JOIN latest_click_session AS latest
+                      ON latest.user_id = cp.child_id
+                     AND latest.game_id = cp.game_id
+                     AND latest.rn = 1;
+                END
+                """
+            )
         )
 
 

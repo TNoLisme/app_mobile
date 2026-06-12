@@ -340,8 +340,6 @@ private fun ErrorAlert(message: String, onRetry: () -> Unit) {
                 color = ProfileTextPrimary,
                 fontSize = 12.sp,
                 lineHeight = 15.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "Thử lại",
@@ -403,17 +401,16 @@ private fun ProfileCard(
                         color = ProfileTextPrimary,
                         fontSize = 19.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ProfileMetaChip("${unlocked.size}/${badges.size} huy hiệu")
-                    }
                 }
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     EgVectorEmojiIcon("trophy", size = 24.dp)
                     Text(
                         text = "Huy hiệu",
@@ -421,6 +418,7 @@ private fun ProfileCard(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
+                    ProfileMetaChip("${unlocked.size}/${badges.size}")
                 }
                 BadgeGrid(badges = badges, unlocked = unlocked, onBadgeClick = onBadgeClick)
             }
@@ -778,8 +776,6 @@ private fun InfoTile(icon: String, label: String, value: String, modifier: Modif
                     color = ProfileBlue,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
             Text(
@@ -787,8 +783,6 @@ private fun InfoTile(icon: String, label: String, value: String, modifier: Modif
                 color = ProfileTextPrimary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -1221,8 +1215,6 @@ private fun GenderDropdown(value: String, onValueChange: (String) -> Unit) {
                         color = if (value.isBlank()) ProfileTextSecondary else ProfileTextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 EgVectorEmojiIcon("expand", size = 20.dp, tint = ProfileTextPrimary)
@@ -1310,15 +1302,17 @@ private fun hasCompletedAllGameLevels(gameId: String, sessions: List<SessionHist
 }
 
 private fun badgePassThreshold(gameId: String, level: Int): Int {
-    if (GameUiCatalog.isClickGame(gameId)) return 30
-    return when (level) {
-        1 -> 40
-        2 -> 50
-        3 -> 60
-        4 -> 70
-        5 -> 80
-        else -> 90
+    if (gameId.equals(GameUiCatalog.GAME_CV_REQUEST, ignoreCase = true)) {
+        return when (level) {
+            1 -> 40
+            2 -> 50
+            3 -> 60
+            4 -> 70
+            5 -> 80
+            else -> 90
+        }
     }
+    return 80
 }
 
 private fun cvEmotionScore(scores: Map<String, Float>, emotionId: String): Float {

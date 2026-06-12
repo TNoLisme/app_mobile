@@ -60,7 +60,10 @@ class Question(Base):
 
     question_id = Column(String(64), primary_key=True)
     game_id = Column(String(64), ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
-    content_id = Column(String(64), ForeignKey("game_content.content_id", ondelete="CASCADE"), nullable=False)
+    # SQL Server rejects two cascading paths from games -> questions.
+    # Deleting a game already cascades through game_id, so this relation
+    # deliberately keeps the default NO ACTION behavior.
+    content_id = Column(String(64), ForeignKey("game_content.content_id"), nullable=False)
     level = Column(Integer, default=1)
     correct_answer = Column(Unicode(50))
 
