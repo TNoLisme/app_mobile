@@ -43,6 +43,7 @@ import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.width
 import androidx.core.content.ContextCompat
 import com.example.appmobile.notifications.ReminderScheduler
 import androidx.compose.runtime.getValue
@@ -53,6 +54,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -67,6 +69,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.NotificationManagerCompat.from
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.garden.GardenRepository
@@ -162,29 +166,42 @@ fun SettingsPage(
     val acceptedTermsVersion by AppSettingsState.acceptedTermsVersion
     val legalAcceptedAt by AppSettingsState.legalAcceptedAt
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
+    val notificationSettingsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val notificationsEnabled = from(context).areNotificationsEnabled()
+        if (notificationsEnabled) {
+            AppSettingsState.setLearningReminderEnabled(context, true)
             ReminderScheduler.scheduleDailyReminder(context, learningReminderHour, learningReminderMinute)
             Toast.makeText(context, "Đã bật nhắc nhở học tập.", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(context, "Cần quyền thông báo để bật nhắc nhở.", Toast.LENGTH_LONG).show()
+            AppSettingsState.setLearningReminderEnabled(context, false)
+            Toast.makeText(context, "Chưa cấp quyền thông báo.", Toast.LENGTH_SHORT).show()
         }
     }
 
     val onLearningReminderChanged: (Boolean) -> Unit = { enabled ->
-        AppSettingsState.setLearningReminderEnabled(context, enabled)
         if (enabled) {
-            val hasPermission = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-            if (hasPermission) {
+            val notificationsEnabled = from(context).areNotificationsEnabled()
+            if (notificationsEnabled) {
+                AppSettingsState.setLearningReminderEnabled(context, true)
                 ReminderScheduler.scheduleDailyReminder(context, learningReminderHour, learningReminderMinute)
                 Toast.makeText(context, "Đã bật nhắc nhở học tập.", Toast.LENGTH_SHORT).show()
             } else {
-                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                }
+                runCatching {
+                    notificationSettingsLauncher.launch(intent)
+                }.onFailure {
+                    val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
+                    }
+                    runCatching { notificationSettingsLauncher.launch(fallbackIntent) }.onFailure {
+                        Toast.makeText(context, "Không thể mở cài đặt. Hãy tự bật trong Cài đặt máy.", Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         } else {
+            AppSettingsState.setLearningReminderEnabled(context, false)
             ReminderScheduler.cancelDailyReminder(context)
             Toast.makeText(context, "Đã tắt nhắc nhở học tập.", Toast.LENGTH_SHORT).show()
         }
@@ -642,7 +659,8 @@ private fun LearningExperienceSection(
             title = "Giờ nhắc học",
             description = "Đang nhắc lúc $reminderTimeText mỗi ngày.",
             actionText = "Đổi giờ",
-            onClick = onOpenReminderTimePicker
+            onClick = onOpenReminderTimePicker,
+            enabled = learningReminderEnabled
         )
     }
 }
@@ -1040,12 +1058,13 @@ private fun ActionSettingsRow(
     actionText: String,
     onClick: () -> Unit,
     danger: Boolean = false,
-    fullWidthAction: Boolean = false
+    fullWidthAction: Boolean = false,
+    enabled: Boolean = true
 ) {
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val narrow = screenWidth < 360.dp || fullWidthAction
     if (narrow) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).alpha(if (enabled) 1f else 0.4f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CompactTextBlock(icon = icon, title = title, description = description)
             SettingsButton(
                 text = actionText,
@@ -1053,20 +1072,31 @@ private fun ActionSettingsRow(
                 modifier = if (fullWidthAction) Modifier.fillMaxWidth() else Modifier.align(Alignment.End),
                 danger = danger,
                 tonal = danger,
-                minWidth = 120.dp
+                minWidth = 120.dp,
+                enabled = enabled
             )
         }
     } else {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).alpha(if (enabled) 1f else 0.4f),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            CompactTextBlock(icon = icon, title = title, description = description, modifier = Modifier.weight(1f))
-            SettingsButton(text = actionText, onClick = onClick, danger = danger, tonal = danger, minWidth = 112.dp)
+            Box(modifier = Modifier.weight(1f)) {
+                CompactTextBlock(icon = icon, title = title, description = description)
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            SettingsButton(
+                text = actionText,
+                onClick = onClick,
+                danger = danger,
+                tonal = danger,
+                minWidth = 120.dp,
+                enabled = enabled
+            )
         }
     }
 }
+
 
 @Composable
 private fun CompactValueRow(icon: String, label: String, value: String) {

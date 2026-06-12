@@ -23,8 +23,8 @@ object NotificationUtils {
         createChannel(context)
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Nhắc học")
-            .setContentText("Nhắc bé luyện tập hôm nay — cùng học nào!")
+            .setContentTitle("🌱 Mầm Mầm đang đợi bé nè!")
+            .setContentText("Vào chơi game và luyện biểu cảm cùng Mầm Mầm thôi nào! 🚀")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
 

@@ -23,7 +23,12 @@ object ReminderScheduler {
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val pending = PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags)
         val triggerAt = nextTriggerMillis(hour, minute)
-        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        try {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        } catch (e: SecurityException) {
+            // Fallback for Android 14+ if permission is denied
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        }
     }
 
     fun cancelDailyReminder(context: Context) {

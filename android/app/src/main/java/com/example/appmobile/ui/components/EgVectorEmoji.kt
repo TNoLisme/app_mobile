@@ -106,11 +106,12 @@ fun EgVectorEmojiIcon(
             drawCustomBulb()
         }
     } else {
+        val finalTint = if (key == "sparkle" || key == "star") Color(0xFFF4B400) else tint ?: egFunctionalIconColor(key)
         Icon(
             imageVector = egMaterialIcon(key),
             contentDescription = null,
             modifier = modifier.size(size),
-            tint = tint ?: egFunctionalIconColor(key)
+            tint = finalTint
         )
     }
 }
