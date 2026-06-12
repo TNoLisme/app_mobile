@@ -240,7 +240,14 @@ fun AppNavigation(
     fun handleAssistantAction(action: ChatAction) {
         when (action.type) {
             ChatActionType.OPEN_LEARNING -> goLearn()
-            ChatActionType.OPEN_GAME -> goGames()
+            ChatActionType.OPEN_GAME -> {
+                val gameId = action.target?.takeIf { it.isNotBlank() }
+                if (gameId == null) {
+                    goGames()
+                } else {
+                    navController.navigate("level_select/$gameId") { launchSingleTop = true }
+                }
+            }
             ChatActionType.OPEN_REPORT,
             ChatActionType.ASK_CONFIRM_SEND_REPORT -> navController.navigate("report") { launchSingleTop = true }
             ChatActionType.OPEN_GARDEN -> navController.navigate("garden") { launchSingleTop = true }

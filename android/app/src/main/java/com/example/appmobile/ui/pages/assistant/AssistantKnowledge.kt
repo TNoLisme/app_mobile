@@ -1,6 +1,7 @@
 package com.example.appmobile.ui.pages.assistant
 
 import com.example.appmobile.data.garden.GardenHomeSummary
+import com.example.appmobile.ui.catalog.GameUiCatalog
 import java.text.Normalizer
 import java.util.Locale
 
@@ -308,7 +309,7 @@ object AssistantKnowledge {
 
     fun quickSuggestions(context: AppChatContext): List<String> {
         return when (context.currentRoute) {
-            "home" -> listOf("Hôm nay con nên học gì?", "Vườn cảm xúc là gì?", "Báo cáo của bé ở đâu?", "Photobooth dùng thế nào?")
+            "home" -> listOf("Con nên chơi game gì?", "Hôm nay con nên học gì?", "Báo cáo của bé ở đâu?", "Vườn cảm xúc là gì?")
             "learn", "learn_detail" -> listOf("Cảm xúc này là gì?", "Khi nào con cảm thấy như vậy?", "Con nên làm gì?", "Cho con ví dụ nhé")
             "game", "select_game", "level_select" -> listOf("Cách chơi game này thế nào?", "Con cần làm gì để đúng?", "Nếu con sai thì sao?", "Mở thử thách cảm xúc")
             "camera_story_game", "camera_challenge_game" -> listOf("Camera không thấy mặt con", "Làm sao để biểu hiện đúng?", "Vì sao con chưa đúng?", "Thử lại thế nào?")
@@ -321,10 +322,21 @@ object AssistantKnowledge {
     }
 
     fun reply(message: String, context: AppChatContext): AssistantReply {
+        return replyForKnownIntent(message, context) ?: AssistantReply(
+            text = "Mình chưa hiểu rõ lắm. Con có thể hỏi về học cảm xúc, chơi game, camera, báo cáo, Photobooth hoặc Vườn cảm xúc nhé.",
+            actions = listOf(
+                ChatAction(ChatActionType.OPEN_LEARNING, "Học cảm xúc"),
+                ChatAction(ChatActionType.OPEN_GARDEN, "Vườn cảm xúc")
+            )
+        )
+    }
+
+    fun replyForKnownIntent(message: String, context: AppChatContext): AssistantReply? {
         val normalized = normalize(message)
         val emotion = detectEmotion(normalized) ?: context.currentEmotionId
 
         return when {
+            isGameRecommendationRequest(normalized) -> gameRecommendationReply(normalized)
             hasAny(normalized, "photobooth", "photo booth", "chup", "anh ghep", "khung anh", "luu anh") -> photoboothReply(normalized)
             hasAny(normalized, "vuon", "cay", "hoa", "nuoc", "anh nang", "nhiem vu", "tuoi", "tam nang") -> gardenReply(context)
             hasAny(normalized, "bao cao", "email", "gmail", "bo me", "phu huynh", "pdf", "diem trung binh", "gui") -> reportReply(context)
@@ -337,13 +349,7 @@ object AssistantKnowledge {
             isOutsideAppQuestion(normalized) -> AssistantReply(
                 text = "Câu này hơi ngoài EmoGarden rồi. Mình có thể giúp con học cảm xúc, chơi game, báo cáo, Photobooth hoặc Vườn cảm xúc nhé."
             )
-            else -> AssistantReply(
-                text = "Mình chưa hiểu rõ lắm. Con có thể hỏi về học cảm xúc, chơi game, camera, báo cáo, Photobooth hoặc Vườn cảm xúc nhé.",
-                actions = listOf(
-                    ChatAction(ChatActionType.OPEN_LEARNING, "Học cảm xúc"),
-                    ChatAction(ChatActionType.OPEN_GARDEN, "Vườn cảm xúc")
-                )
-            )
+            else -> null
         }
     }
 
@@ -447,11 +453,79 @@ object AssistantKnowledge {
                     listOf(ChatAction(ChatActionType.START_EMOTION_CHALLENGE, "Thử ${emotionDisplayName(it)}", it))
                 } ?: emptyList()
             )
+            "game" -> when (context.currentGameId) {
+                "emotions_box" -> AssistantReply(
+                    text = "Ở Chiếc hộp cảm xúc, con nhìn nét mặt hoặc đọc tình huống rồi chọn một trong 6 cảm xúc. Hãy chú ý mắt, lông mày và miệng trước khi trả lời nhé."
+                )
+                "face_assembly" -> AssistantReply(
+                    text = "Ở Xưởng lắp ghép cảm xúc, con chọn mắt, lông mày và miệng để ghép thành khuôn mặt đúng. Hãy đổi từng bộ phận rồi so sánh biểu cảm nhé."
+                )
+                "emotion_match" -> AssistantReply(
+                    text = "Ở Cảm xúc đúng chỗ, con đọc từng tình huống rồi ghép tên cảm xúc vào hình phù hợp. Hãy nghĩ xem nhân vật vừa gặp chuyện gì nhé."
+                )
+                "detective_game" -> AssistantReply(
+                    text = "Ở Thám tử cảm xúc, con tìm manh mối trong câu chuyện và hình ảnh để đoán cảm xúc đang ẩn giấu. Đọc kỹ tình huống trước khi chọn nhé."
+                )
+                else -> AssistantReply(
+                    text = "Con chọn một game theo điều muốn luyện: nhận biết hình ảnh, đọc tình huống, ghép khuôn mặt hoặc biểu cảm trước camera.",
+                    actions = listOf(ChatAction(ChatActionType.OPEN_GAME, "Xem các game"))
+                )
+            }
             else -> AssistantReply(
                 text = "Khi chơi game, con quan sát tình huống hoặc hình ảnh thật kỹ rồi làm theo hướng dẫn trên màn hình. Sai cũng không sao, mình thử lại từng bước nhé.",
                 actions = listOf(ChatAction(ChatActionType.OPEN_GAME, "Mở Chơi game"))
             )
         }
+    }
+
+    private fun isGameRecommendationRequest(normalized: String): Boolean {
+        return hasAny(
+            normalized,
+            "nen choi",
+            "choi gi",
+            "game nao",
+            "tro nao",
+            "goi y game",
+            "goi y tro choi"
+        )
+    }
+
+    private fun gameRecommendationReply(normalized: String): AssistantReply {
+        val recommendation = when {
+            hasAny(normalized, "camera", "bieu cam", "lam mat", "thu thach") -> Triple(
+                GameUiCatalog.GAME_CV_REQUEST,
+                "Thử thách cảm xúc",
+                "Con sẽ làm biểu cảm trước camera và giữ đúng cảm xúc trong vài giây."
+            )
+            hasAny(normalized, "ghep", "lap ghep", "bo phan khuon mat") -> Triple(
+                GameUiCatalog.GAME_FACE_ASSEMBLY,
+                "Xưởng lắp ghép cảm xúc",
+                "Con sẽ ghép mắt, lông mày và miệng để hiểu nét mặt rõ hơn."
+            )
+            hasAny(normalized, "ngu canh", "dung cho", "keo tha") -> Triple(
+                GameUiCatalog.GAME_EMOTION_MATCH,
+                "Cảm xúc đúng chỗ",
+                "Con sẽ đọc tình huống rồi đặt cảm xúc vào đúng hình."
+            )
+            hasAny(normalized, "tinh huong", "suy luan", "doan", "tham tu", "kho") -> Triple(
+                GameUiCatalog.GAME_DETECTIVE,
+                "Thám tử cảm xúc",
+                "Con sẽ tìm manh mối trong câu chuyện để đoán cảm xúc đang ẩn giấu."
+            )
+            else -> Triple(
+                GameUiCatalog.GAME_RECOGNIZE_EMOTION,
+                "Chiếc hộp cảm xúc",
+                "Game này dễ bắt đầu: con nhìn hình rồi chọn cảm xúc đúng, mỗi màn cũng khá ngắn."
+            )
+        }
+        val (gameId, gameName, reason) = recommendation
+        return AssistantReply(
+            text = "Con thử $gameName trước nhé. $reason",
+            actions = listOf(
+                ChatAction(ChatActionType.OPEN_GAME, "Chơi $gameName", gameId),
+                ChatAction(ChatActionType.OPEN_GAME, "Xem tất cả game")
+            )
+        )
     }
 
     private fun cameraReply(): AssistantReply {

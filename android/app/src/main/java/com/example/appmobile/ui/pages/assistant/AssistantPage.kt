@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
+import com.example.appmobile.data.remote.dto.AssistantChatHistoryDto
 import com.example.appmobile.data.garden.GardenRepository
 import com.example.appmobile.data.repository.AssistantRepository
 import com.example.appmobile.ui.components.AppBackButton
@@ -167,6 +168,12 @@ fun AssistantPage(
         val text = rawText.trim()
         if (text.isEmpty() || sending) return
 
+        val conversationHistory = messages.takeLast(10).map {
+            AssistantChatHistoryDto(
+                role = if (it.role == MessageRole.User) "user" else "assistant",
+                text = it.text
+            )
+        }
         input = ""
         messages.add(AssistantMessage(MessageRole.User, text))
         persistMessages()
@@ -176,7 +183,17 @@ fun AssistantPage(
                 repository.uploadLog(childId = childId, sender = "child", content = text)
             }
             runCatching {
-                val reply = AssistantKnowledge.reply(text, chatContext)
+                val reply = AssistantKnowledge.replyForKnownIntent(text, chatContext)
+                    ?: AssistantReply(
+                        text = repository.chat(
+                            gameId = gameId,
+                            level = level,
+                            screenContext = screenContext ?: contextId,
+                            message = text,
+                            childId = childId,
+                            history = conversationHistory
+                        )
+                    )
                 messages.add(
                     AssistantMessage(
                         role = MessageRole.Assistant,
