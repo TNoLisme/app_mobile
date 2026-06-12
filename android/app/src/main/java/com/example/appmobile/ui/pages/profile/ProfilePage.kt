@@ -18,12 +18,14 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -89,6 +91,7 @@ import com.google.firebase.auth.FirebaseAuth
 import coil.compose.AsyncImage
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
@@ -217,6 +220,13 @@ fun ProfilePage(
         loadProfileData()
     }
 
+    LaunchedEffect(message) {
+        if (message != null && profile != null) {
+            delay(3000)
+            message = null
+        }
+    }
+
     EgCollapsibleMainScaffold(
         activeTab = EgTab.Profile,
         onHome = onGoHome,
@@ -224,7 +234,8 @@ fun ProfilePage(
         onGames = onOpenGames,
         onProfile = null,
         onSettings = onOpenSettings,
-        onBack = onGoHome
+        onBack = onGoHome,
+        topBar = { ProfilePageIntro() }
     ) {
         Column(
             modifier = Modifier
@@ -259,7 +270,6 @@ fun ProfilePage(
                 }
             }
 
-            ProfilePageIntro()
             ProfileCard(
                 profile = profile,
                 badges = profileBadges(),
@@ -394,7 +404,6 @@ private fun ProfileCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ProfileMetaChip("Cấp độ 1")
                         ProfileMetaChip("${unlocked.size}/${badges.size} huy hiệu")
                     }
                 }
@@ -736,21 +745,12 @@ private fun ProfilePersonalInfoGrid(profile: UserProfileDto?) {
                     )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoTile("user", "Tên đăng nhập", fallback(profile?.username), Modifier.weight(1f))
-                InfoTile("mail", "Email", fallback(profile?.email), Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoTile("child", "Tên hiển thị", personalFallback(profile?.name), Modifier.weight(1f))
-                InfoTile("cake", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoTile("calendar", "Ngày sinh", formatPersonalDate(profile?.child?.dob), Modifier.weight(1f))
-                InfoTile("user", "Giới tính", formatGender(profile?.child?.gender), Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoTile("phone", "Số điện thoại", fallback(profile?.child?.phone), Modifier.weight(1f))
-                InfoTile("calendar", "Ngày tham gia", formatPersonalDate(profile?.createdAt), Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                InfoTile("child", "Tên hiển thị", personalFallback(profile?.name), Modifier.fillMaxWidth())
+                InfoTile("cake", "Tuổi", profile?.child?.age?.let { "$it tuổi" } ?: "Chưa có", Modifier.fillMaxWidth())
+                InfoTile("calendar", "Ngày sinh", formatPersonalDate(profile?.child?.dob), Modifier.fillMaxWidth())
+                InfoTile("user", "Giới tính", formatGender(profile?.child?.gender), Modifier.fillMaxWidth())
+                InfoTile("calendar", "Ngày tham gia", formatPersonalDate(profile?.createdAt), Modifier.fillMaxWidth())
             }
         }
     }
@@ -759,21 +759,21 @@ private fun ProfilePersonalInfoGrid(profile: UserProfileDto?) {
 @Composable
 private fun InfoTile(icon: String, label: String, value: String, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier.height(62.dp),
-        shape = RoundedCornerShape(11.dp),
+        modifier = modifier.wrapContentHeight(),
+        shape = RoundedCornerShape(12.dp),
         color = ProfileSoftSection,
         border = BorderStroke(1.dp, ProfileCardBorder.copy(alpha = 0.72f))
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                EgVectorEmojiIcon(icon, size = 17.dp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                EgVectorEmojiIcon(icon, size = 20.dp)
                 Text(
                     text = label,
                     color = ProfileBlue,
-                    fontSize = 11.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -782,7 +782,7 @@ private fun InfoTile(icon: String, label: String, value: String, modifier: Modif
             Text(
                 text = value,
                 color = ProfileTextPrimary,
-                fontSize = 13.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -878,25 +878,50 @@ private fun EditProfileDialogV2(
     onSave: (UserProfileUpdateDto) -> Unit
 ) {
     var name by rememberSaveable(profile?.userId) { mutableStateOf(profile?.name.orEmpty()) }
-    var username by rememberSaveable(profile?.userId) { mutableStateOf(profile?.username.orEmpty()) }
-    var email by rememberSaveable(profile?.userId) { mutableStateOf(profile?.email.orEmpty()) }
     var age by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.age?.toString().orEmpty()) }
     var gender by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.gender.orEmpty()) }
     var dateOfBirth by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.dob.orEmpty()) }
-    var phone by rememberSaveable(profile?.userId) { mutableStateOf(profile?.child?.phone.orEmpty()) }
     var formError by rememberSaveable(profile?.userId) { mutableStateOf<String?>(null) }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val calendar = remember {
+        java.util.Calendar.getInstance().apply {
+            if (dateOfBirth.isNotEmpty()) {
+                val parts = dateOfBirth.split("-")
+                if (parts.size == 3) {
+                    parts[0].toIntOrNull()?.let { set(java.util.Calendar.YEAR, it) }
+                    parts[1].toIntOrNull()?.let { set(java.util.Calendar.MONTH, it - 1) }
+                    parts[2].toIntOrNull()?.let { set(java.util.Calendar.DAY_OF_MONTH, it) }
+                }
+            }
+        }
+    }
+    val datePickerDialog = android.app.DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            dateOfBirth = String.format("%04d-%02d-%02d", year, month + 1, dayOfMonth)
+            calendar.set(year, month, dayOfMonth)
+            
+            val current = java.util.Calendar.getInstance()
+            var calculatedAge = current.get(java.util.Calendar.YEAR) - year
+            if (current.get(java.util.Calendar.MONTH) < month ||
+                (current.get(java.util.Calendar.MONTH) == month && current.get(java.util.Calendar.DAY_OF_MONTH) < dayOfMonth)) {
+                calculatedAge--
+            }
+            if (calculatedAge >= 0) {
+                age = calculatedAge.toString()
+            }
+        },
+        calendar.get(java.util.Calendar.YEAR),
+        calendar.get(java.util.Calendar.MONTH),
+        calendar.get(java.util.Calendar.DAY_OF_MONTH)
+    )
+
     fun validate(): Boolean {
-        val trimmedEmail = email.trim()
         val trimmedAge = age.trim()
-        val trimmedPhone = phone.trim()
         formError = when {
-            trimmedEmail.isNotEmpty() && !trimmedEmail.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) ->
-                "Email không đúng định dạng."
             trimmedAge.isNotEmpty() && (trimmedAge.toIntOrNull() == null || trimmedAge.toInt() !in 1..120) ->
                 "Tuổi phải là số hợp lệ từ 1 đến 120."
-            trimmedPhone.isNotEmpty() && !trimmedPhone.matches(Regex("^\\d{8,15}$")) ->
-                "Số điện thoại chỉ gồm số và dài 8-15 ký tự."
             dateOfBirth.trim().isNotEmpty() && !isValidBackendDate(dateOfBirth.trim()) ->
                 "Ngày sinh phải đúng định dạng yyyy-MM-dd và là ngày hợp lệ."
             else -> null
@@ -915,14 +940,15 @@ private fun EditProfileDialogV2(
                 .padding(horizontal = 14.dp, vertical = 18.dp)
                 .imePadding()
                 .navigationBarsPadding(),
-            contentAlignment = Alignment.TopCenter
+            contentAlignment = Alignment.Center
         ) {
             val twoColumns = maxWidth >= 620.dp
 
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.88f)
+                    .wrapContentHeight()
+                    .heightIn(max = maxHeight * 0.9f)
                     .widthIn(max = 720.dp),
                 shape = RoundedCornerShape(EgDesign.radiusXLarge),
                 color = EgDesign.card,
@@ -931,25 +957,13 @@ private fun EditProfileDialogV2(
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     EditProfileHeader(saving = saving, onDismiss = onDismiss)
                     formError?.let { FormErrorBanner(it) }
-
-                    ProfileSectionCard(title = "Thông tin tài khoản") {
-                        if (twoColumns) {
-                            TwoColumnFields(
-                                first = { ProfileTextField(username, { username = it }, "Tên đăng nhập", "Nhập tên đăng nhập") },
-                                second = { ProfileTextField(email, { email = it }, "Email", "email@example.com", keyboardType = KeyboardType.Email) }
-                            )
-                        } else {
-                            ProfileTextField(username, { username = it }, "Tên đăng nhập", "Nhập tên đăng nhập")
-                            ProfileTextField(email, { email = it }, "Email", "email@example.com", keyboardType = KeyboardType.Email)
-                        }
-                    }
 
                     ProfileSectionCard(title = "Thông tin cá nhân") {
                         if (twoColumns) {
@@ -959,15 +973,13 @@ private fun EditProfileDialogV2(
                             )
                             TwoColumnFields(
                                 first = { GenderDropdown(gender, onValueChange = { gender = it }) },
-                                second = { ProfileTextField(dateOfBirth, { dateOfBirth = it.take(10) }, "Ngày sinh", "YYYY-MM-DD", trailing = "calendar") }
+                                second = { ProfileTextField(dateOfBirth, { }, "Ngày sinh", "YYYY-MM-DD", trailing = "calendar", readOnly = true, onClick = { datePickerDialog.show() }) }
                             )
-                            ProfileTextField(phone, { input -> if (input.all(Char::isDigit) && input.length <= 15) phone = input }, "Số điện thoại", "Nhập số điện thoại", keyboardType = KeyboardType.Phone)
                         } else {
                             ProfileTextField(name, { name = it }, "Tên hiển thị", "Tên của bé")
                             ProfileTextField(age, { input -> if (input.all(Char::isDigit) && input.length <= 3) age = input }, "Tuổi", "Ví dụ: 6", keyboardType = KeyboardType.Number)
                             GenderDropdown(gender, onValueChange = { gender = it })
-                            ProfileTextField(dateOfBirth, { dateOfBirth = it.take(10) }, "Ngày sinh", "YYYY-MM-DD", trailing = "calendar")
-                            ProfileTextField(phone, { input -> if (input.all(Char::isDigit) && input.length <= 15) phone = input }, "Số điện thoại", "Nhập số điện thoại", keyboardType = KeyboardType.Phone)
+                            ProfileTextField(dateOfBirth, { }, "Ngày sinh", "YYYY-MM-DD", trailing = "calendar", readOnly = true, onClick = { datePickerDialog.show() })
                         }
                     }
 
@@ -980,12 +992,12 @@ private fun EditProfileDialogV2(
                                     onSave(
                                         UserProfileUpdateDto(
                                             name = name.trim().ifBlank { null },
-                                            username = username.trim().ifBlank { null },
-                                            email = email.trim().ifBlank { null },
+                                            username = profile?.username,
+                                            email = profile?.email,
                                             age = age.trim().toIntOrNull(),
                                             gender = gender.trim().ifBlank { null },
                                             dateOfBirth = dateOfBirth.trim().ifBlank { null },
-                                            phoneNumber = phone.trim().ifBlank { null }
+                                            phoneNumber = null
                                         )
                                     )
                                 }
@@ -1101,30 +1113,38 @@ private fun ProfileTextField(
     placeholder: String,
     modifier: Modifier = Modifier,
     keyboardType: KeyboardType = KeyboardType.Text,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
-    trailing: String? = null
+    visualTransformation: androidx.compose.ui.text.input.VisualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
+    trailing: String? = null,
+    readOnly: Boolean = false,
+    onClick: (() -> Unit)? = null
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier.fillMaxWidth(),
-        label = { Text(label, color = ProfileBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
-        placeholder = { Text(placeholder, color = ProfileTextSecondary, fontSize = 13.sp) },
-        singleLine = true,
-        shape = RoundedCornerShape(14.dp),
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        visualTransformation = visualTransformation,
-        trailingIcon = trailing?.let { icon -> { EgVectorEmojiIcon(icon, size = 17.dp, tint = ProfileBlue) } },
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = ProfileBlue,
-            unfocusedBorderColor = ProfileCardBorder,
-            focusedContainerColor = EgDesign.card,
-            unfocusedContainerColor = EgDesign.card,
-            focusedTextColor = ProfileTextPrimary,
-            unfocusedTextColor = ProfileTextPrimary,
-            cursorColor = ProfileBlue
+    Box(modifier = modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(label, color = ProfileBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+            placeholder = { Text(placeholder, color = ProfileTextSecondary, fontSize = 13.sp) },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            visualTransformation = visualTransformation,
+            readOnly = readOnly,
+            trailingIcon = trailing?.let { icon -> { EgVectorEmojiIcon(icon, size = 17.dp, tint = ProfileBlue) } },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ProfileBlue,
+                unfocusedBorderColor = ProfileCardBorder,
+                focusedContainerColor = EgDesign.card,
+                unfocusedContainerColor = EgDesign.card,
+                focusedTextColor = ProfileTextPrimary,
+                unfocusedTextColor = ProfileTextPrimary,
+                cursorColor = ProfileBlue
+            )
         )
-    )
+        if (onClick != null) {
+            Box(modifier = Modifier.matchParentSize().clickable { onClick() }.background(androidx.compose.ui.graphics.Color.Transparent))
+        }
+    }
 }
 
 @Composable
