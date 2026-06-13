@@ -1,7 +1,15 @@
 import uuid
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.game import EmotionConcept, Game, GameContent
+from app.models.game import (
+    EmotionConcept,
+    Game,
+    GameContent,
+    GameDataQuestion,
+    Question,
+    SessionQuestion,
+)
 
 
 GAME_RECOGNIZE_EMOTION = "3bcb2108-721c-4a15-a585-31f084ed0000"
@@ -645,7 +653,7 @@ GAME_CONTENT = [
         "game_id": GAME_DETECTIVE,
         "level": 3,
         "content_type": "story",
-        "media_path": None,
+        "media_path": "/fe/assets/images/fear/situ_fear_3.jpg",
         "question_text": "Minh bám chặt tay mẹ khi thấy chó lớn. Cảm xúc nào đang ẩn giấu?",
         "correct_answer": "fear",
         "emotion": "fear",
@@ -656,7 +664,7 @@ GAME_CONTENT = [
         "game_id": GAME_DETECTIVE,
         "level": 1,
         "content_type": "story",
-        "media_path": None,
+        "media_path": "/fe/assets/images/happy/situ_happy_1.jpg",
         "question_text": "Lan được cô giáo khen vì biết chia sẻ đồ chơi. Cảm xúc nào đang ẩn giấu?",
         "correct_answer": "happy",
         "emotion": "happy",
@@ -667,7 +675,7 @@ GAME_CONTENT = [
         "game_id": GAME_DETECTIVE,
         "level": 1,
         "content_type": "story",
-        "media_path": None,
+        "media_path": "/fe/assets/images/angry/situ_angry_1.jpg",
         "question_text": "Bình đang xếp tháp thì bạn khác chạy tới làm đổ. Cảm xúc nào đang ẩn giấu?",
         "correct_answer": "angry",
         "emotion": "angry",
@@ -678,7 +686,7 @@ GAME_CONTENT = [
         "game_id": GAME_DETECTIVE,
         "level": 1,
         "content_type": "story",
-        "media_path": None,
+        "media_path": "/fe/assets/images/sad/situ_sad_1.jpg",
         "question_text": "Mai làm rơi cây kem yêu thích xuống đất và cúi mặt im lặng. Cảm xúc nào đang ẩn giấu?",
         "correct_answer": "sad",
         "emotion": "sad",
@@ -689,7 +697,7 @@ GAME_CONTENT = [
         "game_id": GAME_DETECTIVE,
         "level": 1,
         "content_type": "story",
-        "media_path": None,
+        "media_path": "/fe/assets/images/surprise/situ_surprise_1.jpg",
         "question_text": "Nam mở hộp quà và thấy món đồ chơi mình mong muốn từ lâu. Cảm xúc nào đang ẩn giấu?",
         "correct_answer": "surprise",
         "emotion": "surprise",
@@ -836,7 +844,33 @@ def _upsert(db: Session, model: type, key_name: str, rows: list[dict]) -> None:
 def seed_static_content(db: Session) -> None:
     if OBSOLETE_GAME_CONTENT_IDS:
         obs_ids = list({item for i in OBSOLETE_GAME_CONTENT_IDS for item in (i, _str_to_uuid(i))})
-        db.query(GameContent).filter(GameContent.content_id.in_(obs_ids)).delete(synchronize_session=False)
+        unused_question_ids = [
+            question_id
+            for (question_id,) in (
+                db.query(Question.question_id)
+                .outerjoin(
+                    SessionQuestion,
+                    SessionQuestion.question_id == Question.question_id,
+                )
+                .filter(Question.content_id.in_(obs_ids))
+                .group_by(Question.question_id)
+                .having(func.count(SessionQuestion.id) == 0)
+                .all()
+            )
+        ]
+        if unused_question_ids:
+            db.query(GameDataQuestion).filter(
+                GameDataQuestion.question_id.in_(unused_question_ids)
+            ).delete(synchronize_session=False)
+            db.query(Question).filter(
+                Question.question_id.in_(unused_question_ids)
+            ).delete(synchronize_session=False)
+        db.query(GameContent).filter(
+            GameContent.content_id.in_(obs_ids),
+            ~GameContent.content_id.in_(
+                db.query(Question.content_id).filter(Question.content_id.isnot(None))
+            ),
+        ).delete(synchronize_session=False)
     _upsert(db, Game, "game_id", GAMES)
     _upsert(db, EmotionConcept, "concept_id", EMOTION_CONCEPTS)
     _upsert(db, GameContent, "content_id", GAME_CONTENT + CV_STORY_CONTENT)

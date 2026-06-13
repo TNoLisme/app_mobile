@@ -30,6 +30,9 @@ services:
       SMTP_FROM_EMAIL: "${SMTP_FROM_EMAIL:-}"
       SMTP_FROM_NAME: "${SMTP_FROM_NAME:-EmoGarden}"
       SMTP_USE_TLS: "${SMTP_USE_TLS:-true}"
+      BEEKNOEE_API_KEY: "${BEEKNOEE_API_KEY:-}"
+      BEEKNOEE_BASE_URL: "${BEEKNOEE_BASE_URL:-https://platform.beeknoee.com/api/v1}"
+      MODEL: "${MODEL:-gemini-2.5-flash}"
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     restart: unless-stopped

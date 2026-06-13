@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "EmoGarden"
     EMAIL_USER: str | None = None
     EMAIL_PASS: str | None = None
+    BEEKNOEE_API_KEY: str | None = None
+    BEEKNOEE_BASE_URL: str = "https://platform.beeknoee.com/api/v1"
+    MODEL: str = "gemini-2.5-flash"
 
     model_config = SettingsConfigDict(
         env_file=(BACKEND_DIR / ".env",),

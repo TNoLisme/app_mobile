@@ -147,6 +147,15 @@ def apply_additive_migrations() -> None:
         _add_column_if_missing(connection, "children", "last_login", "DATETIME2 NULL")
         _add_column_if_missing(connection, "children", "last_played", "DATETIME2 NULL")
         _add_column_if_missing(connection, "session_questions", "question_id", "NVARCHAR(64) NULL")
+        _add_column_if_missing(connection, "session_questions", "user_answer", "NVARCHAR(255) NULL")
+        _add_column_if_missing(connection, "session_questions", "correct_answer", "NVARCHAR(255) NULL")
+        _add_column_if_missing(connection, "session_questions", "check_hint", "INT NULL")
+        _add_column_if_missing(
+            connection,
+            "session_questions",
+            "timestamp",
+            "DATETIME2 DEFAULT (GETUTCDATE()) NULL",
+        )
         _add_column_if_missing(connection, "session_questions", "used_hint", "INT NULL")
         _add_column_if_missing(connection, "game_data", "created_at", "DATETIME2 DEFAULT (GETUTCDATE()) NULL")
         _alter_column_if_exists(connection, "games", "difficulty_level", "NVARCHAR(50) NULL")
@@ -162,6 +171,36 @@ def apply_additive_migrations() -> None:
         _alter_column_if_exists(connection, "emotion_concepts", "video_path", "NVARCHAR(500) NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "image_path", "NVARCHAR(500) NULL")
         _alter_column_if_exists(connection, "emotion_concepts", "audio_path", "NVARCHAR(500) NULL")
+        connection.execute(
+            text(
+                """
+                UPDATE game_content
+                SET media_path = CASE
+                    WHEN LOWER(COALESCE(emotion, correct_answer, '')) LIKE '%happy%'
+                      OR LOWER(COALESCE(emotion, correct_answer, '')) LIKE N'%vui%'
+                        THEN '/fe/assets/images/happy/situ_happy_1.jpg'
+                    WHEN LOWER(COALESCE(emotion, correct_answer, '')) LIKE '%sad%'
+                      OR LOWER(COALESCE(emotion, correct_answer, '')) LIKE N'%buồn%'
+                        THEN '/fe/assets/images/sad/situ_sad_1.jpg'
+                    WHEN LOWER(COALESCE(emotion, correct_answer, '')) LIKE '%angry%'
+                      OR LOWER(COALESCE(emotion, correct_answer, '')) LIKE N'%tức%'
+                        THEN '/fe/assets/images/angry/situ_angry_1.jpg'
+                    WHEN LOWER(COALESCE(emotion, correct_answer, '')) LIKE '%fear%'
+                      OR LOWER(COALESCE(emotion, correct_answer, '')) LIKE N'%sợ%'
+                        THEN '/fe/assets/images/fear/situ_fear_1.jpg'
+                    WHEN LOWER(COALESCE(emotion, correct_answer, '')) LIKE '%surprise%'
+                      OR LOWER(COALESCE(emotion, correct_answer, '')) LIKE N'%ngạc%'
+                        THEN '/fe/assets/images/surprise/situ_surprise_1.jpg'
+                    WHEN LOWER(COALESCE(emotion, correct_answer, '')) LIKE '%disgust%'
+                      OR LOWER(COALESCE(emotion, correct_answer, '')) LIKE N'%ghê%'
+                        THEN '/fe/assets/images/disgust/situ_disgust_1.jpg'
+                    ELSE media_path
+                END
+                WHERE game_id = '08bbffbf-d147-4556-bccb-b7621cafbf15'
+                  AND (media_path IS NULL OR LTRIM(RTRIM(media_path)) = '')
+                """
+            )
+        )
         # Older databases linked question_id directly to game_content. The
         # current domain model creates Question rows first, so keep the join
         # table aligned with questions.question_id.

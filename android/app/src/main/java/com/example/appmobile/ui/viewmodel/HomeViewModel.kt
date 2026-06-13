@@ -76,9 +76,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 GoogleSignIn.getLastSignedInAccount(context)?.displayName
             }.getOrNull()
             val firebaseDisplayName = FirebaseAuth.getInstance().currentUser?.displayName
-            val userId = FirebaseAuth.getInstance().currentUser?.uid
-                ?: AppSession.currentBackendUserId()
+            val userId = AppSession.currentBackendUserId()
                 ?: AppSession.getBackendUserId(context)
+                ?: FirebaseAuth.getInstance().currentUser?.uid
                 ?: "local-player"
 
             var connected = false
@@ -101,12 +101,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }.onSuccess { response ->
                 connected = true
                 if (response.isSuccessful) {
-                    childName = bestHomeDisplayName(
-                        googleDisplayName,
-                        firebaseDisplayName,
-                        response.body()?.name,
-                        childName
-                    )
+                    childName = cleanHomeDisplayName(response.body()?.name)
+                        ?: bestHomeDisplayName(
+                            childName,
+                            firebaseDisplayName,
+                            googleDisplayName
+                        )
                 }
             }.onFailure {
                 failedRequests += 1

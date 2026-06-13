@@ -1,6 +1,7 @@
 package com.example.appmobile.data.repository
 
 import com.example.appmobile.data.remote.api.ApiService
+import com.example.appmobile.data.remote.dto.AssistantChatActionDto
 import com.example.appmobile.data.remote.dto.AssistantChatHistoryDto
 import com.example.appmobile.data.remote.dto.AssistantChatRequestDto
 import com.example.appmobile.data.remote.dto.ChatbotLogDto
@@ -8,6 +9,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+
+data class AssistantChatResult(
+    val reply: String,
+    val source: String,
+    val suggestions: List<String> = emptyList(),
+    val actions: List<AssistantChatActionDto> = emptyList()
+)
 
 class AssistantRepository(private val apiService: ApiService) {
     suspend fun chat(
@@ -17,7 +25,7 @@ class AssistantRepository(private val apiService: ApiService) {
         message: String,
         childId: String?,
         history: List<AssistantChatHistoryDto>
-    ): String {
+    ): AssistantChatResult {
         return try {
             val response = apiService.chatAssistant(
                 AssistantChatRequestDto(
@@ -30,15 +38,26 @@ class AssistantRepository(private val apiService: ApiService) {
                 )
             )
             if (response.isSuccessful) {
-                response.body()?.reply?.takeIf { it.isNotBlank() }
-                    ?: "Mình chưa có câu trả lời phù hợp. Con thử hỏi ngắn hơn nhé."
+                val body = response.body()
+                AssistantChatResult(
+                    reply = body?.reply?.takeIf { it.isNotBlank() }
+                        ?: "Mình chưa có câu trả lời phù hợp. Con thử hỏi rõ hơn nhé.",
+                    source = body?.source.orEmpty(),
+                    suggestions = body?.suggestions.orEmpty(),
+                    actions = body?.actions.orEmpty()
+                )
             } else {
-                localFallbackReply(gameId, level, message)
+                fallbackResult(gameId, level, message)
             }
         } catch (e: Exception) {
-            localFallbackReply(gameId, level, message)
+            fallbackResult(gameId, level, message)
         }
     }
+
+    private fun fallbackResult(gameId: String, level: Int?, message: String) = AssistantChatResult(
+        reply = localFallbackReply(gameId, level, message),
+        source = "local_fallback"
+    )
 
     suspend fun uploadLog(childId: String?, sender: String, content: String) {
         val safeChildId = childId?.takeIf { it.isNotBlank() } ?: return

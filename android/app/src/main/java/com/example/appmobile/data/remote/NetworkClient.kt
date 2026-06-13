@@ -1,50 +1,47 @@
 package com.example.appmobile.data.remote
 
+import com.example.appmobile.BuildConfig
 import com.example.appmobile.data.remote.api.ApiService
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.HttpUrl
 import okhttp3.logging.HttpLoggingInterceptor
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 object NetworkClient {
-    // 10.0.2.2: Android Emulator. 127.0.0.1: real devices:
-    // adb reverse tcp:8000 tcp:8000
-    private const val BASE_URL = "http://10.0.2.2:8000/"
-    @Volatile private var preferredHost: String? = null
+    private val configuredBaseUrl = BuildConfig.BACKEND_URL.toHttpUrl()
+    @Volatile private var preferredBaseUrl: HttpUrl? = null
 
-    private val fallbackHosts = listOf(
-        "10.0.2.2",
-        "127.0.0.1",
-        "192.168.1.43",
-        "192.168.1.51",
-        "192.168.1.37",
-        "localhost",
-        "192.168.1.27",
-        "192.168.1.9",
-        "10.213.106.216",
-        "10.203.104.216"
-    )
+    // 10.0.2.2 is the emulator host. 127.0.0.1 works after:
+    // adb reverse tcp:8000 tcp:8000
+    private val fallbackBaseUrls = listOf(
+        configuredBaseUrl,
+        "http://10.0.2.2:${configuredBaseUrl.port}/".toHttpUrl(),
+        "http://127.0.0.1:${configuredBaseUrl.port}/".toHttpUrl()
+    ).distinctBy { "${it.scheme}://${it.host}:${it.port}" }
 
     private val hostFallbackInterceptor = Interceptor { chain ->
         val originalRequest = chain.request()
         val originalUrl = originalRequest.url
         var lastError: IOException? = null
 
-        val hosts = (listOfNotNull(preferredHost) + fallbackHosts).distinct()
-        hosts.forEach { host ->
+        val baseUrls = (listOfNotNull(preferredBaseUrl) + fallbackBaseUrls)
+            .distinctBy { "${it.scheme}://${it.host}:${it.port}" }
+        baseUrls.forEach { baseUrl ->
             val retryUrl = originalUrl.newBuilder()
-                .scheme("http")
-                .host(host)
-                .port(8000)
+                .scheme(baseUrl.scheme)
+                .host(baseUrl.host)
+                .port(baseUrl.port)
                 .build()
             val retryRequest = originalRequest.newBuilder().url(retryUrl).build()
 
             try {
                 val response = chain.proceed(retryRequest)
-                preferredHost = host
+                preferredBaseUrl = baseUrl
                 return@Interceptor response
             } catch (error: IOException) {
                 lastError = error
@@ -55,7 +52,11 @@ object NetworkClient {
     }
 
     private val logging = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = if (BuildConfig.DEBUG) {
+            HttpLoggingInterceptor.Level.BASIC
+        } else {
+            HttpLoggingInterceptor.Level.NONE
+        }
     }
 
     private val okHttpClient = OkHttpClient.Builder()
@@ -68,7 +69,7 @@ object NetworkClient {
 
     val apiService: ApiService by lazy {
         Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(configuredBaseUrl)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -77,7 +78,9 @@ object NetworkClient {
 
     fun backendUrl(path: String): String {
         val cleanPath = path.trimStart('/')
-        val host = preferredHost ?: "10.0.2.2"
-        return "http://$host:8000/$cleanPath"
+        return (preferredBaseUrl ?: configuredBaseUrl)
+            .resolve(cleanPath)
+            ?.toString()
+            ?: BuildConfig.BACKEND_URL + cleanPath
     }
 }

@@ -285,28 +285,6 @@ def _level_content(db: Session, game_id: str, level: int) -> list[GameContent]:
     )
 
 
-def _cached_click_questions(db: Session, game_id: str, user_id: str, level: int) -> list[Question]:
-    game_data = (
-        db.query(GameData)
-        .filter(GameData.game_id == game_id, GameData.user_id == user_id, GameData.level == level)
-        .order_by(GameData.created_at.desc())
-        .first()
-    )
-    if game_data is None:
-        return []
-    ids = [
-        row.question_id
-        for row in db.query(GameDataQuestion)
-        .filter(GameDataQuestion.data_id == game_data.data_id)
-        .all()
-    ]
-    if not ids:
-        return []
-    rows = db.query(Question).filter(Question.question_id.in_(ids)).all()
-    by_id = {row.question_id: row for row in rows}
-    return [by_id[question_id] for question_id in ids if question_id in by_id]
-
-
 def _counts_from_ratio(ratio: list[float], count: int) -> dict[str, int]:
     counts = {emotion: round(ratio[index] * count) for index, emotion in enumerate(EMOTION_KEYS)}
     while sum(counts.values()) > count:
@@ -345,6 +323,15 @@ def _generate_click_questions(db: Session, game_id: str, user_id: str, level: in
         if len(fallback_candidates) >= count:
             candidates = fallback_candidates
 
+    if game_id in {GAME_RECOGNIZE_EMOTION, GAME_DETECTIVE}:
+        media_candidates = [item for item in candidates if (item.media_path or "").strip()]
+        unique_by_media: dict[str, GameContent] = {}
+        for item in media_candidates:
+            media_key = item.media_path.strip().replace("\\", "/").lower()
+            unique_by_media.setdefault(media_key, item)
+        if len(unique_by_media) >= count:
+            candidates = list(unique_by_media.values())
+
     if len(candidates) < count:
         raise HTTPException(
             status_code=409,
@@ -376,6 +363,22 @@ def _generate_click_questions(db: Session, game_id: str, user_id: str, level: in
         remaining = [item for item in candidates if item.content_id not in used_ids]
         selected.extend(random.sample(remaining, count - len(selected)))
 
+    previous_data_ids = [
+        data_id
+        for (data_id,) in db.query(GameData.data_id).filter(
+            GameData.game_id == game_id,
+            GameData.user_id == user_id,
+            GameData.level == level,
+        ).all()
+    ]
+    if previous_data_ids:
+        db.query(GameDataQuestion).filter(
+            GameDataQuestion.data_id.in_(previous_data_ids)
+        ).delete(synchronize_session=False)
+        db.query(GameData).filter(
+            GameData.data_id.in_(previous_data_ids)
+        ).delete(synchronize_session=False)
+
     data_id = str(uuid.uuid4())
     db.add(GameData(data_id=data_id, game_id=game_id, user_id=user_id, level=level))
     
@@ -390,9 +393,6 @@ def _generate_click_questions(db: Session, game_id: str, user_id: str, level: in
 
 
 def _select_click_questions(db: Session, game_id: str, user_id: str, level: int, ratio: list[float], target_count: int) -> list[Question]:
-    cached = _cached_click_questions(db, game_id, user_id, level)
-    if len(cached) >= target_count:
-        return cached[:target_count]
     return _generate_click_questions(db, game_id, user_id, level, ratio, target_count)
 
 

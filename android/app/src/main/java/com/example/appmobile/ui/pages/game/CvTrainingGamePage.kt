@@ -4990,7 +4990,7 @@ private fun sanitizeCvStoryScenarioPrompt(prompt: String): String {
 private fun displayCvTitle(rawTitle: String, gameId: String): String {
     if (rawTitle.isNotBlank() && !hasEncodingIssue(rawTitle)) return rawTitle
     return if (gameId == GameUiCatalog.GAME_CV_STORY) {
-        "Câu chuyện khuôn mặt"
+        "Câu chuyện trên khuôn mặt"
     } else {
         "Thử thách biểu cảm"
     }

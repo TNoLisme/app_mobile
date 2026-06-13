@@ -19,5 +19,12 @@ data class AssistantChatHistoryDto(
 data class AssistantChatResponseDto(
     @SerializedName("reply") val reply: String? = null,
     @SerializedName("source") val source: String? = null,
-    @SerializedName("suggestions") val suggestions: List<String>? = null
+    @SerializedName("suggestions") val suggestions: List<String>? = null,
+    @SerializedName("actions") val actions: List<AssistantChatActionDto>? = null
+)
+
+data class AssistantChatActionDto(
+    @SerializedName("type") val type: String,
+    @SerializedName("label") val label: String,
+    @SerializedName("target") val target: String? = null
 )

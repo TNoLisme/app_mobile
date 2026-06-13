@@ -1,9 +1,25 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp) // Áp dụng KSP
     id("com.google.gms.google-services")
 }
+
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use(::load)
+    }
+}
+
+val backendUrl = localProperties
+    .getProperty("backend.url", "http://10.0.2.2:8000/")
+    .trim()
+    .let { if (it.endsWith('/')) it else "$it/" }
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
 
 android {
     namespace = "com.example.appmobile"
@@ -16,6 +32,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
     }
 
     buildTypes {
@@ -33,6 +50,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         // Cấu hình compiler cho Jetpack Compose (vì đã hạ Kotlin xuống 1.9.22)
@@ -78,4 +96,20 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+val reverseBackendPort by tasks.registering(Exec::class) {
+    group = "development"
+    description = "Expose the local backend on port 8000 to a connected Android device."
+    commandLine(
+        androidComponents.sdkComponents.adb.get().asFile.absolutePath,
+        "reverse",
+        "tcp:8000",
+        "tcp:8000"
+    )
+    isIgnoreExitValue = true
+}
+
+tasks.matching { it.name == "assembleDebug" }.configureEach {
+    finalizedBy(reverseBackendPort)
 }

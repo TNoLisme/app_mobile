@@ -152,6 +152,9 @@ fun AssistantPage(
     var sending by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
     var showClearConfirm by remember { mutableStateOf(false) }
+    var suggestions by remember(chatContext) {
+        mutableStateOf(AssistantKnowledge.quickSuggestions(chatContext))
+    }
     val speechRecognizer = remember(context) {
         if (SpeechRecognizer.isRecognitionAvailable(context)) {
             SpeechRecognizer.createSpeechRecognizer(context)
@@ -183,17 +186,32 @@ fun AssistantPage(
                 repository.uploadLog(childId = childId, sender = "child", content = text)
             }
             runCatching {
-                val reply = AssistantKnowledge.replyForKnownIntent(text, chatContext)
-                    ?: AssistantReply(
-                        text = repository.chat(
-                            gameId = gameId,
-                            level = level,
-                            screenContext = screenContext ?: contextId,
-                            message = text,
-                            childId = childId,
-                            history = conversationHistory
-                        )
-                    )
+                val localReply = AssistantKnowledge.replyForKnownIntent(text, chatContext)
+                val remoteResult = repository.chat(
+                    gameId = gameId,
+                    level = level,
+                    screenContext = screenContext ?: contextId,
+                    message = text,
+                    childId = childId,
+                    history = conversationHistory
+                )
+                val remoteActions = remoteResult.actions.mapNotNull { action ->
+                    val type = ChatActionType.values().firstOrNull {
+                        it.name.equals(action.type, ignoreCase = true)
+                    } ?: return@mapNotNull null
+                    ChatAction(type = type, label = action.label, target = action.target)
+                }
+                val reply = AssistantReply(
+                    text = if (remoteResult.source !in listOf("fallback", "local_fallback") || localReply == null) {
+                        remoteResult.reply
+                    } else {
+                        localReply.text
+                    },
+                    actions = remoteActions.ifEmpty { localReply?.actions.orEmpty() }
+                )
+                if (remoteResult.suggestions.isNotEmpty()) {
+                    suggestions = remoteResult.suggestions
+                }
                 messages.add(
                     AssistantMessage(
                         role = MessageRole.Assistant,
@@ -387,7 +405,7 @@ fun AssistantPage(
         AssistantIntroCard(chatContext = chatContext)
 
         SuggestionRow(
-            suggestions = AssistantKnowledge.quickSuggestions(chatContext),
+            suggestions = suggestions,
             enabled = !sending,
             onSuggestionClick = { suggestion -> sendMessage(suggestion) }
         )
