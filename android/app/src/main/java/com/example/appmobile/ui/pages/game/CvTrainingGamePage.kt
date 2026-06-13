@@ -90,6 +90,8 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.remote.dto.GameContentDto
 import com.example.appmobile.data.repository.GameRepository
+import com.example.appmobile.ui.audio.EgSoundEffect
+import com.example.appmobile.ui.audio.EgSoundEffects
 import com.example.appmobile.ui.catalog.CvPromptUiItem
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.AppBackButton
@@ -684,6 +686,7 @@ fun CvTrainingGamePage(
             return
         }
         challengeCompleted.value = true
+        EgSoundEffects.play(if (success) EgSoundEffect.Correct else EgSoundEffect.Wrong)
         detectionActive.value = false
         Log.d(CvLogTag, "completeChallenge called success=$success confidence=$confidence sessionId=${challengeSessionId.value}")
         val question = questions.value[currentIndex.intValue]

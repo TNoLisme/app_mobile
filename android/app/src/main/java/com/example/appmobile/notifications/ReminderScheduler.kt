@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import java.util.Calendar
 
 object ReminderScheduler {
@@ -16,6 +17,7 @@ object ReminderScheduler {
     }
 
     fun scheduleDailyReminder(context: Context, hour: Int, minute: Int) {
+        NotificationUtils.createChannel(context)
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, ReminderReceiver::class.java).apply {
             action = "com.example.appmobile.ACTION_REMIND_LEARN"
@@ -24,7 +26,11 @@ object ReminderScheduler {
         val pending = PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags)
         val triggerAt = nextTriggerMillis(hour, minute)
         try {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+            }
         } catch (e: SecurityException) {
             // Fallback for Android 14+ nếu permission denied
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)

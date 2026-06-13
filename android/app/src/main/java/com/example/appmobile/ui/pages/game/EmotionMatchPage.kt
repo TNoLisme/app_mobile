@@ -61,6 +61,8 @@ import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
+import com.example.appmobile.ui.audio.EgSoundEffect
+import com.example.appmobile.ui.audio.EgSoundEffects
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.GameScreenShell
@@ -539,6 +541,9 @@ fun EmotionMatchPage(
                                 responseTimeMs = (System.currentTimeMillis() - questionStartMs.value).toInt()
                             )
                         }
+                        EgSoundEffects.play(
+                            if (correctCount == currentRound.size) EgSoundEffect.Correct else EgSoundEffect.Wrong
+                        )
                         score.intValue = scoreFromCorrectAnswers(
                             results.value.count { it.isCorrect },
                             questions.value.size

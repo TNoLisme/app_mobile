@@ -1,10 +1,14 @@
 package com.example.appmobile.notifications
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 
 object NotificationUtils {
 
@@ -56,8 +60,10 @@ object NotificationUtils {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
 
-        with(NotificationManagerCompat.from(context)) {
-            notify(notifId, builder.build())
+        if (canPostNotifications(context)) {
+            with(NotificationManagerCompat.from(context)) {
+                notify(notifId, builder.build())
+            }
         }
 
         // Hiển thị thêm popup ngay trong app (nếu đang mở app)
@@ -67,6 +73,7 @@ object NotificationUtils {
 
     // Gửi thông báo nhắc học.
     fun showLearningReminder(context: Context) {
+        if (!canPostNotifications(context)) return
         createChannel(context)
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -78,5 +85,14 @@ object NotificationUtils {
         with(NotificationManagerCompat.from(context)) {
             notify(NOTIFICATION_ID, builder.build())
         }
+    }
+
+    fun canPostNotifications(context: Context): Boolean {
+        val runtimeGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        return runtimeGranted && NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
 }

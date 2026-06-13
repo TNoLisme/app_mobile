@@ -63,6 +63,8 @@ import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.AnswerResultDto
 import com.example.appmobile.data.repository.GameRepository
+import com.example.appmobile.ui.audio.EgSoundEffect
+import com.example.appmobile.ui.audio.EgSoundEffects
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
@@ -208,6 +210,7 @@ fun FaceAssemblyPage(
         val targetIdx = targetIndex(target.id)
         val isCorrect = selectedEyebrow.intValue == targetIdx &&
             selectedEyes.intValue == targetIdx && selectedMouth.intValue == targetIdx
+        EgSoundEffects.play(if (isCorrect) EgSoundEffect.Correct else EgSoundEffect.Wrong)
         val reviewEmotion = normalizeEmotionForLearning(target.id)
         if (!isCorrect) {
             emotionErrors[reviewEmotion] = (emotionErrors[reviewEmotion] ?: 0) + 1

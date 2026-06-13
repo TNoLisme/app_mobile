@@ -40,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -70,8 +71,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.app.NotificationManagerCompat.from
 import com.example.appmobile.data.local.AppDatabase
 import com.example.appmobile.data.local.AppSession
 import com.example.appmobile.data.garden.GardenRepository
@@ -80,6 +79,8 @@ import com.example.appmobile.data.remote.NetworkClient
 import com.example.appmobile.data.remote.dto.UserProfileDto
 import com.example.appmobile.data.remote.dto.UserProfileUpdateDto
 import com.example.appmobile.data.repository.UserRepository
+import com.example.appmobile.ui.audio.EgSoundEffect
+import com.example.appmobile.ui.audio.EgSoundEffects
 import com.example.appmobile.ui.components.AppBackButton
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgSoftCard
@@ -167,12 +168,40 @@ fun SettingsPage(
     val acceptedTermsVersion by AppSettingsState.acceptedTermsVersion
     val legalAcceptedAt by AppSettingsState.legalAcceptedAt
 
+    fun enableLearningReminder() {
+        AppSettingsState.setLearningReminderEnabled(context, true)
+        ReminderScheduler.scheduleDailyReminder(context, learningReminderHour, learningReminderMinute)
+        InAppNotificationManager.emit("Nhắc nhở học tập", "Đã bật nhắc nhở học tập thành công!")
+    }
+
+    fun openAppNotificationSettings() {
+        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        }
+        runCatching {
+            context.startActivity(intent)
+        }.onFailure {
+            val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+            }
+            runCatching { context.startActivity(fallbackIntent) }.onFailure {
+                InAppNotificationManager.emit("Thông báo", "Không thể mở cài đặt. Hãy tự bật thông báo trong Cài đặt máy.")
+            }
+        }
+    }
+
     val notificationSettingsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        val notificationsEnabled = from(context).areNotificationsEnabled()
-        if (notificationsEnabled) {
-            AppSettingsState.setLearningReminderEnabled(context, true)
-            ReminderScheduler.scheduleDailyReminder(context, learningReminderHour, learningReminderMinute)
-            NotificationUtils.showAppNotification(context, "Nhắc nhở học tập", "Đã bật nhắc nhở học tập thành công!")
+        if (NotificationUtils.canPostNotifications(context)) {
+            enableLearningReminder()
+        } else {
+            AppSettingsState.setLearningReminderEnabled(context, false)
+            Toast.makeText(context, "Chưa cấp quyền thông báo.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted || NotificationUtils.canPostNotifications(context)) {
+            enableLearningReminder()
         } else {
             AppSettingsState.setLearningReminderEnabled(context, false)
             Toast.makeText(context, "Chưa cấp quyền thông báo.", Toast.LENGTH_SHORT).show()
@@ -181,43 +210,31 @@ fun SettingsPage(
 
     val onLearningReminderChanged: (Boolean) -> Unit = { enabled ->
         if (enabled) {
-            val notificationsEnabled = from(context).areNotificationsEnabled()
-            if (notificationsEnabled) {
-                AppSettingsState.setLearningReminderEnabled(context, true)
-                ReminderScheduler.scheduleDailyReminder(context, learningReminderHour, learningReminderMinute)
-                NotificationUtils.showAppNotification(context, "Nhắc nhở học tập", "Đã bật nhắc nhở học tập thành công!")
-            } else {
-                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                }
-                runCatching {
-                    notificationSettingsLauncher.launch(intent)
-                }.onFailure {
-                    val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
+            val runtimePermissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+
+            when {
+                NotificationUtils.canPostNotifications(context) -> enableLearningReminder()
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !runtimePermissionGranted ->
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else -> {
+                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                     }
-                    runCatching { notificationSettingsLauncher.launch(fallbackIntent) }.onFailure {
-                        InAppNotificationManager.emit("Thông báo", "Không thể mở cài đặt. Hãy tự bật trong Cài đặt máy.")
+                    runCatching {
+                        notificationSettingsLauncher.launch(intent)
+                    }.onFailure {
+                        openAppNotificationSettings()
                     }
                 }
             }
         } else {
-            // Tắt nhắc học: huỷ lịch hẹn và điều hướng sang Settings để tắt toàn bộ thông báo
             AppSettingsState.setLearningReminderEnabled(context, false)
             ReminderScheduler.cancelDailyReminder(context)
-            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-            }
-            runCatching {
-                notificationSettingsLauncher.launch(intent)
-            }.onFailure {
-                val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.fromParts("package", context.packageName, null)
-                }
-                runCatching { notificationSettingsLauncher.launch(fallbackIntent) }.onFailure {
-                    InAppNotificationManager.emit("Thông báo", "Không thể mở cài đặt. Hãy tự tắt trong Cài đặt máy.")
-                }
-            }
+            InAppNotificationManager.emit("Nhắc nhở học tập", "Đã tắt nhắc nhở học tập.")
         }
     }
 
@@ -228,8 +245,7 @@ fun SettingsPage(
                 AppSettingsState.setLearningReminderTime(context, hourOfDay, minute)
                 if (learningReminderEnabled) {
                     ReminderScheduler.scheduleDailyReminder(context, hourOfDay, minute)
-                    NotificationUtils.showAppNotification(
-                        context,
+                    InAppNotificationManager.emit(
                         "Nhắc nhở học tập",
                         "Đã đổi giờ nhắc học sang ${formatReminderTime(hourOfDay, minute)}. ⏰"
                     )
@@ -307,7 +323,10 @@ fun SettingsPage(
             onAutoPlayVideoChanged = { AppSettingsState.setLearnVideoAutoplayEnabled(context, it) },
             onAutoTransitionContentChanged = { AppSettingsState.setLearnContentAutoTransitionEnabled(context, it) },
             onVideoSoundChanged = { AppSettingsState.setLearnVideoSoundEnabled(context, it) },
-            onSoundEffectsChanged = { AppSettingsState.setSoundEffectsEnabled(context, it) },
+            onSoundEffectsChanged = {
+                AppSettingsState.setSoundEffectsEnabled(context, it)
+                if (it) EgSoundEffects.play(EgSoundEffect.Success)
+            },
             onLearningReminderChanged = onLearningReminderChanged,
             reminderTimeText = formatReminderTime(learningReminderHour, learningReminderMinute),
             onOpenReminderTimePicker = onOpenReminderTimePicker,

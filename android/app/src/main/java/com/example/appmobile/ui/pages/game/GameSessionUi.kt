@@ -32,6 +32,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +52,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.appmobile.R
 import com.example.appmobile.data.remote.dto.GameContentOptionDto
+import com.example.appmobile.ui.audio.EgSoundEffect
+import com.example.appmobile.ui.audio.EgSoundEffects
 import com.example.appmobile.ui.catalog.GameUiCatalog
 import com.example.appmobile.ui.components.EgDesign
 import com.example.appmobile.ui.components.EgEmotionCardBackground
@@ -776,6 +779,13 @@ fun GameLevelSummaryCard(
     onReplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val soundKey = summaryData?.let { "${it.passed}-${it.score}-${it.correctCount}-${it.totalQuestions}" }
+    LaunchedEffect(soundKey) {
+        summaryData?.let {
+            EgSoundEffects.play(if (it.passed) EgSoundEffect.Success else EgSoundEffect.Wrong)
+        }
+    }
+
     val passed = summaryData?.passed != false
     val accent = if (passed) EgDesign.success else EgDesign.warning
     val isDark = AppSettingsState.activeDarkTheme.value

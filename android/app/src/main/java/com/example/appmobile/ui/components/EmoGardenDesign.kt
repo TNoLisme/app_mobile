@@ -62,6 +62,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.appmobile.data.local.AppSession
+import com.example.appmobile.ui.audio.EgSoundEffect
+import com.example.appmobile.ui.audio.EgSoundEffects
 import com.example.appmobile.ui.state.AppSettingsState
 import com.example.appmobile.ui.state.UserAvatarState
 import com.google.firebase.auth.FirebaseAuth
@@ -106,6 +108,7 @@ object EgDesign {
 @Composable
 fun Modifier.egTactileClick(
     enabled: Boolean = true,
+    sound: EgSoundEffect? = EgSoundEffect.Tap,
     onClick: () -> Unit
 ): Modifier {
     val interactionSource = remember { MutableInteractionSource() }
@@ -122,7 +125,10 @@ fun Modifier.egTactileClick(
         interactionSource = interactionSource,
         indication = LocalIndication.current,
         enabled = enabled,
-        onClick = onClick
+        onClick = {
+            sound?.let(EgSoundEffects::play)
+            onClick()
+        }
     )
 }
 

@@ -268,7 +268,7 @@ private fun displayGameDescription(game: GameUiItem): String {
         GameUiCatalog.GAME_RECOGNIZE_EMOTION -> "Chọn cảm xúc đúng qua hình ảnh"
         GameUiCatalog.GAME_DETECTIVE -> "Tìm cảm xúc ẩn giấu trong tình huống"
         GameUiCatalog.GAME_FACE_ASSEMBLY -> "Ghép các bộ phận khuôn mặt"
-        GameUiCatalog.GAME_CV_STORY -> "Bắt chước biểu cảm của nhân vật"
+        GameUiCatalog.GAME_CV_STORY -> "Đọc tình huống và thể hiện cảm xúc"
         GameUiCatalog.GAME_CV_REQUEST -> "Thể hiện biểu cảm theo yêu cầu"
         else -> game.description.ifBlank { "Chơi ngay!" }
     }
