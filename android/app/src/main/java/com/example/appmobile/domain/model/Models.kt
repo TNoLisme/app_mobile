@@ -1,8 +1,6 @@
 package com.example.appmobile.domain.model
 
-// ==========================================================
-// NHÓM 1: NGƯỜI DÙNG & HÀNH VI
-// ==========================================================
+// NHÓM 1: USER
 
 data class User(
     val id: String,
@@ -26,9 +24,7 @@ data class ChatLog(
     val time: String
 )
 
-// ==========================================================
-// NHÓM 2: NỘI DUNG TRÒ CHƠI
-// ==========================================================
+// NHÓM 2: GAME
 
 data class Game(
     val id: String,
@@ -59,9 +55,7 @@ data class Question(
     val answer: String
 )
 
-// ==========================================================
-// NHÓM 3: DỮ LIỆU PHIÊN CHƠI
-// ==========================================================
+// NHÓM 3: SESSION
 
 data class PlaySession(
     val id: String,
@@ -88,9 +82,7 @@ data class GameDataQuestion(
     val questionId: String
 )
 
-// ==========================================================
-// NHÓM 4: THỐNG KÊ & BÁO CÁO
-// ==========================================================
+// NHÓM 4: REPORT
 
 data class Statistics(
     val id: String,

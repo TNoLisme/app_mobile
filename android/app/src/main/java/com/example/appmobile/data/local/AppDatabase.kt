@@ -35,7 +35,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "Mobile"
                 )
-                    .fallbackToDestructiveMigration() // Tự động xóa data cũ nếu bạn thay đổi cấu trúc bảng
+                    .fallbackToDestructiveMigration() // Tự động xóa data cũ nếu thay đổi cấu trúc bảng
                     .build()
                 INSTANCE = instance
                 instance

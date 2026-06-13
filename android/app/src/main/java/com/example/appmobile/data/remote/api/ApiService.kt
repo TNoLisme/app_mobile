@@ -7,7 +7,7 @@ import retrofit2.http.*
 
 interface ApiService {
 
-    // --- AUTH & PROFILE ---
+    // AUTH & PROFILE
     @POST("users/sync")
     suspend fun syncUser(@Body user: UserDto): Response<UserDto>
 
@@ -60,7 +60,7 @@ interface ApiService {
         @Query("limit") limit: Int = 1000
     ): Response<SessionHistoryResponseDto>
 
-    // --- GAMES ---
+    // GAMES
     @GET("games")
     suspend fun getGames(): Response<List<GameDto>>
 
@@ -73,7 +73,7 @@ interface ApiService {
         @Query("level") level: Int? = null
     ): Response<List<GameContentDto>>
 
-    // --- SESSIONS ---
+    // SESSIONS
     @POST("games/start/{gameId}")
     suspend fun startGame(
         @Path("gameId") gameId: String,
@@ -110,14 +110,14 @@ interface ApiService {
     @POST("sessions/questions")
     suspend fun saveSessionQuestions(@Body questions: List<SessionQuestionDto>): Response<Boolean>
 
-    // --- CHATBOT ---
+    // CHATBOT
     @POST("assistant/chat")
     suspend fun chatAssistant(@Body request: AssistantChatRequestDto): Response<AssistantChatResponseDto>
 
     @POST("chatbot/logs")
     suspend fun uploadChatLog(@Body log: ChatbotLogDto): Response<Boolean>
 
-    // --- PROGRESS & REPORTS ---
+    // PROGRESS & REPORTS
     @GET("progress/{childId}")
     suspend fun getProgress(@Path("childId") childId: String): Response<List<ProgressDto>>
 

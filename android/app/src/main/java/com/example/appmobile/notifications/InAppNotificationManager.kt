@@ -3,7 +3,7 @@ package com.example.appmobile.notifications
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-/** Dữ liệu một thông báo in-app popup. */
+// Dữ liệu một thông báo in-app popup.
 data class InAppNotification(
     val title: String,
     val message: String

@@ -10,7 +10,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 object NetworkClient {
-    // 10.0.2.2 is for Android Emulator. 127.0.0.1 works on real devices after:
+    // 10.0.2.2: Android Emulator. 127.0.0.1: real devices:
     // adb reverse tcp:8000 tcp:8000
     private const val BASE_URL = "http://10.0.2.2:8000/"
     @Volatile private var preferredHost: String? = null

@@ -4,10 +4,7 @@ import com.example.appmobile.data.local.entity.*
 import com.example.appmobile.data.remote.dto.*
 import com.example.appmobile.domain.model.*
 
-// ==========================================================
 // NHÓM 1: AUTH & PROFILE
-// ==========================================================
-
 fun UserDto.toEntity(): UserEntity {
     return UserEntity(
         userId = userId,
@@ -68,9 +65,7 @@ fun ChatbotLogEntity.toDomain(): ChatLog {
     )
 }
 
-// ==========================================================
 // NHÓM 2: GAME CONTENT
-// ==========================================================
 
 fun GameDto.toEntity(): GameEntity {
     return GameEntity(
@@ -158,9 +153,7 @@ fun QuestionEntity.toDomain(): Question {
     )
 }
 
-// ==========================================================
-// NHÓM 3: SESSIONS & LOGIC
-// ==========================================================
+// NHÓM 3: SESSIONS
 
 fun SessionDto.toEntity(): SessionEntity {
     return SessionEntity(
@@ -236,9 +229,7 @@ fun GameDataQuestionEntity.toDomain(): GameDataQuestion {
     )
 }
 
-// ==========================================================
 // NHÓM 4: ANALYSIS
-// ==========================================================
 
 fun ProgressDto.toEntity(): ProgressEntity {
     return ProgressEntity(

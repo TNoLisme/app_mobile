@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface SessionDao {
 
-    // --- Xử lý Session (Phiên chơi) ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: SessionEntity)
 
@@ -22,7 +21,6 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE user_id = :userId ORDER BY start_time DESC")
     fun getSessionsByUser(userId: String): Flow<List<SessionEntity>>
 
-    // --- Xử lý Chi tiết từng câu hỏi (Session Questions) ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSessionQuestions(questions: List<SessionQuestionEntity>)
 
@@ -41,7 +39,7 @@ interface SessionDao {
         clearSessionsForUser(userId)
     }
 
-    // --- Giao dịch gộp (Transaction) ---
+    // Giao dịch gộp (Transaction)
     // Đảm bảo nếu lưu lỗi thì sẽ hủy toàn bộ, tránh dữ liệu rác
     @Transaction
     suspend fun saveCompleteSession(session: SessionEntity, questions: List<SessionQuestionEntity>) {

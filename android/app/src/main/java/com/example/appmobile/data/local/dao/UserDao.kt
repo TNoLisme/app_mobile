@@ -28,5 +28,5 @@ interface UserDao {
     fun getChatLogs(childId: String): Flow<List<ChatbotLogEntity>>
 
     @Query("SELECT * FROM users WHERE user_id = :uid")
-    fun getUserByIdFlow(uid: String): Flow<UserEntity?> // Thêm hàm này
+    fun getUserByIdFlow(uid: String): Flow<UserEntity?>
 }

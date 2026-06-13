@@ -26,7 +26,7 @@ object ReminderScheduler {
         try {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         } catch (e: SecurityException) {
-            // Fallback for Android 14+ if permission is denied
+            // Fallback for Android 14+ nếu permission denied
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         }
     }

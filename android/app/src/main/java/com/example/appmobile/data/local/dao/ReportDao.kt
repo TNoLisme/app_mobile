@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ReportDao {
 
-    // --- Xử lý Tiến độ (Child Progress) ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveProgress(progress: ProgressEntity)
 
@@ -22,7 +21,6 @@ interface ReportDao {
     @Query("DELETE FROM child_progress WHERE child_id = :childId")
     suspend fun clearProgressForChild(childId: String)
 
-    // --- Xử lý Báo cáo (Reports) ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReports(reports: List<ReportEntity>)
 

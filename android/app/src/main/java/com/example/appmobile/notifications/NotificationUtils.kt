@@ -8,19 +8,19 @@ import androidx.core.app.NotificationManagerCompat
 
 object NotificationUtils {
 
-    // --- Kênh nhắc học ---
+    // Kênh nhắc học
     const val CHANNEL_ID = "learning_reminder_channel"
     private const val CHANNEL_NAME = "Nhắc học"
     private const val CHANNEL_DESC = "Thông báo nhắc bé học mỗi ngày"
     const val NOTIFICATION_ID = 1001
 
-    // --- Kênh hoạt động ứng dụng (đăng nhập, cập nhật, lưu ảnh, ...) ---
+    // Kênh hoạt động ứng dụng (đăng nhập, cập nhật, lưu ảnh, ...)
     const val ACTIVITY_CHANNEL_ID = "app_activity_channel"
     private const val ACTIVITY_CHANNEL_NAME = "Hoạt động ứng dụng"
     private const val ACTIVITY_CHANNEL_DESC = "Thông báo kết quả các thao tác trong ứng dụng"
     private var activityNotifId = 2000
 
-    /** Tạo kênh nhắc học (gọi khi schedule alarm). */
+    // Tạo kênh nhắc học (gọi khi schedule alarm)
     fun createChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT)
@@ -28,7 +28,7 @@ object NotificationUtils {
         manager.createNotificationChannel(channel)
     }
 
-    /** Tạo kênh hoạt động ứng dụng. */
+    // Tạo kênh hoạt động ứng dụng
     fun createActivityChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val channel = NotificationChannel(
@@ -65,7 +65,7 @@ object NotificationUtils {
     }
 
 
-    /** Gửi thông báo nhắc học. */
+    // Gửi thông báo nhắc học.
     fun showLearningReminder(context: Context) {
         createChannel(context)
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)

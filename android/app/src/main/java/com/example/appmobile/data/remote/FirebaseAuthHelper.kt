@@ -11,11 +11,9 @@ class FirebaseAuthHelper {
         auth.createUserWithEmailAndPassword(email, pass)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    // Trả về true và mã UID của user vừa tạo
                     val uid = task.result?.user?.uid
                     onResult(true, uid, null)
                 } else {
-                    // Trả về false và thông báo lỗi
                     onResult(false, null, task.exception?.message)
                 }
             }
